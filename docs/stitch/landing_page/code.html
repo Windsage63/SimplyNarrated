@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>AudioFlow - Turn Documents into Audiobooks</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              colors: {
+                "primary": "#137fec",
+                "background-light": "#f6f7f8",
+                "background-dark": "#101922",
+              },
+              fontFamily: {
+                "display": ["Inter"]
+              },
+              borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+            },
+          },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-white transition-colors duration-300">
+<div class="relative flex h-auto min-h-screen w-full flex-col group/design-root overflow-x-hidden">
+<div class="layout-container flex h-full grow flex-col">
+<!-- Header/Navigation -->
+<header class="sticky top-0 z-50 flex items-center justify-between whitespace-nowrap border-b border-solid border-slate-200 dark:border-[#283039] bg-background-light/80 dark:bg-background-dark/80 backdrop-blur-md px-10 py-4 lg:px-40">
+<div class="flex items-center gap-4 text-primary">
+<div class="size-8 flex items-center justify-center rounded-lg bg-primary/10">
+<span class="material-symbols-outlined text-primary">auto_stories</span>
+</div>
+<h2 class="text-slate-900 dark:text-white text-xl font-bold leading-tight tracking-[-0.015em]">AudioFlow</h2>
+</div>
+<div class="flex flex-1 justify-end gap-8">
+<div class="hidden md:flex items-center gap-9">
+<a class="text-slate-600 dark:text-slate-300 hover:text-primary dark:hover:text-primary text-sm font-medium leading-normal transition-colors" href="#">Features</a>
+<a class="text-slate-600 dark:text-slate-300 hover:text-primary dark:hover:text-primary text-sm font-medium leading-normal transition-colors" href="#">Pricing</a>
+<a class="text-slate-600 dark:text-slate-300 hover:text-primary dark:hover:text-primary text-sm font-medium leading-normal transition-colors" href="#">FAQ</a>
+</div>
+<div class="flex gap-3">
+<button class="flex min-w-[84px] cursor-pointer items-center justify-center rounded-lg h-10 px-4 bg-transparent border border-slate-300 dark:border-[#283039] text-slate-900 dark:text-white text-sm font-bold leading-normal transition-all hover:bg-slate-100 dark:hover:bg-slate-800">
+<span class="truncate">Sign In</span>
+</button>
+<button class="flex min-w-[84px] cursor-pointer items-center justify-center rounded-lg h-10 px-4 bg-primary text-white text-sm font-bold leading-normal transition-all hover:opacity-90 shadow-lg shadow-primary/20">
+<span class="truncate">Get Started</span>
+</button>
+</div>
+</div>
+</header>
+<main class="flex-1">
+<!-- Hero Section -->
+<div class="px-10 lg:px-40 py-16 lg:py-24">
+<div class="flex flex-col gap-12 lg:flex-row items-center">
+<div class="flex flex-col gap-8 lg:w-1/2 lg:justify-center">
+<div class="flex flex-col gap-4 text-left">
+<div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary text-xs font-bold uppercase tracking-wider w-fit">
+<span class="relative flex h-2 w-2">
+<span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+<span class="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
+</span>
+                                    New: ultra-realistic AI voices
+                                </div>
+<h1 class="text-slate-900 dark:text-white text-5xl lg:text-7xl font-black leading-[1.1] tracking-[-0.033em]">
+                                    Turn your documents into immersive <span class="text-primary">audiobooks</span>
+</h1>
+<p class="text-slate-600 dark:text-slate-400 text-lg lg:text-xl font-normal leading-relaxed max-w-[540px]">
+                                    Convert PDFs, Word docs, and text files into crystal-clear audio using industry-leading AI voices. Listen anywhere, anytime.
+                                </p>
+</div>
+<div class="flex flex-wrap gap-4">
+<button class="flex min-w-[180px] cursor-pointer items-center justify-center rounded-xl h-14 px-8 bg-primary text-white text-lg font-bold shadow-xl shadow-primary/25 hover:translate-y-[-2px] transition-all">
+<span class="truncate">Start Converting Free</span>
+</button>
+<button class="flex min-w-[180px] cursor-pointer items-center justify-center rounded-xl h-14 px-8 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-lg font-bold border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 transition-all">
+<span class="truncate">View Samples</span>
+</button>
+</div>
+<div class="flex items-center gap-4 pt-4">
+<div class="flex -space-x-3">
+<div class="h-10 w-10 rounded-full border-2 border-background-dark bg-slate-400 flex items-center justify-center text-[10px] text-white overflow-hidden">
+<img alt="" data-alt="Headshot of a happy user avatar" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAwstrJ7EREt0y7XH_JNOcFPD-cUAdEQsbmpLV4FnwZkAmRCdtAaTffveElLrjVwjrwJOieAm-gGdKTgzbRSHCw12tYce1dZft20EoH-qOpKxrE_V79NGPImYM4RNLGltCoCx50o8AK8X_dTSn0LCeXSUH3S-ZyhdH2d55Jl9wDx5ja6hRKqb9NIiPyxPnQ54SqbK--iOXtRD7DJLELb0askgSOaSVbTRpXn1JAYdcZZsy_1ch3e0VkBjv7ScOdMkgFB50EwL4ZzM4"/>
+</div>
+<div class="h-10 w-10 rounded-full border-2 border-background-dark bg-slate-500 flex items-center justify-center text-[10px] text-white overflow-hidden">
+<img alt="" data-alt="Headshot of a smiling woman user avatar" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCbNCaLvvX_ChLLhGrK8ZmZ7w-_wfhDpu-c0_7nytggI4Uiu_W6CRDQALVSqDuSo4JSZW1zm9QhuVVYORokkNAc_nIHTKQD42jpum4i43JzspQvk8Ks0LX7NUGHtKu_EYWL6rN57suEuFWSuKk1h_p-qDCXeXL7FpHN_Z_LjMXJxbqKVLcV5zES-nq-icHezuUoSYTQ78HejC1WEF-3UAmt2BpvGNGSFV4PGzUv9JIbYwrDCfBBiDPjvtTplJdxI4_Hw4kjD2vsxNM"/>
+</div>
+<div class="h-10 w-10 rounded-full border-2 border-background-dark bg-slate-600 flex items-center justify-center text-[10px] text-white overflow-hidden">
+<img alt="" data-alt="Headshot of a professional male user avatar" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB9BJHVDEfUvOkiRxFENA8b7rZgtur0icTOkY0lTBKoPEEb8vefTG6KZx86XJJoEuABSNZZF9fjmcHEXxeOsea9jbizO76p0zks4toespA159Ep4wUHvXnbNaa4xdgC9lqwr7fCNANb6phUONL_pEy6F1Slfpcy_FqgndF9w2SNE6nrbWOlsy5hjxeu3fn0VnhYskRacc_RkUsIWIjtevgy6NjhleMwYkeM_G_5uGeGERcdzrZhYDX3wBIrgil0nBh31eVY6LL3LtI"/>
+</div>
+</div>
+<p class="text-sm text-slate-500 dark:text-slate-400 font-medium">Join 50,000+ happy listeners</p>
+</div>
+</div>
+<div class="w-full lg:w-1/2 relative group">
+<div class="absolute inset-0 bg-primary/20 blur-[100px] rounded-full scale-75 group-hover:scale-100 transition-transform duration-700"></div>
+<div class="relative bg-slate-200 dark:bg-slate-800 aspect-square lg:aspect-video rounded-2xl border border-slate-300 dark:border-slate-700 shadow-2xl overflow-hidden" data-alt="Minimalist desk setup with headphones and tablet" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuA0EjoXctQCbYSAh7Ou3SbWSGIHaCPyXO8Lhm31KUYYa-shC89G7mk0HbMkyTWF3klnlAfsxMIuqubtpfSX68-UE8eDhCCyNIq9TTMUViQci4rQmd7poiXz06T0slSl4tU1B9fntDh03qlOr7NdJqWpSY28QYtzPy61_rTAcgGxYHsVJwS6EAHzuZGBOkDj3axbzRygg6yuM8YuNju2UlvoGpXQdBGVVdPhnDPQFpyJ24KzlHCIaooG7D3pa2jVcv5YBx5LWE_0lpM"); background-size: cover; background-position: center;'>
+<div class="absolute inset-0 bg-gradient-to-t from-background-dark/80 via-transparent to-transparent"></div>
+<div class="absolute bottom-6 left-6 right-6 p-6 rounded-xl bg-background-dark/60 backdrop-blur-xl border border-white/10">
+<div class="flex items-center gap-4">
+<div class="size-12 rounded-lg bg-primary flex items-center justify-center">
+<span class="material-symbols-outlined text-white text-3xl">play_circle</span>
+</div>
+<div>
+<p class="text-white font-bold">Deep Work: Principles for Success</p>
+<p class="text-white/60 text-sm">Converting... 84% Complete</p>
+</div>
+</div>
+<div class="mt-4 h-1.5 w-full bg-white/20 rounded-full overflow-hidden">
+<div class="h-full bg-primary w-[84%]"></div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- How it works -->
+<div class="bg-slate-100 dark:bg-[#151e28] px-10 lg:px-40 py-20">
+<div class="text-center mb-16">
+<h2 class="text-slate-900 dark:text-white text-3xl lg:text-4xl font-black mb-4">Three simple steps</h2>
+<p class="text-slate-600 dark:text-slate-400 max-w-2xl mx-auto">Getting your audiobook ready takes less than a minute. Our AI handles the heavy lifting so you can focus on listening.</p>
+</div>
+<div class="grid lg:grid-cols-3 gap-12 relative">
+<!-- Connecting Line (hidden on mobile) -->
+<div class="hidden lg:block absolute top-12 left-[15%] right-[15%] h-px border-t border-dashed border-primary/40"></div>
+<!-- Step 1 -->
+<div class="relative flex flex-col items-center text-center gap-6">
+<div class="size-24 rounded-full bg-primary flex items-center justify-center text-white shadow-xl shadow-primary/30 z-10 relative">
+<span class="material-symbols-outlined text-4xl">cloud_upload</span>
+<div class="absolute -top-2 -right-2 size-8 rounded-full bg-background-dark border-2 border-primary flex items-center justify-center text-sm font-bold">1</div>
+</div>
+<div>
+<h3 class="text-xl font-bold mb-2">Upload Documents</h3>
+<p class="text-slate-600 dark:text-slate-400">Drag and drop your PDF, DOCX, or TXT files. We handle up to 500 pages at once.</p>
+</div>
+</div>
+<!-- Step 2 -->
+<div class="relative flex flex-col items-center text-center gap-6">
+<div class="size-24 rounded-full bg-primary flex items-center justify-center text-white shadow-xl shadow-primary/30 z-10 relative">
+<span class="material-symbols-outlined text-4xl">neurology</span>
+<div class="absolute -top-2 -right-2 size-8 rounded-full bg-background-dark border-2 border-primary flex items-center justify-center text-sm font-bold">2</div>
+</div>
+<div>
+<h3 class="text-xl font-bold mb-2">AI Processing</h3>
+<p class="text-slate-600 dark:text-slate-400">Our neural engines analyze the text for tone and context to select the perfect voice.</p>
+</div>
+</div>
+<!-- Step 3 -->
+<div class="relative flex flex-col items-center text-center gap-6">
+<div class="size-24 rounded-full bg-primary flex items-center justify-center text-white shadow-xl shadow-primary/30 z-10 relative">
+<span class="material-symbols-outlined text-4xl">headphones</span>
+<div class="absolute -top-2 -right-2 size-8 rounded-full bg-background-dark border-2 border-primary flex items-center justify-center text-sm font-bold">3</div>
+</div>
+<div>
+<h3 class="text-xl font-bold mb-2">Listen Anywhere</h3>
+<p class="text-slate-600 dark:text-slate-400">Download high-quality MP3s or stream directly from our web player on any device.</p>
+</div>
+</div>
+</div>
+</div>
+<!-- Features Section -->
+<div class="px-10 lg:px-40 py-24">
+<div class="flex flex-col gap-16">
+<div class="flex flex-col lg:flex-row justify-between items-end gap-6">
+<div class="flex flex-col gap-4 max-w-2xl">
+<h2 class="text-slate-900 dark:text-white text-3xl lg:text-4xl font-black leading-tight tracking-[-0.033em]">
+                                    Engineered for professional listeners
+                                </h2>
+<p class="text-slate-600 dark:text-slate-400 text-lg">We use state-of-the-art text-to-speech models to ensure your listening experience is as close to human as possible.</p>
+</div>
+<a class="text-primary font-bold flex items-center gap-2 group mb-2" href="#">
+                                See all features 
+                                <span class="material-symbols-outlined group-hover:translate-x-1 transition-transform">arrow_forward</span>
+</a>
+</div>
+<div class="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+<!-- Feature 1 -->
+<div class="group p-8 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-800/50 hover:border-primary transition-all">
+<div class="size-14 rounded-xl bg-primary/10 flex items-center justify-center text-primary mb-6">
+<span class="material-symbols-outlined text-3xl">record_voice_over</span>
+</div>
+<h3 class="text-xl font-bold mb-3">Natural AI Voices</h3>
+<p class="text-slate-600 dark:text-slate-400 leading-relaxed">Choose from 50+ diverse voices with human-like intonation, emotion, and proper pacing for long-form content.</p>
+</div>
+<!-- Feature 2 -->
+<div class="group p-8 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-800/50 hover:border-primary transition-all">
+<div class="size-14 rounded-xl bg-primary/10 flex items-center justify-center text-primary mb-6">
+<span class="material-symbols-outlined text-3xl">description</span>
+</div>
+<h3 class="text-xl font-bold mb-3">Multi-format Support</h3>
+<p class="text-slate-600 dark:text-slate-400 leading-relaxed">Simply upload PDFs, Word documents, or plain text. Our engine strips out headers, footers, and page numbers automatically.</p>
+</div>
+<!-- Feature 3 -->
+<div class="group p-8 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-800/50 hover:border-primary transition-all">
+<div class="size-14 rounded-xl bg-primary/10 flex items-center justify-center text-primary mb-6">
+<span class="material-symbols-outlined text-3xl">download_for_offline</span>
+</div>
+<h3 class="text-xl font-bold mb-3">Offline Listening</h3>
+<p class="text-slate-600 dark:text-slate-400 leading-relaxed">Generate high-fidelity MP3 files at up to 320kbps. Perfect for commutes, flights, or morning jogs where internet is spotty.</p>
+</div>
+<!-- Feature 4 -->
+<div class="group p-8 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-800/50 hover:border-primary transition-all">
+<div class="size-14 rounded-xl bg-primary/10 flex items-center justify-center text-primary mb-6">
+<span class="material-symbols-outlined text-3xl">language</span>
+</div>
+<h3 class="text-xl font-bold mb-3">28+ Languages</h3>
+<p class="text-slate-600 dark:text-slate-400 leading-relaxed">Support for major world languages including Spanish, French, German, Japanese, and Mandarin with native-sounding accents.</p>
+</div>
+<!-- Feature 5 -->
+<div class="group p-8 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-800/50 hover:border-primary transition-all">
+<div class="size-14 rounded-xl bg-primary/10 flex items-center justify-center text-primary mb-6">
+<span class="material-symbols-outlined text-3xl">speed</span>
+</div>
+<h3 class="text-xl font-bold mb-3">Custom Speed Control</h3>
+<p class="text-slate-600 dark:text-slate-400 leading-relaxed">Adjust playback speed from 0.5x to 4.0x without distortion. Ideal for speed-learning or careful proof-listening.</p>
+</div>
+<!-- Feature 6 -->
+<div class="group p-8 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-800/50 hover:border-primary transition-all">
+<div class="size-14 rounded-xl bg-primary/10 flex items-center justify-center text-primary mb-6">
+<span class="material-symbols-outlined text-3xl">api</span>
+</div>
+<h3 class="text-xl font-bold mb-3">Developer API</h3>
+<p class="text-slate-600 dark:text-slate-400 leading-relaxed">Integrate our conversion engine into your own apps with our robust, low-latency API and extensive documentation.</p>
+</div>
+</div>
+</div>
+</div>
+<!-- Final CTA Section -->
+<div class="px-10 lg:px-40 py-20">
+<div class="relative overflow-hidden rounded-[2rem] bg-primary px-8 py-16 lg:py-24 text-center text-white">
+<div class="absolute inset-0 bg-[radial-gradient(circle_at_top_right,_var(--tw-gradient-stops))] from-white/20 via-transparent to-transparent"></div>
+<div class="relative z-10 flex flex-col items-center gap-8">
+<h2 class="text-4xl lg:text-5xl font-black max-w-3xl">Ready to turn your reading list into a playlist?</h2>
+<p class="text-white/80 text-xl max-w-xl">Join thousands of students, researchers, and book lovers who are reclaim their time with AudioFlow.</p>
+<div class="flex flex-wrap justify-center gap-4">
+<button class="flex min-w-[200px] cursor-pointer items-center justify-center rounded-xl h-14 px-8 bg-white text-primary text-lg font-bold shadow-xl transition-all hover:bg-slate-100 hover:scale-105 active:scale-95">
+                                    Get Started for Free
+                                </button>
+<button class="flex min-w-[200px] cursor-pointer items-center justify-center rounded-xl h-14 px-8 bg-primary border-2 border-white/30 text-white text-lg font-bold transition-all hover:bg-white/10">
+                                    Contact Sales
+                                </button>
+</div>
+<p class="text-white/60 text-sm">No credit card required. Cancel anytime.</p>
+</div>
+</div>
+</div>
+</main>
+<!-- Footer -->
+<footer class="bg-slate-100 dark:bg-[#0a0f15] border-t border-slate-200 dark:border-slate-800 px-10 lg:px-40 py-16">
+<div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-12 mb-16">
+<div class="col-span-2 flex flex-col gap-6">
+<div class="flex items-center gap-3 text-primary">
+<span class="material-symbols-outlined text-3xl">auto_stories</span>
+<h2 class="text-slate-900 dark:text-white text-xl font-bold">AudioFlow</h2>
+</div>
+<p class="text-slate-500 dark:text-slate-400 max-w-xs leading-relaxed">
+                            Making professional audiobook creation accessible for everyone. Powered by the next generation of AI.
+                        </p>
+<div class="flex gap-4">
+<a class="size-10 rounded-lg bg-slate-200 dark:bg-slate-800 flex items-center justify-center text-slate-600 dark:text-slate-400 hover:bg-primary hover:text-white transition-colors" href="#">
+<span class="material-symbols-outlined text-xl">share</span>
+</a>
+<a class="size-10 rounded-lg bg-slate-200 dark:bg-slate-800 flex items-center justify-center text-slate-600 dark:text-slate-400 hover:bg-primary hover:text-white transition-colors" href="#">
+<span class="material-symbols-outlined text-xl">rss_feed</span>
+</a>
+</div>
+</div>
+<div class="flex flex-col gap-4">
+<h4 class="font-bold">Product</h4>
+<a class="text-slate-500 dark:text-slate-400 hover:text-primary transition-colors" href="#">Features</a>
+<a class="text-slate-500 dark:text-slate-400 hover:text-primary transition-colors" href="#">Pricing</a>
+<a class="text-slate-500 dark:text-slate-400 hover:text-primary transition-colors" href="#">AI Voices</a>
+<a class="text-slate-500 dark:text-slate-400 hover:text-primary transition-colors" href="#">API</a>
+</div>
+<div class="flex flex-col gap-4">
+<h4 class="font-bold">Company</h4>
+<a class="text-slate-500 dark:text-slate-400 hover:text-primary transition-colors" href="#">About Us</a>
+<a class="text-slate-500 dark:text-slate-400 hover:text-primary transition-colors" href="#">Careers</a>
+<a class="text-slate-500 dark:text-slate-400 hover:text-primary transition-colors" href="#">Blog</a>
+<a class="text-slate-500 dark:text-slate-400 hover:text-primary transition-colors" href="#">Press Kit</a>
+</div>
+<div class="flex flex-col gap-4">
+<h4 class="font-bold">Support</h4>
+<a class="text-slate-500 dark:text-slate-400 hover:text-primary transition-colors" href="#">Help Center</a>
+<a class="text-slate-500 dark:text-slate-400 hover:text-primary transition-colors" href="#">Guides</a>
+<a class="text-slate-500 dark:text-slate-400 hover:text-primary transition-colors" href="#">Community</a>
+<a class="text-slate-500 dark:text-slate-400 hover:text-primary transition-colors" href="#">Status</a>
+</div>
+<div class="flex flex-col gap-4">
+<h4 class="font-bold">Legal</h4>
+<a class="text-slate-500 dark:text-slate-400 hover:text-primary transition-colors" href="#">Privacy</a>
+<a class="text-slate-500 dark:text-slate-400 hover:text-primary transition-colors" href="#">Terms</a>
+<a class="text-slate-500 dark:text-slate-400 hover:text-primary transition-colors" href="#">Security</a>
+<a class="text-slate-500 dark:text-slate-400 hover:text-primary transition-colors" href="#">Cookies</a>
+</div>
+</div>
+<div class="flex flex-col md:flex-row justify-between items-center gap-6 pt-12 border-t border-slate-200 dark:border-slate-800">
+<p class="text-slate-500 dark:text-slate-400 text-sm">© 2024 AudioFlow Inc. All rights reserved.</p>
+<div class="flex gap-6">
+<span class="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
+<span class="material-symbols-outlined text-lg">public</span>
+                            English (US)
+                        </span>
+<span class="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
+<span class="material-symbols-outlined text-lg">verified_user</span>
+                            GDPR Compliant
+                        </span>
+</div>
+</div>
+</footer>
+</div>
+</div>
+</body></html>

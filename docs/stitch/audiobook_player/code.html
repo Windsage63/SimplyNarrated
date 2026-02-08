@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Audiobook Player AI</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#137fec",
+                        "background-light": "#f6f7f8",
+                        "background-dark": "#101922",
+                    },
+                    fontFamily: {
+                        "display": ["Inter"]
+                    },
+                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            user-select: none;
+        }
+        .glass {
+            background: rgba(16, 25, 34, 0.7);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 10px;
+        }
+    </style>
+</head>
+<body class="font-display bg-background-light dark:bg-background-dark text-white overflow-hidden">
+<!-- Blurred Background Layer -->
+<div class="fixed inset-0 z-0">
+<div class="absolute inset-0 bg-cover bg-center scale-110 blur-3xl opacity-30" data-alt="Abstract colorful gradient with deep blues and purples" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuDHAkjVzmqk9Mpu0Gow-KSejFLewWDTOz1knueHHUicB1KecSHFmvezKaDwl2Mj8jFYh9verQgzflWtXra8Qi55P9RznM2-MW-M1TbjemllXxY--TGhZl_rvUpcTjBref9aF3_g2OKE1JjefnOcNa97qQKm5ICGntUjY7LypOmC2k1lHWOXOukrO-6YdDMksTAS77KD4HQVG0sEXin5QjCJdvxiSDmwCJ68J4KotRv4P1Qb3sJM10HYOBcCuNsTwfboDzif_maR_7Y');"></div>
+<div class="absolute inset-0 bg-background-dark/60"></div>
+</div>
+<!-- Main App Container -->
+<div class="relative z-10 flex h-screen flex-col">
+<!-- Top Navigation -->
+<header class="flex items-center justify-between px-8 py-4 border-b border-white/10 glass">
+<div class="flex items-center gap-6">
+<div class="flex items-center gap-3">
+<div class="bg-primary p-1.5 rounded-lg flex items-center justify-center">
+<span class="material-symbols-outlined text-white text-2xl">auto_stories</span>
+</div>
+<h1 class="text-xl font-bold tracking-tight">Audiobook Player AI</h1>
+</div>
+<nav class="hidden md:flex items-center gap-6 ml-4">
+<a class="text-sm font-medium text-white/90 hover:text-white transition-colors" href="#">Library</a>
+<a class="text-sm font-medium text-white/60 hover:text-white transition-colors" href="#">Explore</a>
+<a class="text-sm font-medium text-white/60 hover:text-white transition-colors" href="#">Stats</a>
+</nav>
+</div>
+<div class="flex items-center gap-4">
+<div class="relative group">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-white/40 text-lg">search</span>
+<input class="bg-white/5 border-none rounded-lg py-2 pl-10 pr-4 text-sm w-64 focus:ring-1 focus:ring-primary placeholder:text-white/30" placeholder="Search your books..." type="text"/>
+</div>
+<button class="bg-primary hover:bg-primary/90 text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-all shadow-lg shadow-primary/20">
+<span class="material-symbols-outlined text-lg">upload_file</span>
+                    Upload PDF/Text
+                </button>
+<div class="h-10 w-10 rounded-full border-2 border-primary/30 overflow-hidden">
+<img class="h-full w-full object-cover" data-alt="User profile avatar portrait" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAfRoTqYhYjJYO0NcCl7EghbnAXNE3iH0_smj0VOuUCX6JOHt7HvXDcA_0MhofroPy1XGcNlHonS-YPhZCf0H1sBo2_8jRNwp6WchD2ET6azm5SRi2YglrGt5klVEquNH238-r-goHb8dE03uVR-hhqTsCiy94hxDlo4RjZAESIYwp9oAj_5t1FpLiMjcdJtu5oM0laK_hq5FtqOVLeQD-zJpSWytOQS1DGngeDtrwd9FeYUHCUtxPYJmorIWrSPD739LzbTt8VjH0"/>
+</div>
+</div>
+</header>
+<!-- Main Content Area -->
+<main class="flex flex-1 overflow-hidden">
+<!-- Left: Player Focus Area -->
+<div class="flex-1 flex flex-col items-center justify-center p-12 overflow-y-auto custom-scrollbar">
+<div class="max-w-2xl w-full flex flex-col items-center">
+<!-- Book Information -->
+<div class="text-center mb-10">
+<h2 class="text-4xl font-extrabold mb-2 text-white tracking-tight leading-tight">Project Hail Mary</h2>
+<p class="text-xl text-white/60 font-medium">Andy Weir • Narrated by Ray Porter</p>
+</div>
+<!-- Book Cover -->
+<div class="relative group">
+<div class="absolute -inset-4 bg-primary/20 blur-2xl rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+<img class="relative w-80 aspect-[2/3] object-cover rounded-xl shadow-2xl shadow-black/50 border border-white/10 transition-transform duration-500 group-hover:scale-[1.02]" data-alt="Science fiction book cover with astronaut and stars" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDXHamaL2I0HPlzNo5fXSHus_LuRdT521NMd401GEC_MOcq8YHqscfyC5XgqZZsjHXW3iN0wR11EQvO58SqnuB8lGuMmiAC_W3tpCnBi-_OrCcns1WtAD3iQpC1PXoMTuxwC3BIUrMGIpu5fZJoN4spZvv4bcce1namdZCpS1N3CCIr1n0H9iVlXGowzuWVGDbXDKpyuBx86WdVyJMthuhNb4Cj9EphUKR96snv7LywEzfy52HEuvhQR39THIuXRII2mu-LOXRS7KI"/>
+<div class="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent rounded-xl pointer-events-none"></div>
+</div>
+<!-- Primary Controls -->
+<div class="mt-12 flex items-center gap-10">
+<button class="text-white/60 hover:text-white transition-colors">
+<span class="material-symbols-outlined text-4xl">replay_30</span>
+</button>
+<button class="bg-white text-background-dark size-20 rounded-full flex items-center justify-center hover:scale-105 active:scale-95 transition-all shadow-xl shadow-white/10">
+<span class="material-symbols-outlined text-5xl">pause</span>
+</button>
+<button class="text-white/60 hover:text-white transition-colors">
+<span class="material-symbols-outlined text-4xl">forward_30</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Right: Navigation Sidebar -->
+<aside class="w-96 glass border-l border-white/10 flex flex-col">
+<div class="p-6 border-b border-white/10 flex items-center justify-between">
+<h3 class="font-bold text-lg">Chapters</h3>
+<span class="text-xs font-bold uppercase tracking-widest text-primary">32 Chapters Total</span>
+</div>
+<div class="flex-1 overflow-y-auto custom-scrollbar p-2">
+<!-- Chapter List -->
+<div class="space-y-1">
+<!-- Active Chapter -->
+<button class="w-full flex items-center gap-4 p-4 rounded-xl bg-primary/20 border border-primary/30 group">
+<div class="size-8 rounded-lg bg-primary flex items-center justify-center">
+<span class="material-symbols-outlined text-white text-sm">equalizer</span>
+</div>
+<div class="flex-1 text-left">
+<p class="text-sm font-bold text-white">Chapter 4: The Discovery</p>
+<p class="text-xs text-primary font-medium">Currently Playing • 12:40 left</p>
+</div>
+</button>
+<!-- Chapter 1 (Completed) -->
+<button class="w-full flex items-center gap-4 p-4 rounded-xl hover:bg-white/5 transition-colors group">
+<div class="size-8 rounded-lg bg-white/10 flex items-center justify-center text-white/40">
+<span class="material-symbols-outlined text-sm">check_circle</span>
+</div>
+<div class="flex-1 text-left">
+<p class="text-sm font-medium text-white/80">Chapter 1: Waking Up</p>
+<p class="text-xs text-white/40 font-medium">24:12 • Completed</p>
+</div>
+</button>
+<!-- Chapter 2 (Completed) -->
+<button class="w-full flex items-center gap-4 p-4 rounded-xl hover:bg-white/5 transition-colors group">
+<div class="size-8 rounded-lg bg-white/10 flex items-center justify-center text-white/40">
+<span class="material-symbols-outlined text-sm">check_circle</span>
+</div>
+<div class="flex-1 text-left">
+<p class="text-sm font-medium text-white/80">Chapter 2: The Memory Hole</p>
+<p class="text-xs text-white/40 font-medium">31:05 • Completed</p>
+</div>
+</button>
+<!-- Remaining Chapters -->
+<button class="w-full flex items-center gap-4 p-4 rounded-xl hover:bg-white/5 transition-colors group">
+<div class="size-8 rounded-lg bg-white/5 flex items-center justify-center text-white/20">
+<span class="material-symbols-outlined text-sm">lock</span>
+</div>
+<div class="flex-1 text-left">
+<p class="text-sm font-medium text-white/60">Chapter 5: Eridian</p>
+<p class="text-xs text-white/30 font-medium">45:18</p>
+</div>
+</button>
+<button class="w-full flex items-center gap-4 p-4 rounded-xl hover:bg-white/5 transition-colors group">
+<div class="size-8 rounded-lg bg-white/5 flex items-center justify-center text-white/20">
+<span class="material-symbols-outlined text-sm">lock</span>
+</div>
+<div class="flex-1 text-left">
+<p class="text-sm font-medium text-white/60">Chapter 6: First Contact</p>
+<p class="text-xs text-white/30 font-medium">52:00</p>
+</div>
+</button>
+</div>
+</div>
+<!-- Bottom of sidebar - Summary -->
+<div class="p-6 bg-black/20 mt-auto border-t border-white/5">
+<div class="flex items-center justify-between text-xs font-bold text-white/40 mb-3">
+<span>OVERALL PROGRESS</span>
+<span>42%</span>
+</div>
+<div class="h-1.5 w-full bg-white/10 rounded-full overflow-hidden">
+<div class="h-full bg-primary rounded-full w-[42%]"></div>
+</div>
+</div>
+</aside>
+</main>
+<!-- Bottom Utility Bar -->
+<footer class="h-28 glass border-t border-white/10 px-8 flex flex-col justify-center relative">
+<!-- Progress Scrubber -->
+<div class="absolute top-0 inset-x-0 h-1.5 group cursor-pointer bg-white/10">
+<div class="h-full bg-primary w-[35%] relative">
+<div class="absolute right-0 top-1/2 -translate-y-1/2 size-4 bg-primary rounded-full shadow-lg border-2 border-white scale-0 group-hover:scale-100 transition-transform"></div>
+</div>
+</div>
+<div class="flex items-center justify-between mt-2">
+<!-- Left: Timestamps -->
+<div class="flex items-center gap-4 min-w-[120px]">
+<span class="text-sm font-bold">12:34</span>
+<span class="text-white/30 text-xs font-medium">/ 35:10</span>
+</div>
+<!-- Center: Utility Controls -->
+<div class="flex items-center gap-8">
+<button class="flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-white/10 transition-colors">
+<span class="material-symbols-outlined text-xl">speed</span>
+<span class="text-sm font-bold">1.2x</span>
+</button>
+<button class="flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-white/10 transition-colors">
+<span class="material-symbols-outlined text-xl">bedtime</span>
+<span class="text-sm font-bold">Sleep</span>
+</button>
+<button class="flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-white/10 transition-colors text-primary">
+<span class="material-symbols-outlined text-xl" style="font-variation-settings: 'FILL' 1;">bookmark</span>
+<span class="text-sm font-bold">Bookmarks (4)</span>
+</button>
+<button class="flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-white/10 transition-colors">
+<span class="material-symbols-outlined text-xl">notes</span>
+<span class="text-sm font-bold">Transcription</span>
+</button>
+</div>
+<!-- Right: Volume & Extras -->
+<div class="flex items-center gap-6">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-xl text-white/60">volume_up</span>
+<div class="w-32 h-1 bg-white/10 rounded-full relative overflow-hidden group">
+<div class="absolute inset-0 bg-primary w-[75%] rounded-full group-hover:bg-primary/80 transition-colors"></div>
+</div>
+</div>
+<button class="text-white/60 hover:text-white">
+<span class="material-symbols-outlined">fullscreen</span>
+</button>
+</div>
+</div>
+</footer>
+</div>
+</body></html>

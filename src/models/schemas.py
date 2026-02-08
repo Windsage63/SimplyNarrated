@@ -1,0 +1,139 @@
+"""
+BookTalk - Pydantic schemas for API requests and responses
+"""
+
+from pydantic import BaseModel, Field
+from typing import Optional, List
+from enum import Enum
+from datetime import datetime
+
+
+class AudioQuality(str, Enum):
+    """Audio output quality options."""
+
+    SD = "sd"  # Standard (128 kbps)
+    HD = "hd"  # High Definition (192 kbps)
+    ULTRA = "ultra"  # Ultra (320 kbps)
+
+
+class AudioFormat(str, Enum):
+    """Audio output format options."""
+
+    MP3 = "mp3"
+    WAV = "wav"
+
+
+class JobStatus(str, Enum):
+    """Conversion job status."""
+
+    PENDING = "pending"
+    PROCESSING = "processing"
+    COMPLETED = "completed"
+    FAILED = "failed"
+    CANCELLED = "cancelled"
+
+
+# --- Request Schemas ---
+
+
+class GenerateRequest(BaseModel):
+    """Request to start audiobook generation."""
+
+    job_id: str
+    narrator_voice: str = Field(default="af_heart", description="Voice for narration")
+    dialogue_voice: Optional[str] = Field(
+        default=None, description="Voice for dialogue"
+    )
+    speed: float = Field(default=1.0, ge=0.5, le=2.0, description="Playback speed")
+    quality: AudioQuality = Field(default=AudioQuality.HD)
+    format: AudioFormat = Field(default=AudioFormat.MP3)
+
+
+class BookmarkRequest(BaseModel):
+    """Request to save a playback bookmark."""
+
+    book_id: str
+    chapter: int
+    position: float = Field(description="Position in seconds")
+
+
+# --- Response Schemas ---
+
+
+class UploadResponse(BaseModel):
+    """Response from file upload."""
+
+    job_id: str
+    filename: str
+    file_size: int
+    estimated_time: Optional[str] = None
+    chapters_detected: int = 0
+
+
+class ActivityLogEntry(BaseModel):
+    """Single entry in the activity log."""
+
+    timestamp: datetime
+    message: str
+    status: str = "info"  # info, success, warning, error
+
+
+class StatusResponse(BaseModel):
+    """Response for job status check."""
+
+    job_id: str
+    status: JobStatus
+    progress: float = Field(ge=0, le=100, description="Progress percentage")
+    current_chapter: int = 0
+    total_chapters: int = 0
+    time_remaining: Optional[str] = None
+    processing_rate: Optional[str] = None
+    activity_log: List[ActivityLogEntry] = []
+
+
+class VoiceInfo(BaseModel):
+    """Information about an available voice."""
+
+    id: str
+    name: str
+    description: str
+    sample_url: Optional[str] = None
+    gender: str = "neutral"
+
+
+class VoicesResponse(BaseModel):
+    """Response listing available voices."""
+
+    voices: List[VoiceInfo]
+    total: int
+
+
+class ChapterInfo(BaseModel):
+    """Information about a book chapter."""
+
+    number: int
+    title: str
+    duration: Optional[str] = None
+    audio_path: Optional[str] = None
+    completed: bool = False
+
+
+class BookInfo(BaseModel):
+    """Information about a completed audiobook."""
+
+    id: str
+    title: str
+    author: Optional[str] = None
+    cover_url: Optional[str] = None
+    total_chapters: int
+    total_duration: Optional[str] = None
+    created_at: datetime
+    chapters: List[ChapterInfo] = []
+
+
+class LibraryResponse(BaseModel):
+    """Response for library listing."""
+
+    books: List[BookInfo]
+    total: int
+    in_progress: int = 0

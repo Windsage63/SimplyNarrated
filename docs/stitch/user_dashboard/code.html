@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>AudioFlow - User Dashboard</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#137fec",
+                        "background-light": "#f6f7f8",
+                        "background-dark": "#0f172a",
+                        "card-dark": "#1e293b",
+                        "border-dark": "#334155"
+                    },
+                    fontFamily: {
+                        "display": ["Inter", "sans-serif"]
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                },
+            },
+        }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+        .active-nav { background-color: #1e293b; border-left: 4px solid #137fec; }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 antialiased font-display">
+<div class="flex h-screen overflow-hidden">
+<!-- Sidebar Navigation -->
+<aside class="w-64 flex-shrink-0 bg-white dark:bg-[#0b0f1a] border-r border-slate-200 dark:border-border-dark flex flex-col">
+<div class="p-6 flex items-center gap-3">
+<div class="size-8 bg-primary rounded-lg flex items-center justify-center text-white">
+<span class="material-symbols-outlined">graphic_eq</span>
+</div>
+<h1 class="text-xl font-bold tracking-tight">AudioFlow</h1>
+</div>
+<nav class="flex-1 px-4 py-4 space-y-1">
+<a class="flex items-center gap-3 px-3 py-2 text-primary font-semibold rounded-lg bg-primary/10" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span>Dashboard</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-card-dark rounded-lg transition-colors" href="#">
+<span class="material-symbols-outlined">library_books</span>
+<span>My Library</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-card-dark rounded-lg transition-colors" href="#">
+<span class="material-symbols-outlined">bar_chart</span>
+<span>Analytics</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-card-dark rounded-lg transition-colors" href="#">
+<span class="material-symbols-outlined">settings</span>
+<span>Settings</span>
+</a>
+</nav>
+<div class="p-4 border-t border-slate-200 dark:border-border-dark">
+<button class="w-full bg-primary hover:bg-primary/90 text-white font-bold py-3 rounded-lg flex items-center justify-center gap-2 shadow-lg shadow-primary/20 transition-all">
+<span class="material-symbols-outlined text-xl">add_circle</span>
+<span>New Conversion</span>
+</button>
+<div class="mt-6 flex items-center gap-3 px-2">
+<div class="size-10 rounded-full bg-slate-200 dark:bg-card-dark border-2 border-primary/50 overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="User profile avatar of Alex Rivers" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBxzCvJI7sUCteLVyL7N5Rv42DcA7m_OZSfFljnmWLnfy5iZCFagZCWFJDhDSohPolo_N-WpG2E8TKKelxo-AL1MWFCmBRmAb7oA0buu4ekT2OdewITakhmYUmdUbvaK_0wiuY-316ZZF5vPz03DJNCz_YsennT4PDNkO90ZS2JpQVnSNNlLzUR0RLMaFtPzXs66YIGuD-kZsWtbfutRMRJ6-22-u6U5lUXoeNS8qyqtcBzzfJE7k0QWXpG8PleIXo2-kTtLOuMnXk"/>
+</div>
+<div class="flex-1 min-w-0">
+<p class="text-sm font-semibold truncate">Alex Rivers</p>
+<p class="text-xs text-slate-500 dark:text-slate-400 truncate">Premium Plan</p>
+</div>
+</div>
+</div>
+</aside>
+<!-- Main Content Area -->
+<main class="flex-1 flex flex-col min-w-0 bg-background-light dark:bg-background-dark overflow-y-auto">
+<!-- Header Bar -->
+<header class="h-16 border-b border-slate-200 dark:border-border-dark flex items-center justify-between px-8 bg-white/50 dark:bg-background-dark/50 backdrop-blur-md sticky top-0 z-10">
+<div class="relative w-96">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">search</span>
+<input class="w-full pl-10 pr-4 py-2 bg-slate-100 dark:bg-card-dark border-none rounded-lg focus:ring-2 focus:ring-primary text-sm" placeholder="Search your library..." type="text"/>
+</div>
+<div class="flex items-center gap-4">
+<button class="size-10 flex items-center justify-center rounded-lg hover:bg-slate-200 dark:hover:bg-card-dark text-slate-600 dark:text-slate-400">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<button class="size-10 flex items-center justify-center rounded-lg hover:bg-slate-200 dark:hover:bg-card-dark text-slate-600 dark:text-slate-400">
+<span class="material-symbols-outlined">help</span>
+</button>
+</div>
+</header>
+<div class="p-8 space-y-8">
+<!-- Welcome Section -->
+<div>
+<h2 class="text-3xl font-extrabold tracking-tight">Welcome back, Alex</h2>
+<p class="text-slate-500 dark:text-slate-400 mt-1">You have 2 conversions in progress and 24 completed audiobooks.</p>
+</div>
+<!-- Recent Activity Section -->
+<section class="space-y-4">
+<h3 class="text-lg font-bold flex items-center gap-2">
+<span class="material-symbols-outlined text-primary">pending_actions</span>
+                        Recent Activity
+                    </h3>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+<!-- Activity Card 1 -->
+<div class="p-5 bg-white dark:bg-card-dark border border-slate-200 dark:border-border-dark rounded-xl shadow-sm">
+<div class="flex justify-between items-start mb-3">
+<div>
+<h4 class="font-semibold text-sm truncate max-w-[200px]">The_Great_Gatsby_Draft.pdf</h4>
+<p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Synthesizing Voice - 4m remaining</p>
+</div>
+<span class="text-primary text-sm font-bold">65%</span>
+</div>
+<div class="w-full bg-slate-100 dark:bg-slate-700 h-2 rounded-full overflow-hidden">
+<div class="bg-primary h-full transition-all" style="width: 65%;"></div>
+</div>
+</div>
+<!-- Activity Card 2 -->
+<div class="p-5 bg-white dark:bg-card-dark border border-slate-200 dark:border-border-dark rounded-xl shadow-sm">
+<div class="flex justify-between items-start mb-3">
+<div>
+<h4 class="font-semibold text-sm truncate max-w-[200px]">Product_Strategy_Q4.txt</h4>
+<p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Analyzing Text - 1m remaining</p>
+</div>
+<span class="text-primary text-sm font-bold">22%</span>
+</div>
+<div class="w-full bg-slate-100 dark:bg-slate-700 h-2 rounded-full overflow-hidden">
+<div class="bg-primary h-full transition-all" style="width: 22%;"></div>
+</div>
+</div>
+</div>
+</section>
+<!-- My Library Grid -->
+<section class="space-y-4">
+<div class="flex items-center justify-between">
+<h3 class="text-lg font-bold">My Library</h3>
+<div class="flex gap-2">
+<button class="px-3 py-1.5 text-xs font-semibold bg-white dark:bg-card-dark border border-slate-200 dark:border-border-dark rounded-lg">Recently Added</button>
+<button class="px-3 py-1.5 text-xs font-semibold hover:bg-slate-200 dark:hover:bg-card-dark transition-colors rounded-lg">A-Z</button>
+</div>
+</div>
+<div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
+<!-- Book Card 1 -->
+<div class="group cursor-pointer">
+<div class="aspect-[3/4] rounded-xl overflow-hidden relative mb-3 shadow-md group-hover:shadow-xl group-hover:-translate-y-1 transition-all duration-300">
+<img class="w-full h-full object-cover" data-alt="Book cover art for Atomic Habits" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB-h09fh4AcVJIfx4cBPVvyKVQm3ikhhXquIrtaekcjOAuL0Cf7dPv6gymhB6PsbZeCOKnAnvph2bV0Ok3tG9ffF6ZFwhkStTYlMPorzZ0hoqxr6GemYCu8kLVb-5UW02BeMtOlQFrW4_LBuHMXNNocUtJNvN7loC-bUF4lAdb0FogIM87uXqko4aior0yJJNVN8SWQ-U48lbY6m20mcXe3b5Gi0MrHt6xFkI_8dEbtMDmQdHRXbH9E-eE_rkkKtKcepnCbopJsk5I"/>
+<div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+<div class="size-12 rounded-full bg-primary text-white flex items-center justify-center shadow-lg">
+<span class="material-symbols-outlined text-3xl">play_arrow</span>
+</div>
+</div>
+<div class="absolute top-2 right-2 px-2 py-1 bg-black/60 backdrop-blur-md rounded text-[10px] font-bold text-white uppercase tracking-wider">PDF</div>
+</div>
+<h4 class="font-bold text-sm truncate">Atomic Habits</h4>
+<div class="flex items-center justify-between mt-1 text-slate-500 dark:text-slate-400">
+<p class="text-xs">James Clear</p>
+<p class="text-xs font-medium">5h 32m</p>
+</div>
+</div>
+<!-- Book Card 2 -->
+<div class="group cursor-pointer">
+<div class="aspect-[3/4] rounded-xl overflow-hidden relative mb-3 shadow-md group-hover:shadow-xl group-hover:-translate-y-1 transition-all duration-300">
+<img class="w-full h-full object-cover" data-alt="Book cover art for Psychology of Money" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBQHMjY-qsgRR3CGOHZsbvgwz306yXaPuIyEQ-tXua5PPCiQNF2jydIbj42CaFBratJhrOSMarJqhXnZ7J11z57YzjiXk7KEyhAkYyBmAITKZNKDjgIuKkvwlHJWoqG5s6LN-d0U3lQDbLo1cnSxU715_qXUejI7_F-Ge56oSCyG284SAp-mtYWbExK7KbA9Di13lxLz8hFTqmVtZ9qsOWuhB6-L6nnJB8JQhnuJa1D1pt8oyzI4-JNlNNH2zRfVWydN1wki6KRNio"/>
+<div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+<div class="size-12 rounded-full bg-primary text-white flex items-center justify-center shadow-lg">
+<span class="material-symbols-outlined text-3xl">play_arrow</span>
+</div>
+</div>
+<div class="absolute top-2 right-2 px-2 py-1 bg-black/60 backdrop-blur-md rounded text-[10px] font-bold text-white uppercase tracking-wider">TXT</div>
+</div>
+<h4 class="font-bold text-sm truncate">Psychology of Money</h4>
+<div class="flex items-center justify-between mt-1 text-slate-500 dark:text-slate-400">
+<p class="text-xs">Morgan Housel</p>
+<p class="text-xs font-medium">3h 15m</p>
+</div>
+</div>
+<!-- Book Card 3 -->
+<div class="group cursor-pointer">
+<div class="aspect-[3/4] rounded-xl overflow-hidden relative mb-3 shadow-md group-hover:shadow-xl group-hover:-translate-y-1 transition-all duration-300">
+<img class="w-full h-full object-cover" data-alt="Abstract colorful gradient cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAXuD3_YapH5nPgwPAoZW5wzJdQVC8Jf0h2veZNKu2IEarNxdoVB50OMS-u291EfosPOrRlO0JRLWUzu-CSEk_r3V98FH1XPaIHyAdwveW5tdu_05BTClWOnovBWqFVEn56vDXMsNA4DAGt82IYSSsySRYpUZ0sEg_3YIV9J577iER_Y2OZRM2Ger_s9l9QRksJo8lMlIDiW3yVmecZHV7G9JC-NYg-ClL7fQV-691sU_zANMqMY6nwhreaGsCCWm5ja3a85qNtTfE"/>
+<div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+<div class="size-12 rounded-full bg-primary text-white flex items-center justify-center shadow-lg">
+<span class="material-symbols-outlined text-3xl">play_arrow</span>
+</div>
+</div>
+<div class="absolute top-2 right-2 px-2 py-1 bg-black/60 backdrop-blur-md rounded text-[10px] font-bold text-white uppercase tracking-wider">PDF</div>
+</div>
+<h4 class="font-bold text-sm truncate">Deep Work</h4>
+<div class="flex items-center justify-between mt-1 text-slate-500 dark:text-slate-400">
+<p class="text-xs">Cal Newport</p>
+<p class="text-xs font-medium">7h 45m</p>
+</div>
+</div>
+<!-- Book Card 4 -->
+<div class="group cursor-pointer">
+<div class="aspect-[3/4] rounded-xl overflow-hidden relative mb-3 shadow-md group-hover:shadow-xl group-hover:-translate-y-1 transition-all duration-300">
+<img class="w-full h-full object-cover" data-alt="Book cover art for Creative Selection" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDKRmtsFs1OlOHMTAvNbisHOz0HbHQVNfAuuWgets132ADpmNNVIV2AAiAyiRBhbHyC4j_IkACSam1JYDx99J4jzdG0WUwZ_NZZpMFiZwGzbv5yifEg-8z4eBp5yoAAWIumXZchO8Hixly9cw6dzOqspWOv7S-eO-73CFiZjIu_ROBC8Ld_gPYCpzbvoE3mzxr3FZ1hgRAqiagQhesxx6kiVZRQ31mx7_AepneOCEKOJmsHdV4cP8v6IY3UoBgOEvfg3TrcrRkMFo0"/>
+<div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+<div class="size-12 rounded-full bg-primary text-white flex items-center justify-center shadow-lg">
+<span class="material-symbols-outlined text-3xl">play_arrow</span>
+</div>
+</div>
+<div class="absolute top-2 right-2 px-2 py-1 bg-black/60 backdrop-blur-md rounded text-[10px] font-bold text-white uppercase tracking-wider">PDF</div>
+</div>
+<h4 class="font-bold text-sm truncate">Creative Selection</h4>
+<div class="flex items-center justify-between mt-1 text-slate-500 dark:text-slate-400">
+<p class="text-xs">Ken Kocienda</p>
+<p class="text-xs font-medium">4h 20m</p>
+</div>
+</div>
+<!-- Book Card 5 -->
+<div class="group cursor-pointer">
+<div class="aspect-[3/4] rounded-xl overflow-hidden relative mb-3 shadow-md group-hover:shadow-xl group-hover:-translate-y-1 transition-all duration-300">
+<img class="w-full h-full object-cover" data-alt="Book cover art for Sapiens" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAlkb1ULrIitJJhFFhIEFajY-7UA5p91clvAWc3Y1pGFTuOtXDDWa3ZiQ-Tw5JqF1Ow8LmnlSdOLZKnIV9_i43CuIy8iQT9rHdhxEYr4WNeYXGfacekBoyO9MlJUkjat9Vrma6Hss-ww3x7_iUWAWo6HoOwm_APkmSBJco6xK2GZFWdlufvNmfDmKKPHS0b9D0UDuGsbdNgUTy2zVoU4Au6vQAAKYDZ4Q0TwunlSzlEKN3V1dAzL7-azx6xoTXTS3AkXTDKFacw_nk"/>
+<div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+<div class="size-12 rounded-full bg-primary text-white flex items-center justify-center shadow-lg">
+<span class="material-symbols-outlined text-3xl">play_arrow</span>
+</div>
+</div>
+<div class="absolute top-2 right-2 px-2 py-1 bg-black/60 backdrop-blur-md rounded text-[10px] font-bold text-white uppercase tracking-wider">TXT</div>
+</div>
+<h4 class="font-bold text-sm truncate">Sapiens</h4>
+<div class="flex items-center justify-between mt-1 text-slate-500 dark:text-slate-400">
+<p class="text-xs">Yuval Noah Harari</p>
+<p class="text-xs font-medium">12h 10m</p>
+</div>
+</div>
+</div>
+</section>
+</div>
+</main>
+</div>
+</body></html>

@@ -1,0 +1,50 @@
+# BookTalk Dependencies
+# Tested for Python 3.12 with Kokoro TTS
+
+# ============================================
+# INSTALL ORDER MATTERS - PyTorch first
+# ============================================
+
+# Step 1: PyTorch with CUDA 12.8 (install separately)
+# Run: pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu128
+
+# Step 2: Then install this file
+# Run: pip install -r requirements.txt
+
+# ============================================
+# Web Framework
+# ============================================
+fastapi>=0.109.0
+uvicorn[standard]>=0.27.0
+python-multipart>=0.0.6
+
+# ============================================
+# TTS Model - Kokoro
+# Requires: Python 3.9-3.12, numpy 1.26.4
+# ============================================
+kokoro>=0.9.4
+soundfile>=0.12.0
+
+# ============================================
+# Audio Processing
+# ============================================
+pydub>=0.25.1
+scipy>=1.11.0
+
+# ============================================
+# File Parsing
+# ============================================
+ebooklib>=0.18
+pymupdf>=1.23.0
+markdown>=3.5.0
+
+# ============================================
+# Async I/O
+# ============================================
+aiosqlite>=0.19.0
+aiofiles>=23.0.0
+
+# ============================================
+# Utilities
+# ============================================
+python-dotenv>=1.0.0

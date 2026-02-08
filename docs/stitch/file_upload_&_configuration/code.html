@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>File Upload &amp; Configuration - AudiobookAI</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#137fec",
+                        "background-light": "#f6f7f8",
+                        "background-dark": "#101922",
+                    },
+                    fontFamily: {
+                        "display": ["Inter", "sans-serif"]
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                },
+            },
+        }
+    </script>
+<style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #3b4754;
+            border-radius: 10px;
+        }
+        .slider-thumb::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            background: #137fec;
+            cursor: pointer;
+            border-radius: 50%;
+            border: 2px solid white;
+        }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 min-h-screen">
+<div class="relative flex h-auto min-h-screen w-full flex-col group/design-root overflow-x-hidden">
+<div class="layout-container flex h-full grow flex-col">
+<!-- Navigation Header -->
+<header class="flex items-center justify-between whitespace-nowrap border-b border-solid border-slate-200 dark:border-slate-800 px-6 md:px-20 py-4 bg-white/50 dark:bg-background-dark/50 backdrop-blur-md sticky top-0 z-50">
+<div class="flex items-center gap-4">
+<div class="text-primary">
+<span class="material-symbols-outlined text-3xl">record_voice_over</span>
+</div>
+<h2 class="text-lg font-bold leading-tight tracking-tight">AudiobookAI</h2>
+</div>
+<div class="flex flex-1 justify-end gap-8 items-center">
+<nav class="hidden md:flex items-center gap-8">
+<a class="text-sm font-medium hover:text-primary transition-colors" href="#">My Library</a>
+<a class="text-sm font-medium hover:text-primary transition-colors" href="#">Conversions</a>
+<a class="text-sm font-medium hover:text-primary transition-colors" href="#">Settings</a>
+</nav>
+<div class="bg-center bg-no-repeat aspect-square bg-cover rounded-full size-10 ring-2 ring-slate-200 dark:ring-slate-800" data-alt="User profile avatar showing a smiling person" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuDpsa_a6D8zy895QXHAmwhuKZgPd34IxcSEXi7hmeLvVh-hZcygxlOPYDQNzY12ek2jx3V3oh9hbPgpi4P-y9dtd1GQ7t58cvC9gYigAVm4m_Hfxjdqj8nysb9MrkqvAQIczDvyhVBnmUOfC-PC3Owq7uT8jM1S7wjAdU6flc5OjReNeoBuU2VuLrGGqfI_OPYX9gAMkbWT0YxJatoGiOtL6p_7sy79LqWMDbEJJcwomn8h0tg6wbY1c4krqhQWTisleAp7vy63IJo");'></div>
+</div>
+</header>
+<main class="flex flex-1 justify-center py-10 px-4">
+<div class="layout-content-container flex flex-col max-w-[960px] flex-1 gap-8">
+<!-- Hero Title Section -->
+<div class="flex flex-col gap-2">
+<h1 class="text-3xl md:text-4xl font-black tracking-tight">Create Your Audiobook</h1>
+<p class="text-slate-500 dark:text-slate-400 text-lg">Upload your documents and let our AI bring them to life with natural narration.</p>
+</div>
+<!-- Upload Section -->
+<section class="bg-white dark:bg-slate-900/50 rounded-xl border border-slate-200 dark:border-slate-800 p-1">
+<div class="flex flex-col items-center gap-6 rounded-lg border-2 border-dashed border-slate-300 dark:border-slate-700 hover:border-primary transition-all px-6 py-16 cursor-pointer group bg-slate-50/50 dark:bg-transparent">
+<div class="flex flex-col items-center gap-4 text-center">
+<div class="size-16 rounded-full bg-primary/10 flex items-center justify-center text-primary group-hover:scale-110 transition-transform">
+<span class="material-symbols-outlined text-4xl">cloud_upload</span>
+</div>
+<div>
+<p class="text-xl font-bold tracking-tight">Drag and drop files here</p>
+<p class="text-slate-500 dark:text-slate-400 mt-1">Supports PDF and TXT (Max 50MB)</p>
+</div>
+</div>
+<button class="flex min-w-[160px] items-center justify-center rounded-lg h-12 px-6 bg-primary hover:bg-primary/90 text-white text-sm font-bold transition-all shadow-lg shadow-primary/20">
+<span>Browse Files</span>
+</button>
+</div>
+</section>
+<!-- Configuration Section -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+<!-- Left: Voice Selection -->
+<div class="lg:col-span-2 flex flex-col gap-6">
+<div class="flex items-center justify-between">
+<h2 class="text-xl font-bold tracking-tight">Select AI Voice</h2>
+<span class="text-xs font-semibold px-2 py-1 bg-primary/10 text-primary rounded">12 Voices Available</span>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+<!-- Voice Card 1 (Selected) -->
+<div class="relative flex items-center gap-4 p-4 rounded-xl border-2 border-primary bg-primary/5 dark:bg-primary/10 cursor-pointer">
+<div class="size-12 rounded-full overflow-hidden shrink-0 border-2 border-primary">
+<img alt="" class="w-full h-full object-cover" data-alt="Portrait of a woman representing Nova voice" src="https://lh3.googleusercontent.com/aida-public/AB6AXuA8H6fQEuDy6PcPNakO3T1HorJsoMexVJumN68Ubnc13IgGiDi6S8fxBSJJ5yc_ZWrglp4vpoPQylZAyvk5ktJGOGlytXhZUEzrSYRbnjac_8E_G8Ko26MKMk-APddOdfLCHHWFxglDV7rutHfWrMVQ5K6_jwCl5UhDOwA7IpEY8UdzPI2W7CSWimz4_SvndKZSHYG5w79bsd0YKKCXUQRm9TuUr6jtShb2g5_8Cd7P9H6nsl8sir_8PLQZ3PvRU95NLLpXaYc9DJ8"/>
+</div>
+<div class="flex-1">
+<p class="font-bold">Nova</p>
+<p class="text-xs text-slate-500 dark:text-slate-400">Smooth &amp; Professional</p>
+</div>
+<button class="size-8 rounded-full bg-primary text-white flex items-center justify-center hover:scale-110 transition-transform">
+<span class="material-symbols-outlined text-xl">play_arrow</span>
+</button>
+<div class="absolute -top-2 -right-2 size-6 bg-primary rounded-full flex items-center justify-center text-white ring-4 ring-background-light dark:ring-background-dark">
+<span class="material-symbols-outlined text-xs font-bold">check</span>
+</div>
+</div>
+<!-- Voice Card 2 -->
+<div class="flex items-center gap-4 p-4 rounded-xl border border-slate-200 dark:border-slate-800 hover:border-primary/50 bg-white dark:bg-slate-900 transition-all cursor-pointer">
+<div class="size-12 rounded-full overflow-hidden shrink-0">
+<img alt="" class="w-full h-full object-cover" data-alt="Portrait of a man representing Echo voice" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBwv6uKfK-6kNjpeWqEOk7DxCyPMVaSiRP6mCR20tqzAk28Xp7pIYd_uFagLNUlLzqYXyiCpV2NtOb8VmT6KG7dTA9Dkhp1zPWxnzcjQUcZW63h6TUu9TySyVQ5_mZexL2g2YV6ZwuQ_3J6fqJxyz1r486ZMmzmBqL7sJg6u40JItdjZEAkMr_4Y9gsF_iD8r1l5szic1KDcps2kLs1SmlN9i0Xbovwotrmj9Rkq6xhGFbK42AI-6rbvZiglZRnJDUSgmN7gQkh7SI"/>
+</div>
+<div class="flex-1">
+<p class="font-bold">Echo</p>
+<p class="text-xs text-slate-500 dark:text-slate-400">Deep &amp; Resonant</p>
+</div>
+<button class="size-8 rounded-full bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300 flex items-center justify-center hover:bg-primary hover:text-white transition-all">
+<span class="material-symbols-outlined text-xl">play_arrow</span>
+</button>
+</div>
+<!-- Voice Card 3 -->
+<div class="flex items-center gap-4 p-4 rounded-xl border border-slate-200 dark:border-slate-800 hover:border-primary/50 bg-white dark:bg-slate-900 transition-all cursor-pointer">
+<div class="size-12 rounded-full overflow-hidden shrink-0">
+<img alt="" class="w-full h-full object-cover" data-alt="Portrait of a woman representing Shimmer voice" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAQfAK4kZTFcFAHY6SMCKjZa70yng24pPcGayQv7Fw9NHjqAYto8jt7S2EL6T7tMRdXSd3b9bQrT5OO5k0lOpK1Nj6OhvyTPDDXIiI0Twsl6UTe3MyH7UWboDbRgIiUGdKmdjPP9-uzNQN3UY0MBoKWRaTVzzN6Jm8JhoKAaTvagM2NHJBo2zhyiFqxhNR2B62vQInlwnojp2ayMmEkRJNZ1e2r-5_ZW5AE3w1SUfZ6u0ZuKQ3oYyUqZMw93iUzQuN4D4OI9hlkQVo"/>
+</div>
+<div class="flex-1">
+<p class="font-bold">Shimmer</p>
+<p class="text-xs text-slate-500 dark:text-slate-400">Bright &amp; Energetic</p>
+</div>
+<button class="size-8 rounded-full bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300 flex items-center justify-center hover:bg-primary hover:text-white transition-all">
+<span class="material-symbols-outlined text-xl">play_arrow</span>
+</button>
+</div>
+<!-- Voice Card 4 -->
+<div class="flex items-center gap-4 p-4 rounded-xl border border-slate-200 dark:border-slate-800 hover:border-primary/50 bg-white dark:bg-slate-900 transition-all cursor-pointer">
+<div class="size-12 rounded-full overflow-hidden shrink-0">
+<img alt="" class="w-full h-full object-cover" data-alt="Portrait of a man representing Atlas voice" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB5b-C4NnCeWu-8zC2ImFtcfdUkINaJOv_ew8drXDhmeFtUfPBipQ_XLKTdvD-rymKthtpGq5DacQg_ZQ1jY4wcphv8EHzTDtBZgxx8PqJ3Rby3qx7HcI_McP11vz3kIxD93M6k-ebEMRCmiioqresqu8MCkw-LXlGhEspEd9rWHyvMgGH0Qs049uA_986WHyfyl8Eqw4FXr_xonVg8deTUTIUb4xouogE1bpCsgejCgJ1XtioO_oYh9IPZRTIFUYM0ybYrbyCuRNY"/>
+</div>
+<div class="flex-1">
+<p class="font-bold">Atlas</p>
+<p class="text-xs text-slate-500 dark:text-slate-400">Steady &amp; Authoritative</p>
+</div>
+<button class="size-8 rounded-full bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300 flex items-center justify-center hover:bg-primary hover:text-white transition-all">
+<span class="material-symbols-outlined text-xl">play_arrow</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Right: Audio Settings -->
+<div class="flex flex-col gap-6">
+<h2 class="text-xl font-bold tracking-tight">Audio Settings</h2>
+<!-- Speed Slider -->
+<div class="flex flex-col gap-4 p-5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+<div class="flex justify-between items-center">
+<label class="text-sm font-semibold">Narration Speed</label>
+<span class="text-sm font-bold text-primary">1.0x</span>
+</div>
+<input class="w-full h-2 bg-slate-200 dark:bg-slate-800 rounded-lg appearance-none cursor-pointer slider-thumb" max="2.0" min="0.5" step="0.1" type="range" value="1.0"/>
+<div class="flex justify-between text-[10px] text-slate-500 font-bold px-1 uppercase tracking-widest">
+<span>Slow</span>
+<span>Normal</span>
+<span>Fast</span>
+</div>
+</div>
+<!-- Quality Picker -->
+<div class="flex flex-col gap-4 p-5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+<label class="text-sm font-semibold">Output Quality</label>
+<div class="grid grid-cols-3 gap-2">
+<label class="cursor-pointer group">
+<input class="peer hidden" name="quality" type="radio" value="standard"/>
+<div class="text-center py-2 text-xs font-bold rounded-lg border border-slate-200 dark:border-slate-800 peer-checked:bg-primary/20 peer-checked:border-primary peer-checked:text-primary transition-all">
+                                            SD
+                                        </div>
+</label>
+<label class="cursor-pointer group">
+<input checked="" class="peer hidden" name="quality" type="radio" value="high"/>
+<div class="text-center py-2 text-xs font-bold rounded-lg border border-slate-200 dark:border-slate-800 peer-checked:bg-primary/20 peer-checked:border-primary peer-checked:text-primary transition-all">
+                                            HD
+                                        </div>
+</label>
+<label class="cursor-pointer group">
+<input class="peer hidden" name="quality" type="radio" value="ultra"/>
+<div class="text-center py-2 text-xs font-bold rounded-lg border border-slate-200 dark:border-slate-800 peer-checked:bg-primary/20 peer-checked:border-primary peer-checked:text-primary transition-all">
+                                            ULTRA
+                                        </div>
+</label>
+</div>
+</div>
+<!-- Format -->
+<div class="flex flex-col gap-2">
+<label class="text-xs font-bold text-slate-500 uppercase tracking-widest">File Format</label>
+<div class="flex gap-2">
+<button class="flex-1 py-2 bg-primary/10 border border-primary text-primary text-xs font-bold rounded-lg">MP3</button>
+<button class="flex-1 py-2 bg-slate-100 dark:bg-slate-800 border border-transparent text-slate-500 text-xs font-bold rounded-lg">WAV</button>
+</div>
+</div>
+</div>
+</div>
+<!-- Bottom Action Section -->
+<div class="mt-8 flex flex-col items-center gap-6 py-10 border-t border-slate-200 dark:border-slate-800">
+<div class="flex items-center gap-4 text-slate-500 dark:text-slate-400">
+<span class="material-symbols-outlined text-xl">info</span>
+<p class="text-sm">Estimated conversion time: <span class="text-slate-900 dark:text-slate-100 font-bold">~4 minutes</span></p>
+</div>
+<button class="flex min-w-[320px] items-center justify-center gap-3 rounded-xl h-14 px-10 bg-primary hover:bg-primary/90 text-white text-lg font-black transition-all shadow-xl shadow-primary/30 transform hover:-translate-y-1 active:scale-[0.98]">
+<span class="material-symbols-outlined">headset</span>
+<span>Start Conversion</span>
+</button>
+<p class="text-[11px] text-slate-500 text-center max-w-sm uppercase tracking-tighter">
+                            By starting the conversion, you agree to our Terms of Service and data processing policies.
+                        </p>
+</div>
+</div>
+</main>
+<!-- Footer -->
+<footer class="mt-auto px-6 md:px-20 py-8 border-t border-slate-200 dark:border-slate-800 text-center">
+<p class="text-xs text-slate-500">© 2024 AudiobookAI. Powered by advanced Neural Speech Synthesis.</p>
+</footer>
+</div>
+</div>
+</body></html>
