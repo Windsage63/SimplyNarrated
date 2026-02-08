@@ -160,6 +160,8 @@ data/library/
 data/uploads/
 *.log
 temporary_audio/
+data/
+
 
 # Frontend / JS
 node_modules/

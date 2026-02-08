@@ -1,19 +1,19 @@
 # BookTalk - Architectural Blueprint
 
 > **Text-to-Audiobook Conversion Application**
-> Using Chatterbox-Turbo TTS with FastAPI Backend
+> Using Kokoro-82M TTS with FastAPI Backend
 
 ## 1. Executive Summary
 
-BookTalk is a local web application that converts books and text documents (`.txt`, `.md`, `.epub`, `.pdf`) into audiobooks saved as MP3 chapter files. Designed for non-technical users, it provides a polished multi-page interface with a landing page, file upload/configuration screen, conversion progress tracker, audiobook player, and user dashboard. The system uses Resemble AI's Chatterbox-Turbo model running locally on GPU for high-quality, expressive speech synthesis.
+BookTalk is a local web application that converts books and text documents (`.txt`, `.md`, `.epub`, `.pdf`) into audiobooks saved as MP3 chapter files. Designed for non-technical users, it provides a polished multi-page interface with a landing page, file upload/configuration screen, conversion progress tracker, audiobook player, and user dashboard. The system uses the Kokoro-82M model running locally on GPU for high-quality, expressive speech synthesis.
 
 ## 2. Technical Stack
 
 | Layer | Technology | Rationale |
 | ----- | ---------- | --------- |
 | **Frontend** | HTML/TailwindCSS/JavaScript | Modern dark-mode UI from Stitch designs |
-| **Backend** | Python 3.11+ / FastAPI | Modern async framework, auto-generated API docs |
-| **TTS Model** | Chatterbox-Turbo (350M) | MIT license, 20 voices, audiobook-optimized, low VRAM |
+| **Backend** | Python 3.12 / FastAPI | Modern async framework, auto-generated API docs |
+| **TTS Model** | Kokoro-82M (82M) | Apache 2.0 license, high-quality, lightweight, low VRAM |
 | **Audio** | pydub + ffmpeg | MP3/WAV encoding and audio manipulation |
 | **File Parsing** | ebooklib, PyMuPDF, markdown | EPUB, PDF, and Markdown parsing |
 | **Local Server** | Uvicorn | ASGI server for FastAPI |
@@ -87,7 +87,7 @@ font-family: 'Inter', sans-serif;
 | **File Parser** | Extract and normalize text from TXT/MD/EPUB/PDF | P0 |
 | **Text Chunker** | Split text into ≤4000 word segments at natural breaks | P0 |
 | **Dialogue Detector** | Identify quoted speech for voice switching | P0 |
-| **TTS Engine** | Chatterbox-Turbo wrapper with voice selection | P0 |
+| **TTS Engine** | Kokoro-82M wrapper with voice selection | P0 |
 | **Audio Encoder** | Convert raw audio to MP3/WAV, save chapters | P0 |
 | **REST API** | FastAPI endpoints for all operations | P0 |
 | **Landing Page UI** | Marketing page with feature highlights | P1 |
@@ -121,6 +121,7 @@ font-family: 'Inter', sans-serif;
 │  │ GET  /api/book/:id    - Get book details and chapters                  │ │
 │  │ GET  /api/audio/:id/:chapter - Stream/download chapter audio           │ │
 │  │ POST /api/bookmark    - Save playback bookmark                         │ │
+│  │ GET  /api/bookmark/:id - Get playback bookmark                          │ │
 │  └────────────────────────────────────────────────────────────────────────┘ │
 │                                    │                                         │
 │  ┌───────────┐  ┌─────────────────┴─────────────────┐  ┌─────────────────┐  │
@@ -128,7 +129,7 @@ font-family: 'Inter', sans-serif;
 │  └───────────┘  └───────────────────────────────────┘  └────────┬────────┘  │
 │                                                                  │           │
 │  ┌───────────────────────────────────────────────────────────────┴────────┐ │
-│  │                      TTS Engine (Chatterbox-Turbo)                     │ │
+│  │                      TTS Engine (Kokoro-82M)                           │ │
 │  │  ┌─────────────┐  ┌─────────────┐  ┌──────────────────┐               │ │
 │  │  │Voice Manager│  │GPU Inference│  │ Audio Encoder    │               │ │
 │  │  └─────────────┘  └─────────────┘  └──────────────────┘               │ │
@@ -176,7 +177,7 @@ font-family: 'Inter', sans-serif;
 - [ ] FR-2: Parse and extract clean text from all supported formats
 - [ ] FR-3: Chunk text at natural boundaries (chapters, headings) or ≤4000 words
 - [ ] FR-4: Detect quoted dialogue using regex patterns (`"..."`, `'...'`, etc.)
-- [ ] FR-5: Generate speech using Chatterbox-Turbo with selected voice(s)
+- [ ] FR-5: Generate speech using Kokoro-82M with selected voice(s)
 - [ ] FR-6: Support playback speed adjustment (0.5x - 2.0x)
 - [ ] FR-7: Support output quality selection (SD/HD/Ultra)
 - [ ] FR-8: Support MP3 and WAV output formats
@@ -208,9 +209,10 @@ Build a working end-to-end pipeline: upload a TXT file → generate single chapt
 
 ### Suggested Implementation Order (Phased)
 
-**Phase 1: Core Pipeline (MVP)**
+### Phase 1: Core Pipeline (MVP)
+
 1. Backend Core — FastAPI scaffold with file upload endpoint
-2. TTS Engine — Chatterbox-Turbo integration, single voice generation
+2. TTS Engine — Kokoro-82M integration, single voice generation
 3. File Parser — Start with TXT, add MD/EPUB/PDF incrementally
 4. Text Chunker — Implement smart chunking with natural break detection
 5. Audio Pipeline — MP3 encoding and chapter file management
@@ -218,18 +220,20 @@ Build a working end-to-end pipeline: upload a TXT file → generate single chapt
 7. Upload/Config UI — Basic file upload and voice selection (from Stitch design)
 8. Progress UI — Circular progress display (from Stitch design)
 
-**Phase 2: Playback & Library**
-9. SQLite Integration — Job and book persistence
-10. Player UI — Built-in audiobook player (from Stitch design)
-11. Library API — CRUD for books and chapters
-12. Dashboard UI — Library grid view (from Stitch design)
+### Phase 2: Playback & Library
 
-**Phase 3: Polish**
-13. Landing Page UI — Marketing page (from Stitch design)
-14. Dialogue Detector — Quote pattern matching for voice switching
-15. Voice Preview — Sample playback before conversion
-16. Bookmarks — Save and restore playback positions
-17. Advanced Settings — Quality, speed, format options
+1. Integration — Job and book persistence
+2. Player UI — Built-in audiobook player (from Stitch design)
+3. Library API — CRUD for books and chapters
+4. Dashboard UI — Library grid view (from Stitch design)
+
+### Phase 3: Polish
+
+1. Landing Page UI — Marketing page (from Stitch design)
+2. Dialogue Detector — Quote pattern matching for voice switching
+3. Voice Preview — Sample playback before conversion
+4. Bookmarks — Save and restore playback positions
+5. Advanced Settings — Quality, speed, format options
 
 ### Risks to Watch
 
@@ -243,7 +247,7 @@ Build a working end-to-end pipeline: upload a TXT file → generate single chapt
 
 ### Reference Files
 
-- `chatterbox-tts` - PyPI package for TTS model
+- `kokoro` - PyPI package for TTS model
 - `ebooklib` - EPUB parsing library
 - `PyMuPDF` - PDF text extraction
 - `docs/stitch/` - UI design mockups and HTML templates
@@ -262,5 +266,5 @@ Build a working end-to-end pipeline: upload a TXT file → generate single chapt
 
 *Blueprint created: 2026-02-07*
 *Updated: 2026-02-07 (Stitch UI integration)*
-*Model: Chatterbox-Turbo (Resemble AI)*
+*Model: Kokoro-82M*
 *Status: Awaiting user approval*
