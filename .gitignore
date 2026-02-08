@@ -146,3 +146,4 @@ yarn-debug.log*
 yarn-error.log*
 .eslintcache
 .stylelintcache
+static/voices

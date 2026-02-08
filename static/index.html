@@ -112,6 +112,15 @@
             -ms-overflow-style: none;
             scrollbar-width: none;
         }
+        
+        /* Twemoji flag sizing */
+        img.emoji {
+            height: 1em;
+            width: 1em;
+            margin: 0 0.1em;
+            vertical-align: -0.1em;
+            display: inline;
+        }
     </style>
 </head>
 <body class="dark min-h-screen">
@@ -143,8 +152,26 @@
         </main>
     </div>
     
+    <!-- Twemoji for cross-browser emoji support (flags on Windows Chrome) -->
+    <script src="https://cdn.jsdelivr.net/npm/@twemoji/api@latest/dist/twemoji.min.js" crossorigin="anonymous"></script>
+    
     <!-- JavaScript -->
     <script src="/static/js/views/player.js"></script>
     <script src="/static/js/app.js"></script>
+    <script>
+        // Parse emojis after page load and after dynamic content updates
+        document.addEventListener('DOMContentLoaded', () => {
+            twemoji.parse(document.body, { folder: 'svg', ext: '.svg' });
+        });
+        
+        // Re-parse when voice grid updates
+        const originalLoadVoices = window.loadVoices;
+        if (typeof loadVoices === 'function') {
+            window.loadVoices = async function() {
+                await originalLoadVoices.apply(this, arguments);
+                twemoji.parse(document.getElementById('voice-grid'), { folder: 'svg', ext: '.svg' });
+            };
+        }
+    </script>
 </body>
 </html>

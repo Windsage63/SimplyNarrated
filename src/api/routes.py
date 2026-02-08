@@ -18,7 +18,10 @@ limitations under the License.
 """
 
 import os
+import re
 import uuid
+import random
+import asyncio
 import aiofiles
 from fastapi import APIRouter, UploadFile, File, HTTPException, BackgroundTasks
 from fastapi.responses import FileResponse
@@ -35,6 +38,7 @@ from src.models.schemas import (
 )
 from src.core.job_manager import get_job_manager
 from src.core.library import get_library_manager
+from src.core.tts_engine import PRESET_VOICES
 
 
 router = APIRouter()
@@ -43,34 +47,36 @@ router = APIRouter()
 SUPPORTED_EXTENSIONS = {".txt", ".md", ".epub", ".pdf"}
 MAX_FILE_SIZE = 50 * 1024 * 1024  # 50 MB
 
-# Available voices (Kokoro-82M voices)
-AVAILABLE_VOICES = [
-    VoiceInfo(
-        id="af_heart", name="Heart", description="Warm & Expressive", gender="female"
-    ),
-    VoiceInfo(
-        id="af_bella", name="Bella", description="Bright & Friendly", gender="female"
-    ),
-    VoiceInfo(
-        id="af_nicole",
-        name="Nicole",
-        description="Clear & Professional",
-        gender="female",
-    ),
-    VoiceInfo(
-        id="am_adam", name="Adam", description="Smooth & Confident", gender="male"
-    ),
-    VoiceInfo(
-        id="am_michael",
-        name="Michael",
-        description="Deep & Authoritative",
-        gender="male",
-    ),
-    VoiceInfo(id="bf_emma", name="Emma", description="British & Warm", gender="female"),
-    VoiceInfo(
-        id="bm_george", name="George", description="British & Calm", gender="male"
-    ),
+# Sample quotes for voice previews - short, varied content
+SAMPLE_QUOTES = [
+    "The quick brown fox jumps over the lazy dog.",
+    "To be, or not to be, that is the question.",
+    "It was the best of times, it was the worst of times.",
+    "Hello! I'm your narrator for this audiobook adventure.",
+    "In a hole in the ground there lived a hobbit.",
+    "Call me Ishmael. Some years ago, never mind how long.",
+    "All happy families are alike; each unhappy family is unhappy in its own way.",
+    "It is a truth universally acknowledged that a single man must be in want of a wife.",
+    "The only thing we have to fear is fear itself.",
+    "I have a dream that one day this nation will rise up.",
 ]
+
+
+def _get_available_voices() -> list:
+    """Convert PRESET_VOICES to VoiceInfo objects for API responses."""
+    return [
+        VoiceInfo(
+            id=v.id,
+            name=v.name,
+            description=v.description,
+            gender=v.gender,
+        )
+        for v in PRESET_VOICES
+    ]
+
+
+# Cache the converted list
+AVAILABLE_VOICES = _get_available_voices()
 
 
 @router.post("/upload", response_model=UploadResponse)
@@ -89,13 +95,13 @@ async def upload_file(file: UploadFile = File(...)):
             detail=f"Unsupported file type. Allowed: {', '.join(SUPPORTED_EXTENSIONS)}",
         )
 
-    # Read file content
-    content = await file.read()
+    # Read file content with size limit to prevent memory exhaustion
+    content = await file.read(MAX_FILE_SIZE + 1)
     file_size = len(content)
 
     if file_size > MAX_FILE_SIZE:
         raise HTTPException(
-            status_code=400,
+            status_code=413,
             detail=f"File too large. Maximum size: {MAX_FILE_SIZE // (1024 * 1024)}MB",
         )
 
@@ -210,6 +216,83 @@ async def list_voices():
     )
 
 
+@router.get("/voice-sample/{voice_id}")
+async def get_voice_sample(voice_id: str):
+    """
+    Generate or retrieve a voice sample for preview.
+    Uses cached samples if available, otherwise generates on-demand.
+    """
+    from src.core.tts_engine import get_tts_engine
+    from src.core.encoder import encode_audio, EncoderSettings
+    import logging
+
+    logger = logging.getLogger(__name__)
+
+    # Validate voice_id
+    valid_voice_ids = [v.id for v in AVAILABLE_VOICES]
+    if voice_id not in valid_voice_ids:
+        raise HTTPException(status_code=400, detail="Invalid voice ID")
+
+    # Check for cached sample (try both mp3 and wav)
+    cache_dir = os.path.join(os.path.dirname(__file__), "..", "..", "static", "voices")
+    os.makedirs(cache_dir, exist_ok=True)
+
+    for ext, media_type in [("mp3", "audio/mpeg"), ("wav", "audio/wav")]:
+        cache_path = os.path.join(cache_dir, f"{voice_id}.{ext}")
+        if os.path.exists(cache_path) and os.path.getsize(cache_path) > 0:
+            return FileResponse(
+                cache_path,
+                media_type=media_type,
+                filename=f"{voice_id}_sample.{ext}",
+            )
+
+    # Generate new sample
+    try:
+        tts_engine = get_tts_engine()
+        quote = random.choice(SAMPLE_QUOTES)
+        logger.info(f"Generating voice sample for {voice_id}: '{quote[:50]}...'")
+
+        # Run TTS in thread pool to not block
+        loop = asyncio.get_event_loop()
+        audio, sample_rate = await loop.run_in_executor(
+            None, lambda: tts_engine.generate_speech(quote, voice_id, speed=1.0)
+        )
+
+        if audio is None or len(audio) == 0:
+            raise HTTPException(
+                status_code=500, detail="TTS engine returned empty audio"
+            )
+
+        # Encode to MP3 (may fall back to WAV if ffmpeg not available)
+        cache_path_mp3 = os.path.join(cache_dir, f"{voice_id}.mp3")
+        settings = EncoderSettings(format="mp3", bitrate="128k")
+
+        actual_path = await loop.run_in_executor(
+            None, lambda: encode_audio(audio, sample_rate, cache_path_mp3, settings)
+        )
+
+        # Determine actual format from path
+        if actual_path.endswith(".wav"):
+            media_type = "audio/wav"
+        else:
+            media_type = "audio/mpeg"
+
+        if not os.path.exists(actual_path) or os.path.getsize(actual_path) == 0:
+            raise HTTPException(status_code=500, detail="Failed to encode audio file")
+
+        return FileResponse(
+            actual_path,
+            media_type=media_type,
+            filename=f"{voice_id}_sample{os.path.splitext(actual_path)[1]}",
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception(f"Failed to generate voice sample for {voice_id}")
+        raise HTTPException(status_code=500, detail=f"Failed to generate sample: {e}")
+
+
 @router.get("/library", response_model=LibraryResponse)
 async def get_library():
     """
@@ -219,7 +302,7 @@ async def get_library():
     job_manager = get_job_manager()
 
     books = library.scan_library()
-    in_progress = library.count_in_progress(job_manager._jobs)
+    in_progress = job_manager.count_processing_jobs()
 
     return LibraryResponse(
         books=books,
@@ -247,6 +330,10 @@ async def stream_audio(book_id: str, chapter: int):
     """
     Stream or download a chapter's audio file.
     """
+    # Validate book_id format to prevent path traversal
+    if not re.match(r"^[a-f0-9-]{36}$", book_id):
+        raise HTTPException(status_code=400, detail="Invalid book ID format")
+
     job_manager = get_job_manager()
     library = get_library_manager()
 

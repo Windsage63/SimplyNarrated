@@ -145,6 +145,10 @@ class JobManager:
 
         return True
 
+    def count_processing_jobs(self) -> int:
+        """Count jobs currently processing."""
+        return sum(1 for j in self._jobs.values() if j.status == JobStatus.PROCESSING)
+
     def get_time_remaining(self, job: Job) -> Optional[str]:
         """Estimate time remaining for a job."""
         if job.status != JobStatus.PROCESSING or job.progress == 0:

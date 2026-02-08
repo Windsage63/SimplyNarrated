@@ -44,9 +44,13 @@ QUALITY_PRESETS = {
 
 def get_encoder_settings(quality: str = "hd", format: str = "mp3") -> EncoderSettings:
     """Get encoder settings for a quality preset."""
-    settings = QUALITY_PRESETS.get(quality, QUALITY_PRESETS["hd"])
-    settings.format = format
-    return settings
+    preset = QUALITY_PRESETS.get(quality, QUALITY_PRESETS["hd"])
+    return EncoderSettings(
+        format=format,
+        bitrate=preset.bitrate,
+        sample_rate=preset.sample_rate,
+        channels=preset.channels,
+    )
 
 
 def encode_audio(

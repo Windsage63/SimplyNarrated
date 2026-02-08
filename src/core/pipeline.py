@@ -86,7 +86,7 @@ async def process_book(job: Job, config: Dict[str, Any]) -> None:
             format=config.get("format", "mp3"),
         )
 
-        voice_id = config.get("narrator_voice", "nova")
+        voice_id = config.get("narrator_voice", "af_heart")
         speed = config.get("speed", 1.0)
 
         for i, chunk in enumerate(chunks):

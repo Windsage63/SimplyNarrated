@@ -95,7 +95,6 @@ font-family: 'Inter', sans-serif;
 | **Progress UI** | Circular progress, activity log, stats | P0 |
 | **Player UI** | Built-in audiobook player with chapters | P1 |
 | **Dashboard UI** | Library management, conversion queue | P1 |
-| **Job Persistence** | SQLite for job history and library | P1 |
 
 ## 6. System Design
 
@@ -136,11 +135,11 @@ font-family: 'Inter', sans-serif;
 │  └────────────────────────────────────────────────────────────────────────┘ │
 │                                    │                                         │
 │  ┌─────────────────────────────────┴───────────────────────────────────────┐│
-│  │                        SQLite Database                                   ││
-│  │  - Jobs (id, status, progress, file_path, config, created_at)           ││
-│  │  - Books (id, job_id, title, author, cover, total_chapters, duration)   ││
-│  │  - Chapters (id, book_id, number, title, duration, audio_path)          ││
-│  │  - Bookmarks (id, book_id, chapter, position, created_at)               ││
+│  │                     File-Based Data Repository (data/)                   ││
+│  │  - library/{book_id}/metadata.json  (title, author, chapters, duration) ││
+│  │  - library/{book_id}/chapter_XX.mp3 (audio files)                        ││
+│  │  - library/{book_id}/bookmark.json  (chapter, position, timestamp)       ││
+│  │  - uploads/ (temporary uploaded files)                                   ││
 │  └──────────────────────────────────────────────────────────────────────────┘│
 └─────────────────────────────────────────────────────────────────────────────┘
                                  │
@@ -222,9 +221,9 @@ Build a working end-to-end pipeline: upload a TXT file → generate single chapt
 
 ### Phase 2: Playback & Library
 
-1. Integration — Job and book persistence
+1. Library Manager — File-based persistence using data/ directory
 2. Player UI — Built-in audiobook player (from Stitch design)
-3. Library API — CRUD for books and chapters
+3. Library API — CRUD for books and chapters via metadata.json files
 4. Dashboard UI — Library grid view (from Stitch design)
 
 ### Phase 3: Polish

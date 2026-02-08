@@ -28,7 +28,7 @@ const state = {
     currentJob: null,
     currentBook: null,
     selectedFile: null,
-    selectedVoice: 'nova',
+    selectedVoice: 'af_heart',
     audioSettings: {
         speed: 1.0,
         quality: 'hd',
@@ -205,7 +205,7 @@ function renderUploadView() {
                     <span class="material-symbols-outlined align-middle mr-2">record_voice_over</span>
                     Select Narrator Voice
                 </h3>
-                <div id="voice-grid" class="grid grid-cols-2 md:grid-cols-3 gap-4">
+                <div id="voice-grid" class="grid grid-cols-2 md:grid-cols-4 gap-3">
                     <!-- Voices will be rendered here -->
                 </div>
             </div>
@@ -298,6 +298,10 @@ function initUploadView() {
     });
 }
 
+// Track currently playing audio for voice previews
+let currentPreviewAudio = null;
+let currentPreviewVoiceId = null;
+
 async function loadVoices() {
     try {
         const data = await api.getVoices();
@@ -305,24 +309,107 @@ async function loadVoices() {
         
         const grid = document.getElementById('voice-grid');
         grid.innerHTML = state.voices.map(voice => `
-            <div class="voice-card glass rounded-xl p-4 cursor-pointer ${voice.id === state.selectedVoice ? 'selected' : ''}"
+            <div class="voice-card glass rounded-lg p-3 cursor-pointer ${voice.id === state.selectedVoice ? 'selected' : ''}"
                 onclick="selectVoice('${voice.id}')">
-                <div class="flex items-center gap-3">
-                    <div class="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center">
-                        <span class="material-symbols-outlined text-primary">
+                <div class="flex items-center gap-2">
+                    <div class="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0">
+                        <span class="material-symbols-outlined text-primary text-sm">
                             ${voice.gender === 'female' ? 'face_3' : voice.gender === 'male' ? 'face' : 'person'}
                         </span>
                     </div>
-                    <div>
-                        <h4 class="font-medium">${voice.name}</h4>
-                        <p class="text-sm text-gray-400">${voice.description}</p>
+                    <div class="min-w-0 flex-1">
+                        <h4 class="font-medium text-sm truncate">${voice.name}</h4>
                     </div>
+                    <button class="preview-btn w-7 h-7 rounded-full bg-dark-600 hover:bg-dark-700 flex items-center justify-center flex-shrink-0 transition"
+                        onclick="event.stopPropagation(); playVoicePreview('${voice.id}', this)"
+                        title="Preview voice">
+                        <span class="material-symbols-outlined text-sm">play_arrow</span>
+                    </button>
                 </div>
             </div>
         `).join('');
+        
+        // Parse emojis for cross-browser flag support (Windows Chrome)
+        if (typeof twemoji !== 'undefined') {
+            twemoji.parse(grid, { folder: 'svg', ext: '.svg' });
+        }
     } catch (error) {
         console.error('Failed to load voices:', error);
     }
+}
+
+async function playVoicePreview(voiceId, button) {
+    const iconSpan = button.querySelector('span');
+    
+    // If this voice is already playing, stop it
+    if (currentPreviewVoiceId === voiceId && currentPreviewAudio) {
+        stopVoicePreview();
+        return;
+    }
+    
+    // Stop any currently playing preview
+    stopVoicePreview();
+    
+    // Show loading state
+    iconSpan.textContent = 'hourglass_empty';
+    iconSpan.classList.add('animate-spin');
+    button.disabled = true;
+    
+    try {
+        // Fetch and play the sample
+        const audio = new Audio(`/api/voice-sample/${voiceId}`);
+        currentPreviewAudio = audio;
+        currentPreviewVoiceId = voiceId;
+        
+        audio.oncanplaythrough = () => {
+            iconSpan.textContent = 'stop';
+            iconSpan.classList.remove('animate-spin');
+            button.disabled = false;
+            audio.play();
+        };
+        
+        audio.onended = () => {
+            iconSpan.textContent = 'play_arrow';
+            currentPreviewAudio = null;
+            currentPreviewVoiceId = null;
+        };
+        
+        audio.onerror = () => {
+            iconSpan.textContent = 'play_arrow';
+            iconSpan.classList.remove('animate-spin');
+            button.disabled = false;
+            currentPreviewAudio = null;
+            currentPreviewVoiceId = null;
+            console.error('Failed to load voice sample');
+        };
+        
+        audio.load();
+        
+    } catch (error) {
+        console.error('Failed to play preview:', error);
+        iconSpan.textContent = 'play_arrow';
+        iconSpan.classList.remove('animate-spin');
+        button.disabled = false;
+    }
+}
+
+function stopVoicePreview() {
+    if (currentPreviewAudio) {
+        currentPreviewAudio.pause();
+        currentPreviewAudio.currentTime = 0;
+        currentPreviewAudio = null;
+    }
+    
+    // Reset all preview buttons
+    document.querySelectorAll('.preview-btn span').forEach(span => {
+        span.textContent = 'play_arrow';
+        span.classList.remove('animate-spin');
+    });
+    document.querySelectorAll('.preview-btn').forEach(btn => {
+        btn.disabled = false;
+    });
+    
+    currentPreviewVoiceId = null;
 }
 
 function selectVoice(voiceId) {

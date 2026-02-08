@@ -32,18 +32,42 @@ class VoiceConfig:
     gender: str
 
 
-# Available Kokoro voices
+# Available Kokoro voices - American (🇺🇸) and British (🇬🇧) English
 # American English: af_* (female), am_* (male)
 # British English: bf_* (female), bm_* (male)
 PRESET_VOICES: List[VoiceConfig] = [
-    VoiceConfig("af_heart", "Heart", "Warm & Expressive", "female"),
-    VoiceConfig("af_bella", "Bella", "Bright & Friendly", "female"),
-    VoiceConfig("af_nicole", "Nicole", "Clear & Professional", "female"),
-    VoiceConfig("af_sarah", "Sarah", "Soft & Gentle", "female"),
-    VoiceConfig("am_adam", "Adam", "Smooth & Confident", "male"),
-    VoiceConfig("am_michael", "Michael", "Deep & Authoritative", "male"),
-    VoiceConfig("bf_emma", "Emma", "British & Warm", "female"),
-    VoiceConfig("bm_george", "George", "British & Calm", "male"),
+    # American Female (af_)
+    VoiceConfig("af_heart", "🇺🇸 Heart", "Warm & Expressive", "female"),
+    VoiceConfig("af_alloy", "🇺🇸 Alloy", "Neutral & Balanced", "female"),
+    VoiceConfig("af_aoede", "🇺🇸 Aoede", "Melodic & Artistic", "female"),
+    VoiceConfig("af_bella", "🇺🇸 Bella", "Bright & Friendly", "female"),
+    VoiceConfig("af_jessica", "🇺🇸 Jessica", "Lively & Engaging", "female"),
+    VoiceConfig("af_kore", "🇺🇸 Kore", "Youthful & Fresh", "female"),
+    VoiceConfig("af_nicole", "🇺🇸 Nicole", "Clear & Professional", "female"),
+    VoiceConfig("af_nova", "🇺🇸 Nova", "Dynamic & Modern", "female"),
+    VoiceConfig("af_river", "🇺🇸 River", "Flowing & Natural", "female"),
+    VoiceConfig("af_sarah", "🇺🇸 Sarah", "Soft & Gentle", "female"),
+    VoiceConfig("af_sky", "🇺🇸 Sky", "Light & Airy", "female"),
+    # American Male (am_)
+    VoiceConfig("am_adam", "🇺🇸 Adam", "Smooth & Confident", "male"),
+    VoiceConfig("am_echo", "🇺🇸 Echo", "Resonant & Clear", "male"),
+    VoiceConfig("am_eric", "🇺🇸 Eric", "Strong & Assertive", "male"),
+    VoiceConfig("am_fenrir", "🇺🇸 Fenrir", "Deep & Powerful", "male"),
+    VoiceConfig("am_liam", "🇺🇸 Liam", "Casual & Friendly", "male"),
+    VoiceConfig("am_michael", "🇺🇸 Michael", "Deep & Authoritative", "male"),
+    VoiceConfig("am_onyx", "🇺🇸 Onyx", "Rich & Bold", "male"),
+    VoiceConfig("am_puck", "🇺🇸 Puck", "Playful & Quick", "male"),
+    VoiceConfig("am_santa", "🇺🇸 Santa", "Warm & Jolly", "male"),
+    # British Female (bf_)
+    VoiceConfig("bf_alice", "🇬🇧 Alice", "Refined & Elegant", "female"),
+    VoiceConfig("bf_emma", "🇬🇧 Emma", "British & Warm", "female"),
+    VoiceConfig("bf_isabella", "🇬🇧 Isabella", "Sophisticated & Poised", "female"),
+    VoiceConfig("bf_lily", "🇬🇧 Lily", "Gentle & Sweet", "female"),
+    # British Male (bm_)
+    VoiceConfig("bm_daniel", "🇬🇧 Daniel", "Gentle & Articulate", "male"),
+    VoiceConfig("bm_fable", "🇬🇧 Fable", "Storyteller & Narrative", "male"),
+    VoiceConfig("bm_george", "🇬🇧 George", "British & Calm", "male"),
+    VoiceConfig("bm_lewis", "🇬🇧 Lewis", "Formal & Distinguished", "male"),
 ]
 
 
