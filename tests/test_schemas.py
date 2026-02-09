@@ -40,7 +40,9 @@ class TestAudioQualityEnum:
 class TestAudioFormatEnum:
     def test_values(self):
         assert AudioFormat.MP3.value == "mp3"
-        assert AudioFormat.WAV.value == "wav"
+
+    def test_only_mp3(self):
+        assert len(AudioFormat) == 1
 
 
 class TestJobStatusEnum:
@@ -84,11 +86,11 @@ class TestGenerateRequest:
             narrator_voice="bm_lewis",
             speed=1.5,
             quality=AudioQuality.ULTRA,
-            format=AudioFormat.WAV,
+            format=AudioFormat.MP3,
         )
         assert req.narrator_voice == "bm_lewis"
         assert req.quality == AudioQuality.ULTRA
-        assert req.format == AudioFormat.WAV
+        assert req.format == AudioFormat.MP3
 
 
 class TestBookmarkRequest:

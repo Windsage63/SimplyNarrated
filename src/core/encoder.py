@@ -18,7 +18,6 @@ limitations under the License.
 """
 
 import os
-import io
 import numpy as np
 from typing import Optional
 from dataclasses import dataclass
@@ -28,8 +27,8 @@ from dataclasses import dataclass
 class EncoderSettings:
     """Audio encoding settings."""
 
-    format: str = "mp3"  # mp3 or wav
-    bitrate: str = "192k"  # For MP3: 128k (SD), 192k (HD), 320k (Ultra)
+    format: str = "mp3"
+    bitrate: str = "192k"  # 128k (SD), 192k (HD), 320k (Ultra)
     sample_rate: int = 24000
     channels: int = 1
 
@@ -83,59 +82,26 @@ def encode_audio(
     # Ensure output directory exists
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
 
-    # For WAV format, try scipy first (no ffmpeg needed)
-    if settings.format == "wav":
-        try:
-            from scipy.io import wavfile
+    from pydub import AudioSegment
 
-            wavfile.write(output_path, sample_rate, audio_int)
-            return output_path
-        except ImportError:
-            pass  # Fall through to pydub
+    audio_segment = AudioSegment(
+        audio_int.tobytes(),
+        frame_rate=sample_rate,
+        sample_width=2,  # 16-bit
+        channels=settings.channels,
+    )
 
-    # Try pydub (requires ffmpeg for MP3)
-    try:
-        from pydub import AudioSegment
+    audio_segment.export(
+        output_path,
+        format="mp3",
+        bitrate=settings.bitrate,
+    )
 
-        # Create AudioSegment from numpy array
-        audio_segment = AudioSegment(
-            audio_int.tobytes(),
-            frame_rate=sample_rate,
-            sample_width=2,  # 16-bit
-            channels=settings.channels,
-        )
+    # Verify the file was written successfully
+    if not os.path.exists(output_path) or os.path.getsize(output_path) == 0:
+        raise RuntimeError(f"MP3 encoding failed: output file is empty at {output_path}")
 
-        # Export based on format
-        if settings.format == "mp3":
-            audio_segment.export(
-                output_path,
-                format="mp3",
-                bitrate=settings.bitrate,
-            )
-        elif settings.format == "wav":
-            audio_segment.export(
-                output_path,
-                format="wav",
-            )
-        else:
-            raise ValueError(f"Unsupported format: {settings.format}")
-
-        return output_path
-
-    except FileNotFoundError as e:
-        # ffmpeg not found - fall back to scipy for WAV
-        if settings.format == "mp3":
-            print("[WARNING] ffmpeg not found. Install ffmpeg for MP3 support.")
-            print("[WARNING] Falling back to WAV format...")
-            # Change output path to .wav
-            output_path = output_path.rsplit(".", 1)[0] + ".wav"
-            settings.format = "wav"
-
-        # Use scipy for WAV
-        from scipy.io import wavfile
-
-        wavfile.write(output_path, sample_rate, audio_int)
-        return output_path
+    return output_path
 
 
 def concatenate_audio_files(

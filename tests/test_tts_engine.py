@@ -107,21 +107,20 @@ class TestGenerateSample:
 
 class TestTTSThenEncode:
     def test_full_pipeline(self, tts_engine, tmp_path):
-        """Generate speech and encode it to a WAV file on disk."""
+        """Generate speech and encode it to an MP3 file on disk."""
         from src.core.encoder import encode_audio, EncoderSettings
 
         text = "This is a full end-to-end test of the speech pipeline."
         audio, sr = tts_engine.generate_speech(text, "af_heart", speed=1.0)
 
-        out_path = str(tmp_path / "output.wav")
-        result = encode_audio(audio, sr, out_path, EncoderSettings(format="wav"))
+        out_path = str(tmp_path / "output.mp3")
+        result = encode_audio(audio, sr, out_path, EncoderSettings(format="mp3", bitrate="128k"))
 
         assert os.path.exists(result)
         assert os.path.getsize(result) > 0
 
-        # Verify the WAV is readable
-        from scipy.io import wavfile
+        # Verify the MP3 is readable
+        from pydub import AudioSegment
 
-        read_sr, data = wavfile.read(result)
-        assert read_sr == 24000
-        assert len(data) > 0
+        segment = AudioSegment.from_mp3(result)
+        assert len(segment) > 0

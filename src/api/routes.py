@@ -229,18 +229,17 @@ async def get_voice_sample(voice_id: str):
     if voice_id not in valid_voice_ids:
         raise HTTPException(status_code=400, detail="Invalid voice ID")
 
-    # Check for cached sample (try both mp3 and wav)
+    # Check for cached sample (mp3 only)
     cache_dir = os.path.join(os.path.dirname(__file__), "..", "..", "static", "voices")
     os.makedirs(cache_dir, exist_ok=True)
 
-    for ext, media_type in [("mp3", "audio/mpeg"), ("wav", "audio/wav")]:
-        cache_path = os.path.join(cache_dir, f"{voice_id}.{ext}")
-        if os.path.exists(cache_path) and os.path.getsize(cache_path) > 0:
-            return FileResponse(
-                cache_path,
-                media_type=media_type,
-                filename=f"{voice_id}_sample.{ext}",
-            )
+    cache_path = os.path.join(cache_dir, f"{voice_id}.mp3")
+    if os.path.exists(cache_path) and os.path.getsize(cache_path) > 0:
+        return FileResponse(
+            cache_path,
+            media_type="audio/mpeg",
+            filename=f"{voice_id}_sample.mp3",
+        )
 
     # Generate new sample
     try:
@@ -259,7 +258,7 @@ async def get_voice_sample(voice_id: str):
                 status_code=500, detail="TTS engine returned empty audio"
             )
 
-        # Encode to MP3 (may fall back to WAV if ffmpeg not available)
+        # Encode to MP3
         cache_path_mp3 = os.path.join(cache_dir, f"{voice_id}.mp3")
         settings = EncoderSettings(format="mp3", bitrate="128k")
 
@@ -267,19 +266,13 @@ async def get_voice_sample(voice_id: str):
             None, lambda: encode_audio(audio, sample_rate, cache_path_mp3, settings)
         )
 
-        # Determine actual format from path
-        if actual_path.endswith(".wav"):
-            media_type = "audio/wav"
-        else:
-            media_type = "audio/mpeg"
-
         if not os.path.exists(actual_path) or os.path.getsize(actual_path) == 0:
             raise HTTPException(status_code=500, detail="Failed to encode audio file")
 
         return FileResponse(
             actual_path,
-            media_type=media_type,
-            filename=f"{voice_id}_sample{os.path.splitext(actual_path)[1]}",
+            media_type="audio/mpeg",
+            filename=f"{voice_id}_sample.mp3",
         )
 
     except HTTPException:
@@ -334,15 +327,15 @@ async def stream_audio(book_id: str, chapter: int):
     job_manager = get_job_manager()
     library = get_library_manager()
 
-    # Try both mp3 and wav extensions
-    extensions = [(".mp3", "audio/mpeg"), (".wav", "audio/wav")]
+    # MP3 only
+    extensions = [(".mp3", "audio/mpeg")]
 
     # 1. Check if this is an active job
     job = job_manager.get_job(book_id)
     if job and job.output_dir:
         for ext, media_type in extensions:
             audio_path = os.path.join(job.output_dir, f"chapter_{chapter:02d}{ext}")
-            if os.path.exists(audio_path):
+            if os.path.exists(audio_path) and os.path.getsize(audio_path) > 0:
                 return FileResponse(
                     audio_path,
                     media_type=media_type,
@@ -353,7 +346,7 @@ async def stream_audio(book_id: str, chapter: int):
     book_dir = library.get_book_dir(book_id)
     for ext, media_type in extensions:
         audio_path = os.path.join(book_dir, f"chapter_{chapter:02d}{ext}")
-        if os.path.exists(audio_path):
+        if os.path.exists(audio_path) and os.path.getsize(audio_path) > 0:
             return FileResponse(
                 audio_path,
                 media_type=media_type,

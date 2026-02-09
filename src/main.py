@@ -27,6 +27,13 @@ from src.api.routes import router as api_router
 from src.core.job_manager import init_job_manager
 from src.core.library import init_library_manager
 
+# Ensure static-ffmpeg binaries are on PATH for pydub/subprocess
+try:
+    import static_ffmpeg
+    static_ffmpeg.add_paths()
+except ImportError:
+    pass  # Fall through to system ffmpeg
+
 
 # Get the base directory
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))

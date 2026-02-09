@@ -27,8 +27,8 @@ def _make_upload_file(content: bytes, filename: str):
 
 
 def _populate_book(library_dir: str, book_id: str = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"):
-    """Create a book in the library dir with metadata and a tiny WAV chapter."""
-    from scipy.io import wavfile
+    """Create a book in the library dir with metadata and a tiny MP3 chapter."""
+    from pydub import AudioSegment
     from datetime import datetime
 
     book_dir = os.path.join(library_dir, book_id)
@@ -41,14 +41,14 @@ def _populate_book(library_dir: str, book_id: str = "aaaaaaaa-bbbb-cccc-dddd-eee
         "total_chapters": 1,
         "total_duration": "0m",
         "created_at": datetime.now().isoformat(),
-        "format": "wav",
+        "format": "mp3",
         "quality": "sd",
         "chapters": [
             {
                 "number": 1,
                 "title": "Chapter 1",
                 "duration": "0:02",
-                "audio_path": "chapter_01.wav",
+                "audio_path": "chapter_01.mp3",
                 "completed": True,
             }
         ],
@@ -56,10 +56,17 @@ def _populate_book(library_dir: str, book_id: str = "aaaaaaaa-bbbb-cccc-dddd-eee
     with open(os.path.join(book_dir, "metadata.json"), "w") as f:
         json.dump(metadata, f)
 
+    # Generate a short sine tone and export as MP3
     sr = 24000
     t = np.linspace(0, 0.5, int(sr * 0.5), endpoint=False)
     tone = (np.sin(2 * np.pi * 440 * t) * 32767).astype(np.int16)
-    wavfile.write(os.path.join(book_dir, "chapter_01.wav"), sr, tone)
+    segment = AudioSegment(
+        tone.tobytes(),
+        frame_rate=sr,
+        sample_width=2,
+        channels=1,
+    )
+    segment.export(os.path.join(book_dir, "chapter_01.mp3"), format="mp3", bitrate="128k")
 
     return book_id
 
@@ -194,7 +201,7 @@ class TestGenerateEndpoint:
                 "narrator_voice": "af_heart",
                 "speed": 1.0,
                 "quality": "sd",
-                "format": "wav",
+                "format": "mp3",
             },
         )
         assert gen_resp.status_code == 200
@@ -234,7 +241,7 @@ class TestCancelEndpoint:
 
         await app_client.post(
             "/api/generate",
-            json={"job_id": job_id, "quality": "sd", "format": "wav"},
+            json={"job_id": job_id, "quality": "sd", "format": "mp3"},
         )
 
         # Give it a moment to start, then cancel
@@ -295,11 +302,11 @@ class TestBookEndpoint:
 
 
 class TestAudioEndpoint:
-    async def test_stream_wav(self, app_client, tmp_library_dir):
+    async def test_stream_mp3(self, app_client, tmp_library_dir):
         book_id = _populate_book(str(tmp_library_dir))
         resp = await app_client.get(f"/api/audio/{book_id}/1")
         assert resp.status_code == 200
-        assert resp.headers["content-type"] in ("audio/wav", "audio/x-wav")
+        assert resp.headers["content-type"] == "audio/mpeg"
         assert len(resp.content) > 0
 
     async def test_audio_not_found(self, app_client, tmp_library_dir):

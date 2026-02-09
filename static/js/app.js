@@ -250,7 +250,6 @@ function renderUploadView() {
                         <label class="block text-sm text-gray-400 mb-2">Format</label>
                         <div class="flex gap-2">
                             <button onclick="setFormat('mp3')" class="format-btn px-4 py-2 rounded-lg bg-primary" data-format="mp3">MP3</button>
-                            <button onclick="setFormat('wav')" class="format-btn px-4 py-2 rounded-lg bg-dark-600 hover:bg-dark-700" data-format="wav">WAV</button>
                         </div>
                     </div>
                 </div>

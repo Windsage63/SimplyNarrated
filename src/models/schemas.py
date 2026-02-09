@@ -35,7 +35,6 @@ class AudioFormat(str, Enum):
     """Audio output format options."""
 
     MP3 = "mp3"
-    WAV = "wav"
 
 
 class JobStatus(str, Enum):
