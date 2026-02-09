@@ -97,7 +97,7 @@ async def process_book(job: Job, config: Dict[str, Any]) -> None:
 
         # Phase 4: Generate audio for each chunk
         encoder_settings = get_encoder_settings(
-            quality=config.get("quality", "hd"),
+            quality=config.get("quality", "sd"),
             format=config.get("format", "mp3"),
         )
 
@@ -182,7 +182,7 @@ async def process_book(job: Job, config: Dict[str, Any]) -> None:
             "total_duration": total_duration,
             "created_at": datetime.now().isoformat(),
             "format": encoder_settings.format,
-            "quality": config.get("quality", "hd"),
+            "quality": config.get("quality", "sd"),
             "chapters": chapter_list,
         }
 

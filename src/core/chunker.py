@@ -34,7 +34,7 @@ class TextChunk:
 
 
 # Maximum words per chunk
-MAX_WORDS_PER_CHUNK = 4000
+MAX_WORDS_PER_CHUNK = 6000
 
 # Approximate words per minute for speech
 WORDS_PER_MINUTE = 150

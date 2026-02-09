@@ -31,7 +31,7 @@ const state = {
     selectedVoice: 'af_heart',
     audioSettings: {
         speed: 1.0,
-        quality: 'hd',
+        quality: 'sd',
         format: 'mp3'
     },
     voices: [],
@@ -239,8 +239,8 @@ function renderUploadView() {
                     <div>
                         <label class="block text-sm text-gray-400 mb-2">Quality</label>
                         <div class="flex gap-2">
-                            <button onclick="setQuality('sd')" class="quality-btn px-4 py-2 rounded-lg bg-dark-600 hover:bg-dark-700" data-quality="sd">SD</button>
-                            <button onclick="setQuality('hd')" class="quality-btn px-4 py-2 rounded-lg bg-primary" data-quality="hd">HD</button>
+                            <button onclick="setQuality('sd')" class="quality-btn px-4 py-2 rounded-lg bg-primary" data-quality="sd">SD</button>
+                            <button onclick="setQuality('hd')" class="quality-btn px-4 py-2 rounded-lg bg-dark-600 hover:bg-dark-700" data-quality="hd">HD</button>
                             <button onclick="setQuality('ultra')" class="quality-btn px-4 py-2 rounded-lg bg-dark-600 hover:bg-dark-700" data-quality="ultra">Ultra</button>
                         </div>
                     </div>

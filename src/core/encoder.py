@@ -42,9 +42,9 @@ QUALITY_PRESETS = {
 }
 
 
-def get_encoder_settings(quality: str = "hd", format: str = "mp3") -> EncoderSettings:
+def get_encoder_settings(quality: str = "sd", format: str = "mp3") -> EncoderSettings:
     """Get encoder settings for a quality preset."""
-    preset = QUALITY_PRESETS.get(quality, QUALITY_PRESETS["hd"])
+    preset = QUALITY_PRESETS.get(quality, QUALITY_PRESETS["sd"])
     return EncoderSettings(
         format=format,
         bitrate=preset.bitrate,

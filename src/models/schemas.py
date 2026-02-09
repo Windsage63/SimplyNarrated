@@ -60,7 +60,7 @@ class GenerateRequest(BaseModel):
         default=None, description="Voice for dialogue"
     )
     speed: float = Field(default=1.0, ge=0.5, le=2.0, description="Playback speed")
-    quality: AudioQuality = Field(default=AudioQuality.HD)
+    quality: AudioQuality = Field(default=AudioQuality.SD)
     format: AudioFormat = Field(default=AudioFormat.MP3)
 
 

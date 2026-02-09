@@ -54,11 +54,7 @@ SAMPLE_QUOTES = [
     "It was the best of times, it was the worst of times.",
     "Hello! I'm your narrator for this audiobook adventure.",
     "In a hole in the ground there lived a hobbit.",
-    "Call me Ishmael. Some years ago, never mind how long.",
     "All happy families are alike; each unhappy family is unhappy in its own way.",
-    "It is a truth universally acknowledged that a single man must be in want of a wife.",
-    "The only thing we have to fear is fear itself.",
-    "I have a dream that one day this nation will rise up.",
 ]
 
 

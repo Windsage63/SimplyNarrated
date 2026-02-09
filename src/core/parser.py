@@ -54,11 +54,19 @@ def parse_txt(file_path: str) -> ParsedDocument:
     # Simple chapter detection for TXT files
     chapters = _split_into_chapters(content)
 
+    # Normalize each chapter's content to remove single line breaks
+    normalized_chapters = []
+    for ch_title, ch_content in chapters:
+        normalized_chapters.append((ch_title, _normalize_line_breaks(ch_content)))
+
+    # Reconstruct normalized raw text
+    full_text = "\n\n".join([f"{t}\n\n{c}" for t, c in normalized_chapters])
+
     return ParsedDocument(
         title=title,
         author=None,
-        raw_text=content,
-        chapters=chapters,
+        raw_text=full_text,
+        chapters=normalized_chapters,
         format="txt",
     )
 
@@ -131,10 +139,14 @@ def parse_epub(file_path: str) -> ParsedDocument:
         text = parser.get_text().strip()
 
         if text:
-            # Try to get chapter title from content
+            # Try to get chapter title from content (before normalization)
             chapter_title = (
                 _extract_chapter_title(text) or f"Chapter {len(chapters) + 1}"
             )
+            
+            # Normalize text to remove hard line breaks
+            text = _normalize_line_breaks(text)
+            
             chapters.append((chapter_title, text))
             all_text_parts.append(text)
 
@@ -173,11 +185,19 @@ def parse_pdf(file_path: str) -> ParsedDocument:
     full_text = "\n\n".join(all_text)
     chapters = _split_into_chapters(full_text)
 
+    # Normalize each chapter's content to remove single line breaks
+    normalized_chapters = []
+    for ch_title, ch_content in chapters:
+        normalized_chapters.append((ch_title, _normalize_line_breaks(ch_content)))
+
+    # Reconstruct normalized raw text
+    normalized_full_text = "\n\n".join([f"{t}\n\n{c}" for t, c in normalized_chapters])
+
     return ParsedDocument(
         title=title,
         author=author,
-        raw_text=full_text,
-        chapters=chapters,
+        raw_text=normalized_full_text,
+        chapters=normalized_chapters,
         format="pdf",
     )
 
@@ -254,6 +274,33 @@ def _split_markdown_chapters(content: str) -> List[Tuple[str, str]]:
     return chapters
 
 
+def _normalize_line_breaks(text: str) -> str:
+    """
+    Remove single line breaks and replace them with a space,
+    but preserve double line breaks (paragraphs).
+    """
+    if not text:
+        return ""
+
+    # Normalize line endings to \n
+    text = text.replace("\r\n", "\n").replace("\r", "\n")
+
+    # Split by double or more newlines (paragraph boundaries)
+    # This regex matches two or more newlines, possibly with spaces in between
+    paragraphs = re.split(r"\n\s*\n+", text)
+
+    normalized_paragraphs = []
+    for p in paragraphs:
+        # Replace single newlines with spaces
+        p_clean = p.replace("\n", " ")
+        # Squeeze multiple spaces into one
+        p_clean = re.sub(r"\s+", " ", p_clean).strip()
+        if p_clean:
+            normalized_paragraphs.append(p_clean)
+
+    return "\n\n".join(normalized_paragraphs)
+
+
 def _markdown_to_text(md: str) -> str:
     """Convert markdown to plain text."""
     text = md
@@ -269,6 +316,10 @@ def _markdown_to_text(md: str) -> str:
     # Remove code blocks
     text = re.sub(r"```[^`]*```", "", text, flags=re.DOTALL)
     text = re.sub(r"`([^`]+)`", r"\1", text)
+
+    # Normalize line breaks (remove single line breaks, keep double)
+    text = _normalize_line_breaks(text)
+
     # Clean up whitespace
     text = re.sub(r"\n{3,}", "\n\n", text)
     return text.strip()
