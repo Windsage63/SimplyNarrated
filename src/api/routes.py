@@ -148,6 +148,8 @@ async def start_generation(request: GenerateRequest, background_tasks: Backgroun
         "speed": request.speed,
         "quality": request.quality.value,
         "format": request.format.value,
+        "remove_square_bracket_numbers": request.remove_square_bracket_numbers,
+        "remove_paren_numbers": request.remove_paren_numbers,
     }
 
     # Import process function here to avoid circular imports

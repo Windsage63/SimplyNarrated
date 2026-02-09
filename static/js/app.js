@@ -17,25 +17,25 @@
  * limitations under the License.
  */
 
-
-
 // ============================================
 // State Management
 // ============================================
 
 const state = {
-    currentView: 'upload',
-    currentJob: null,
-    currentBook: null,
-    selectedFile: null,
-    selectedVoice: 'af_heart',
-    audioSettings: {
-        speed: 1.0,
-        quality: 'sd',
-        format: 'mp3'
-    },
-    voices: [],
-    library: []
+  currentView: "upload",
+  currentJob: null,
+  currentBook: null,
+  selectedFile: null,
+  selectedVoice: "af_heart",
+  audioSettings: {
+    speed: 1.0,
+    quality: "sd",
+    format: "mp3",
+    removeSquareBracketNumbers: false,
+    removeParenNumbers: false,
+  },
+  voices: [],
+  library: [],
 };
 
 // ============================================
@@ -43,101 +43,107 @@ const state = {
 // ============================================
 
 const api = {
-    baseUrl: '/api',
-    
-    async upload(file) {
-        const formData = new FormData();
-        formData.append('file', file);
-        
-        const response = await fetch(`${this.baseUrl}/upload`, {
-            method: 'POST',
-            body: formData
-        });
-        
-        if (!response.ok) {
-            const error = await response.json();
-            throw new Error(error.detail || 'Upload failed');
-        }
-        
-        return response.json();
-    },
-    
-    async generate(jobId, config) {
-        const response = await fetch(`${this.baseUrl}/generate`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                job_id: jobId,
-                narrator_voice: config.voice,
-                speed: config.speed,
-                quality: config.quality,
-                format: config.format
-            })
-        });
-        
-        if (!response.ok) {
-            const error = await response.json();
-            throw new Error(error.detail || 'Generation failed');
-        }
-        
-        return response.json();
-    },
-    
-    async getStatus(jobId) {
-        const response = await fetch(`${this.baseUrl}/status/${jobId}`);
-        if (!response.ok) {
-            throw new Error('Failed to get status');
-        }
-        return response.json();
-    },
-    
-    async cancel(jobId) {
-        const response = await fetch(`${this.baseUrl}/cancel/${jobId}`, {
-            method: 'POST'
-        });
-        return response.json();
-    },
-    
-    async getVoices() {
-        const response = await fetch(`${this.baseUrl}/voices`);
-        return response.json();
-    },
-    
-    async getLibrary() {
-        const response = await fetch(`${this.baseUrl}/library`);
-        return response.json();
-    },
-    
-    async getBook(bookId) {
-        const response = await fetch(`${this.baseUrl}/book/${bookId}`);
-        if (!response.ok) {
-            throw new Error('Book not found');
-        }
-        return response.json();
-    },
-    
-    async getBookmark(bookId) {
-        const response = await fetch(`${this.baseUrl}/bookmark/${bookId}`);
-        return response.json();
-    },
-    
-    async saveBookmark(bookId, chapter, position) {
-        const response = await fetch(`${this.baseUrl}/bookmark?book_id=${bookId}&chapter=${chapter}&position=${position}`, {
-            method: 'POST'
-        });
-        return response.json();
-    },
-    
-    async delete(bookId) {
-        const response = await fetch(`${this.baseUrl}/book/${bookId}`, {
-            method: 'DELETE'
-        });
-        if (!response.ok) {
-            const error = await response.json();
-            throw new Error(error.detail || 'Failed to delete book');
-        }
-        return response.json();
+  baseUrl: "/api",
+
+  async upload(file) {
+    const formData = new FormData();
+    formData.append("file", file);
+
+    const response = await fetch(`${this.baseUrl}/upload`, {
+      method: "POST",
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.detail || "Upload failed");
     }
+
+    return response.json();
+  },
+
+  async generate(jobId, config) {
+    const response = await fetch(`${this.baseUrl}/generate`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        job_id: jobId,
+        narrator_voice: config.voice,
+        speed: config.speed,
+        quality: config.quality,
+        format: config.format,
+        remove_square_bracket_numbers:
+          config.removeSquareBracketNumbers || false,
+        remove_paren_numbers: config.removeParenNumbers || false,
+      }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.detail || "Generation failed");
+    }
+
+    return response.json();
+  },
+
+  async getStatus(jobId) {
+    const response = await fetch(`${this.baseUrl}/status/${jobId}`);
+    if (!response.ok) {
+      throw new Error("Failed to get status");
+    }
+    return response.json();
+  },
+
+  async cancel(jobId) {
+    const response = await fetch(`${this.baseUrl}/cancel/${jobId}`, {
+      method: "POST",
+    });
+    return response.json();
+  },
+
+  async getVoices() {
+    const response = await fetch(`${this.baseUrl}/voices`);
+    return response.json();
+  },
+
+  async getLibrary() {
+    const response = await fetch(`${this.baseUrl}/library`);
+    return response.json();
+  },
+
+  async getBook(bookId) {
+    const response = await fetch(`${this.baseUrl}/book/${bookId}`);
+    if (!response.ok) {
+      throw new Error("Book not found");
+    }
+    return response.json();
+  },
+
+  async getBookmark(bookId) {
+    const response = await fetch(`${this.baseUrl}/bookmark/${bookId}`);
+    return response.json();
+  },
+
+  async saveBookmark(bookId, chapter, position) {
+    const response = await fetch(
+      `${this.baseUrl}/bookmark?book_id=${bookId}&chapter=${chapter}&position=${position}`,
+      {
+        method: "POST",
+      },
+    );
+    return response.json();
+  },
+
+  async delete(bookId) {
+    const response = await fetch(`${this.baseUrl}/book/${bookId}`, {
+      method: "DELETE",
+    });
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.detail || "Failed to delete book");
+    }
+    return response.json();
+  },
 };
 
 // ============================================
@@ -145,43 +151,43 @@ const api = {
 // ============================================
 
 function showView(viewName) {
-    state.currentView = viewName;
-    
-    // Update nav active state
-    document.querySelectorAll('nav button').forEach(btn => {
-        btn.classList.remove('bg-dark-700');
-    });
-    const navBtn = document.getElementById(`nav-${viewName}`);
-    if (navBtn) navBtn.classList.add('bg-dark-700');
-    
-    // Render view
-    const container = document.getElementById('view-container');
-    
-    switch(viewName) {
-        case 'upload':
-            container.innerHTML = renderUploadView();
-            initUploadView();
-            break;
-        case 'progress':
-            container.innerHTML = renderProgressView();
-            initProgressView();
-            break;
-        case 'dashboard':
-            container.innerHTML = renderDashboardView();
-            initDashboardView();
-            break;
-        case 'player':
-            // Player view requires a book ID
-            if (state.currentBook) {
-                container.innerHTML = renderPlayerView(state.currentBook);
-                initPlayerView(state.currentBook);
-            } else {
-                showView('dashboard');
-            }
-            break;
-        default:
-            container.innerHTML = '<p>View not found</p>';
-    }
+  state.currentView = viewName;
+
+  // Update nav active state
+  document.querySelectorAll("nav button").forEach((btn) => {
+    btn.classList.remove("bg-dark-700");
+  });
+  const navBtn = document.getElementById(`nav-${viewName}`);
+  if (navBtn) navBtn.classList.add("bg-dark-700");
+
+  // Render view
+  const container = document.getElementById("view-container");
+
+  switch (viewName) {
+    case "upload":
+      container.innerHTML = renderUploadView();
+      initUploadView();
+      break;
+    case "progress":
+      container.innerHTML = renderProgressView();
+      initProgressView();
+      break;
+    case "dashboard":
+      container.innerHTML = renderDashboardView();
+      initDashboardView();
+      break;
+    case "player":
+      // Player view requires a book ID
+      if (state.currentBook) {
+        container.innerHTML = renderPlayerView(state.currentBook);
+        initPlayerView(state.currentBook);
+      } else {
+        showView("dashboard");
+      }
+      break;
+    default:
+      container.innerHTML = "<p>View not found</p>";
+  }
 }
 
 // ============================================
@@ -189,7 +195,7 @@ function showView(viewName) {
 // ============================================
 
 function renderUploadView() {
-    return `
+  return `
         <div class="space-y-8">
             <!-- File Upload Zone -->
             <div class="glass rounded-2xl p-8">
@@ -245,11 +251,12 @@ function renderUploadView() {
                         </div>
                     </div>
                     
-                    <!-- Format -->
+                    <!-- Remove Footnotes -->
                     <div>
-                        <label class="block text-sm text-gray-400 mb-2">Format</label>
+                        <label class="block text-sm text-gray-400 mb-2">Remove Footnotes / Numbers</label>
                         <div class="flex gap-2">
-                            <button onclick="setFormat('mp3')" class="format-btn px-4 py-2 rounded-lg bg-primary" data-format="mp3">MP3</button>
+                            <button onclick="toggleFootnoteRemoval('square')" class="footnote-toggle-btn px-4 py-2 rounded-lg bg-dark-600 hover:bg-dark-700" data-footnote="square">[###]</button>
+                            <button onclick="toggleFootnoteRemoval('paren')" class="footnote-toggle-btn px-4 py-2 rounded-lg bg-dark-600 hover:bg-dark-700" data-footnote="paren">(###)</button>
                         </div>
                     </div>
                 </div>
@@ -266,46 +273,46 @@ function renderUploadView() {
 }
 
 function initUploadView() {
-    const dropZone = document.getElementById('drop-zone');
-    const fileInput = document.getElementById('file-input');
-    
-    // Load voices
-    loadVoices();
-    
-    // Drag and drop handlers
-    dropZone.addEventListener('click', () => fileInput.click());
-    
-    dropZone.addEventListener('dragover', (e) => {
-        e.preventDefault();
-        dropZone.classList.add('dragover');
-    });
-    
-    dropZone.addEventListener('dragleave', () => {
-        dropZone.classList.remove('dragover');
-    });
-    
-    dropZone.addEventListener('drop', (e) => {
-        e.preventDefault();
-        dropZone.classList.remove('dragover');
-        
-        const files = e.dataTransfer.files;
-        if (files.length > 0) {
-            handleFileSelect(files[0]);
-        }
-    });
-    
-    fileInput.addEventListener('change', (e) => {
-        if (e.target.files.length > 0) {
-            handleFileSelect(e.target.files[0]);
-        }
-    });
-    
-    // Speed slider
-    const speedSlider = document.getElementById('speed-slider');
-    speedSlider.addEventListener('input', (e) => {
-        state.audioSettings.speed = parseFloat(e.target.value);
-        document.getElementById('speed-value').textContent = `${e.target.value}x`;
-    });
+  const dropZone = document.getElementById("drop-zone");
+  const fileInput = document.getElementById("file-input");
+
+  // Load voices
+  loadVoices();
+
+  // Drag and drop handlers
+  dropZone.addEventListener("click", () => fileInput.click());
+
+  dropZone.addEventListener("dragover", (e) => {
+    e.preventDefault();
+    dropZone.classList.add("dragover");
+  });
+
+  dropZone.addEventListener("dragleave", () => {
+    dropZone.classList.remove("dragover");
+  });
+
+  dropZone.addEventListener("drop", (e) => {
+    e.preventDefault();
+    dropZone.classList.remove("dragover");
+
+    const files = e.dataTransfer.files;
+    if (files.length > 0) {
+      handleFileSelect(files[0]);
+    }
+  });
+
+  fileInput.addEventListener("change", (e) => {
+    if (e.target.files.length > 0) {
+      handleFileSelect(e.target.files[0]);
+    }
+  });
+
+  // Speed slider
+  const speedSlider = document.getElementById("speed-slider");
+  speedSlider.addEventListener("input", (e) => {
+    state.audioSettings.speed = parseFloat(e.target.value);
+    document.getElementById("speed-value").textContent = `${e.target.value}x`;
+  });
 }
 
 // Track currently playing audio for voice previews
@@ -313,18 +320,20 @@ let currentPreviewAudio = null;
 let currentPreviewVoiceId = null;
 
 async function loadVoices() {
-    try {
-        const data = await api.getVoices();
-        state.voices = data.voices;
-        
-        const grid = document.getElementById('voice-grid');
-        grid.innerHTML = state.voices.map(voice => `
-            <div class="voice-card glass rounded-lg p-3 cursor-pointer ${voice.id === state.selectedVoice ? 'selected' : ''}"
+  try {
+    const data = await api.getVoices();
+    state.voices = data.voices;
+
+    const grid = document.getElementById("voice-grid");
+    grid.innerHTML = state.voices
+      .map(
+        (voice) => `
+            <div class="voice-card glass rounded-lg p-3 cursor-pointer ${voice.id === state.selectedVoice ? "selected" : ""}"
                 onclick="selectVoice('${voice.id}')">
                 <div class="flex items-center gap-2">
                     <div class="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0">
                         <span class="material-symbols-outlined text-primary text-sm">
-                            ${voice.gender === 'female' ? 'face_3' : voice.gender === 'male' ? 'face' : 'person'}
+                            ${voice.gender === "female" ? "face_3" : voice.gender === "male" ? "face" : "person"}
                         </span>
                     </div>
                     <div class="min-w-0 flex-1">
@@ -337,172 +346,191 @@ async function loadVoices() {
                     </button>
                 </div>
             </div>
-        `).join('');
-        
-        // Parse emojis for cross-browser flag support (Windows Chrome)
-        if (typeof twemoji !== 'undefined') {
-            twemoji.parse(grid, { folder: 'svg', ext: '.svg' });
-        }
-    } catch (error) {
-        console.error('Failed to load voices:', error);
+        `,
+      )
+      .join("");
+
+    // Parse emojis for cross-browser flag support (Windows Chrome)
+    if (typeof twemoji !== "undefined") {
+      twemoji.parse(grid, { folder: "svg", ext: ".svg" });
     }
+  } catch (error) {
+    console.error("Failed to load voices:", error);
+  }
 }
 
 async function playVoicePreview(voiceId, button) {
-    const iconSpan = button.querySelector('span');
-    
-    // If this voice is already playing, stop it
-    if (currentPreviewVoiceId === voiceId && currentPreviewAudio) {
-        stopVoicePreview();
-        return;
-    }
-    
-    // Stop any currently playing preview
+  const iconSpan = button.querySelector("span");
+
+  // If this voice is already playing, stop it
+  if (currentPreviewVoiceId === voiceId && currentPreviewAudio) {
     stopVoicePreview();
-    
-    // Show loading state
-    iconSpan.textContent = 'hourglass_empty';
-    iconSpan.classList.add('animate-spin');
-    button.disabled = true;
-    
-    try {
-        // Fetch and play the sample
-        const audio = new Audio(`/api/voice-sample/${voiceId}`);
-        currentPreviewAudio = audio;
-        currentPreviewVoiceId = voiceId;
-        
-        audio.oncanplaythrough = () => {
-            iconSpan.textContent = 'stop';
-            iconSpan.classList.remove('animate-spin');
-            button.disabled = false;
-            audio.play();
-        };
-        
-        audio.onended = () => {
-            iconSpan.textContent = 'play_arrow';
-            currentPreviewAudio = null;
-            currentPreviewVoiceId = null;
-        };
-        
-        audio.onerror = () => {
-            iconSpan.textContent = 'play_arrow';
-            iconSpan.classList.remove('animate-spin');
-            button.disabled = false;
-            currentPreviewAudio = null;
-            currentPreviewVoiceId = null;
-            console.error('Failed to load voice sample');
-        };
-        
-        audio.load();
-        
-    } catch (error) {
-        console.error('Failed to play preview:', error);
-        iconSpan.textContent = 'play_arrow';
-        iconSpan.classList.remove('animate-spin');
-        button.disabled = false;
-    }
+    return;
+  }
+
+  // Stop any currently playing preview
+  stopVoicePreview();
+
+  // Show loading state
+  iconSpan.textContent = "hourglass_empty";
+  iconSpan.classList.add("animate-spin");
+  button.disabled = true;
+
+  try {
+    // Fetch and play the sample
+    const audio = new Audio(`/api/voice-sample/${voiceId}`);
+    currentPreviewAudio = audio;
+    currentPreviewVoiceId = voiceId;
+
+    audio.oncanplaythrough = () => {
+      iconSpan.textContent = "stop";
+      iconSpan.classList.remove("animate-spin");
+      button.disabled = false;
+      audio.play();
+    };
+
+    audio.onended = () => {
+      iconSpan.textContent = "play_arrow";
+      currentPreviewAudio = null;
+      currentPreviewVoiceId = null;
+    };
+
+    audio.onerror = () => {
+      iconSpan.textContent = "play_arrow";
+      iconSpan.classList.remove("animate-spin");
+      button.disabled = false;
+      currentPreviewAudio = null;
+      currentPreviewVoiceId = null;
+      console.error("Failed to load voice sample");
+    };
+
+    audio.load();
+  } catch (error) {
+    console.error("Failed to play preview:", error);
+    iconSpan.textContent = "play_arrow";
+    iconSpan.classList.remove("animate-spin");
+    button.disabled = false;
+  }
 }
 
 function stopVoicePreview() {
-    if (currentPreviewAudio) {
-        currentPreviewAudio.pause();
-        currentPreviewAudio.currentTime = 0;
-        currentPreviewAudio = null;
-    }
-    
-    // Reset all preview buttons
-    document.querySelectorAll('.preview-btn span').forEach(span => {
-        span.textContent = 'play_arrow';
-        span.classList.remove('animate-spin');
-    });
-    document.querySelectorAll('.preview-btn').forEach(btn => {
-        btn.disabled = false;
-    });
-    
-    currentPreviewVoiceId = null;
+  if (currentPreviewAudio) {
+    currentPreviewAudio.pause();
+    currentPreviewAudio.currentTime = 0;
+    currentPreviewAudio = null;
+  }
+
+  // Reset all preview buttons
+  document.querySelectorAll(".preview-btn span").forEach((span) => {
+    span.textContent = "play_arrow";
+    span.classList.remove("animate-spin");
+  });
+  document.querySelectorAll(".preview-btn").forEach((btn) => {
+    btn.disabled = false;
+  });
+
+  currentPreviewVoiceId = null;
 }
 
 function selectVoice(voiceId) {
-    state.selectedVoice = voiceId;
-    document.querySelectorAll('.voice-card').forEach(card => {
-        card.classList.toggle('selected', card.onclick.toString().includes(voiceId));
-    });
-    loadVoices(); // Re-render to update selection
+  state.selectedVoice = voiceId;
+  document.querySelectorAll(".voice-card").forEach((card) => {
+    card.classList.toggle(
+      "selected",
+      card.onclick.toString().includes(voiceId),
+    );
+  });
+  loadVoices(); // Re-render to update selection
 }
 
 function handleFileSelect(file) {
-    const validExts = ['.txt', '.md', '.epub', '.pdf'];
-    const ext = file.name.toLowerCase().substring(file.name.lastIndexOf('.'));
-    
-    if (!validExts.includes(ext)) {
-        alert('Unsupported file type. Please use TXT, MD, EPUB, or PDF.');
-        return;
-    }
-    
-    if (file.size > 50 * 1024 * 1024) {
-        alert('File too large. Maximum size is 50MB.');
-        return;
-    }
-    
-    state.selectedFile = file;
-    
-    document.getElementById('upload-content').classList.add('hidden');
-    document.getElementById('file-selected').classList.remove('hidden');
-    document.getElementById('selected-filename').textContent = file.name;
-    document.getElementById('selected-filesize').textContent = formatFileSize(file.size);
-    document.getElementById('convert-btn').disabled = false;
+  const validExts = [".txt", ".md", ".epub", ".pdf"];
+  const ext = file.name.toLowerCase().substring(file.name.lastIndexOf("."));
+
+  if (!validExts.includes(ext)) {
+    alert("Unsupported file type. Please use TXT, MD, EPUB, or PDF.");
+    return;
+  }
+
+  if (file.size > 50 * 1024 * 1024) {
+    alert("File too large. Maximum size is 50MB.");
+    return;
+  }
+
+  state.selectedFile = file;
+
+  document.getElementById("upload-content").classList.add("hidden");
+  document.getElementById("file-selected").classList.remove("hidden");
+  document.getElementById("selected-filename").textContent = file.name;
+  document.getElementById("selected-filesize").textContent = formatFileSize(
+    file.size,
+  );
+  document.getElementById("convert-btn").disabled = false;
 }
 
 function clearFile() {
-    state.selectedFile = null;
-    document.getElementById('upload-content').classList.remove('hidden');
-    document.getElementById('file-selected').classList.add('hidden');
-    document.getElementById('convert-btn').disabled = true;
-    document.getElementById('file-input').value = '';
+  state.selectedFile = null;
+  document.getElementById("upload-content").classList.remove("hidden");
+  document.getElementById("file-selected").classList.add("hidden");
+  document.getElementById("convert-btn").disabled = true;
+  document.getElementById("file-input").value = "";
 }
 
 function setQuality(quality) {
-    state.audioSettings.quality = quality;
-    document.querySelectorAll('.quality-btn').forEach(btn => {
-        btn.classList.toggle('bg-primary', btn.dataset.quality === quality);
-        btn.classList.toggle('bg-dark-600', btn.dataset.quality !== quality);
-    });
+  state.audioSettings.quality = quality;
+  document.querySelectorAll(".quality-btn").forEach((btn) => {
+    btn.classList.toggle("bg-primary", btn.dataset.quality === quality);
+    btn.classList.toggle("bg-dark-600", btn.dataset.quality !== quality);
+  });
 }
 
-function setFormat(format) {
-    state.audioSettings.format = format;
-    document.querySelectorAll('.format-btn').forEach(btn => {
-        btn.classList.toggle('bg-primary', btn.dataset.format === format);
-        btn.classList.toggle('bg-dark-600', btn.dataset.format !== format);
-    });
+function toggleFootnoteRemoval(type) {
+  if (type === "square") {
+    state.audioSettings.removeSquareBracketNumbers =
+      !state.audioSettings.removeSquareBracketNumbers;
+  } else if (type === "paren") {
+    state.audioSettings.removeParenNumbers =
+      !state.audioSettings.removeParenNumbers;
+  }
+  document.querySelectorAll(".footnote-toggle-btn").forEach((btn) => {
+    const ft = btn.dataset.footnote;
+    const isOn =
+      ft === "square"
+        ? state.audioSettings.removeSquareBracketNumbers
+        : state.audioSettings.removeParenNumbers;
+    btn.classList.toggle("bg-primary", isOn);
+    btn.classList.toggle("bg-dark-600", !isOn);
+    btn.classList.toggle("hover:bg-dark-700", !isOn);
+  });
 }
 
 async function startConversion() {
-    if (!state.selectedFile) return;
-    
-    const btn = document.getElementById('convert-btn');
-    btn.disabled = true;
-    btn.innerHTML = '<span class="material-symbols-outlined align-middle mr-2 animate-spin">progress_activity</span>Uploading...';
-    
-    try {
-        // Upload file
-        const uploadResult = await api.upload(state.selectedFile);
-        state.currentJob = uploadResult;
-        
-        // Start generation
-        await api.generate(uploadResult.job_id, {
-            voice: state.selectedVoice,
-            ...state.audioSettings
-        });
-        
-        // Switch to progress view
-        showView('progress');
-        
-    } catch (error) {
-        alert('Error: ' + error.message);
-        btn.disabled = false;
-        btn.innerHTML = '<span class="material-symbols-outlined align-middle mr-2">play_circle</span>Start Conversion';
-    }
+  if (!state.selectedFile) return;
+
+  const btn = document.getElementById("convert-btn");
+  btn.disabled = true;
+  btn.innerHTML =
+    '<span class="material-symbols-outlined align-middle mr-2 animate-spin">progress_activity</span>Uploading...';
+
+  try {
+    // Upload file
+    const uploadResult = await api.upload(state.selectedFile);
+    state.currentJob = uploadResult;
+
+    // Start generation
+    await api.generate(uploadResult.job_id, {
+      voice: state.selectedVoice,
+      ...state.audioSettings,
+    });
+
+    // Switch to progress view
+    showView("progress");
+  } catch (error) {
+    alert("Error: " + error.message);
+    btn.disabled = false;
+    btn.innerHTML =
+      '<span class="material-symbols-outlined align-middle mr-2">play_circle</span>Start Conversion';
+  }
 }
 
 // ============================================
@@ -510,7 +538,7 @@ async function startConversion() {
 // ============================================
 
 function renderProgressView() {
-    return `
+  return `
         <div class="glass rounded-2xl p-8">
             <div class="text-center mb-8">
                 <!-- Circular Progress -->
@@ -561,91 +589,105 @@ function renderProgressView() {
 let progressInterval = null;
 
 function initProgressView() {
-    // Start polling for status
-    pollStatus();
-    progressInterval = setInterval(pollStatus, 2000);
+  // Start polling for status
+  pollStatus();
+  progressInterval = setInterval(pollStatus, 2000);
 }
 
 async function pollStatus() {
-    if (!state.currentJob) return;
-    
-    try {
-        const status = await api.getStatus(state.currentJob.job_id);
-        
-        // Update progress ring
-        const circle = document.getElementById('progress-circle');
-        const percent = document.getElementById('progress-percent');
-        const chapter = document.getElementById('progress-chapter');
-        
-        const circumference = 553;
-        const offset = circumference - (status.progress / 100) * circumference;
-        circle.style.strokeDashoffset = offset;
-        percent.textContent = `${Math.round(status.progress)}%`;
-        
-        if (status.current_chapter > 0) {
-            chapter.textContent = `Chapter ${status.current_chapter}/${status.total_chapters}`;
-        }
-        
-        // Update stats
-        document.getElementById('time-remaining').textContent = status.time_remaining || 'Calculating...';
-        document.getElementById('processing-rate').textContent = status.processing_rate || '--';
-        
-        // Update activity log
-        const logContainer = document.getElementById('activity-log');
-        logContainer.innerHTML = status.activity_log.map(entry => {
-            const icon = entry.status === 'success' ? 'check_circle' : 
-                        entry.status === 'error' ? 'error' : 
-                        entry.status === 'warning' ? 'warning' : 'info';
-            const color = entry.status === 'success' ? 'text-green-400' : 
-                         entry.status === 'error' ? 'text-red-400' : 
-                         entry.status === 'warning' ? 'text-yellow-400' : 'text-gray-400';
-            return `
+  if (!state.currentJob) return;
+
+  try {
+    const status = await api.getStatus(state.currentJob.job_id);
+
+    // Update progress ring
+    const circle = document.getElementById("progress-circle");
+    const percent = document.getElementById("progress-percent");
+    const chapter = document.getElementById("progress-chapter");
+
+    const circumference = 553;
+    const offset = circumference - (status.progress / 100) * circumference;
+    circle.style.strokeDashoffset = offset;
+    percent.textContent = `${Math.round(status.progress)}%`;
+
+    if (status.current_chapter > 0) {
+      chapter.textContent = `Chapter ${status.current_chapter}/${status.total_chapters}`;
+    }
+
+    // Update stats
+    document.getElementById("time-remaining").textContent =
+      status.time_remaining || "Calculating...";
+    document.getElementById("processing-rate").textContent =
+      status.processing_rate || "--";
+
+    // Update activity log
+    const logContainer = document.getElementById("activity-log");
+    logContainer.innerHTML = status.activity_log
+      .map((entry) => {
+        const icon =
+          entry.status === "success"
+            ? "check_circle"
+            : entry.status === "error"
+              ? "error"
+              : entry.status === "warning"
+                ? "warning"
+                : "info";
+        const color =
+          entry.status === "success"
+            ? "text-green-400"
+            : entry.status === "error"
+              ? "text-red-400"
+              : entry.status === "warning"
+                ? "text-yellow-400"
+                : "text-gray-400";
+        return `
                 <div class="flex items-start gap-2">
                     <span class="material-symbols-outlined ${color} text-sm">${icon}</span>
                     <span class="text-gray-300">${entry.message}</span>
                 </div>
             `;
-        }).join('');
-        logContainer.scrollTop = logContainer.scrollHeight;
-        
-        // Check if completed
-        if (status.status === 'completed') {
-            clearInterval(progressInterval);
-            document.getElementById('cancel-btn').classList.add('hidden');
-            
-            // Show completion UI
-            document.getElementById('progress-fill').style.width = '100%';
-            document.getElementById('progress-text').textContent = '100%';
-            document.getElementById('current-step').textContent = 'Conversion Complete!';
-            document.getElementById('time-remaining').textContent = 'Ready to play';
-            
-            // After a brief moment, open the player
-            setTimeout(() => {
-                showPlayer(state.currentJob.job_id);
-            }, 1500);
-        } else if (status.status === 'failed' || status.status === 'cancelled') {
-            clearInterval(progressInterval);
-            alert('Conversion ' + status.status);
-            showView('upload');
-        }
-        
-    } catch (error) {
-        console.error('Status poll failed:', error);
+      })
+      .join("");
+    logContainer.scrollTop = logContainer.scrollHeight;
+
+    // Check if completed
+    if (status.status === "completed") {
+      clearInterval(progressInterval);
+      document.getElementById("cancel-btn").classList.add("hidden");
+
+      // Show completion UI
+      document.getElementById("progress-fill").style.width = "100%";
+      document.getElementById("progress-text").textContent = "100%";
+      document.getElementById("current-step").textContent =
+        "Conversion Complete!";
+      document.getElementById("time-remaining").textContent = "Ready to play";
+
+      // After a brief moment, open the player
+      setTimeout(() => {
+        showPlayer(state.currentJob.job_id);
+      }, 1500);
+    } else if (status.status === "failed" || status.status === "cancelled") {
+      clearInterval(progressInterval);
+      alert("Conversion " + status.status);
+      showView("upload");
     }
+  } catch (error) {
+    console.error("Status poll failed:", error);
+  }
 }
 
 async function cancelConversion() {
-    if (!state.currentJob) return;
-    
-    if (confirm('Are you sure you want to cancel this conversion?')) {
-        try {
-            await api.cancel(state.currentJob.job_id);
-            clearInterval(progressInterval);
-            showView('upload');
-        } catch (error) {
-            alert('Failed to cancel: ' + error.message);
-        }
+  if (!state.currentJob) return;
+
+  if (confirm("Are you sure you want to cancel this conversion?")) {
+    try {
+      await api.cancel(state.currentJob.job_id);
+      clearInterval(progressInterval);
+      showView("upload");
+    } catch (error) {
+      alert("Failed to cancel: " + error.message);
     }
+  }
 }
 
 // ============================================
@@ -653,7 +695,7 @@ async function cancelConversion() {
 // ============================================
 
 function renderDashboardView() {
-    return `
+  return `
         <div class="space-y-8">
             <!-- Welcome Section -->
             <div class="glass rounded-2xl p-6">
@@ -708,21 +750,22 @@ function renderDashboardView() {
 }
 
 async function initDashboardView() {
-    try {
-        const data = await api.getLibrary();
-        state.library = data.books;
-        
-        // Update welcome stats
-        const statsText = data.total > 0 
-            ? `You have ${data.total} audiobook${data.total > 1 ? 's' : ''} in your library${data.in_progress > 0 ? ` and ${data.in_progress} conversion${data.in_progress > 1 ? 's' : ''} in progress.` : '.'}`
-            : 'Start by uploading a book to convert.';
-        document.getElementById('welcome-stats').textContent = statsText;
-        
-        // Show activity panel if there are in-progress jobs
-        if (data.in_progress > 0) {
-            document.getElementById('activity-section').classList.remove('hidden');
-            // Activity cards would be populated by polling - for now show placeholder
-            document.getElementById('activity-cards').innerHTML = `
+  try {
+    const data = await api.getLibrary();
+    state.library = data.books;
+
+    // Update welcome stats
+    const statsText =
+      data.total > 0
+        ? `You have ${data.total} audiobook${data.total > 1 ? "s" : ""} in your library${data.in_progress > 0 ? ` and ${data.in_progress} conversion${data.in_progress > 1 ? "s" : ""} in progress.` : "."}`
+        : "Start by uploading a book to convert.";
+    document.getElementById("welcome-stats").textContent = statsText;
+
+    // Show activity panel if there are in-progress jobs
+    if (data.in_progress > 0) {
+      document.getElementById("activity-section").classList.remove("hidden");
+      // Activity cards would be populated by polling - for now show placeholder
+      document.getElementById("activity-cards").innerHTML = `
                 <div class="glass rounded-xl p-4">
                     <div class="flex justify-between items-start mb-3">
                         <div>
@@ -736,33 +779,37 @@ async function initDashboardView() {
                     </div>
                 </div>
             `;
-        }
-        
-        const grid = document.getElementById('library-grid');
-        const empty = document.getElementById('library-empty');
-        
-        if (data.books.length === 0) {
-            grid.classList.add('hidden');
-            empty.classList.remove('hidden');
-        } else {
-            renderLibraryGrid(data.books);
-        }
-        
-        // Set default sort button as active
-        document.querySelector('.sort-btn[data-sort="recent"]').classList.add('bg-dark-600');
-        
-    } catch (error) {
-        console.error('Failed to load library:', error);
-        document.getElementById('welcome-stats').textContent = 'Error loading library.';
     }
+
+    const grid = document.getElementById("library-grid");
+    const empty = document.getElementById("library-empty");
+
+    if (data.books.length === 0) {
+      grid.classList.add("hidden");
+      empty.classList.remove("hidden");
+    } else {
+      renderLibraryGrid(data.books);
+    }
+
+    // Set default sort button as active
+    document
+      .querySelector('.sort-btn[data-sort="recent"]')
+      .classList.add("bg-dark-600");
+  } catch (error) {
+    console.error("Failed to load library:", error);
+    document.getElementById("welcome-stats").textContent =
+      "Error loading library.";
+  }
 }
 
 /**
  * Render books into the library grid
  */
 function renderLibraryGrid(books) {
-    const grid = document.getElementById('library-grid');
-    grid.innerHTML = books.map(book => `
+  const grid = document.getElementById("library-grid");
+  grid.innerHTML = books
+    .map(
+      (book) => `
         <div class="glass rounded-xl p-4 cursor-pointer hover:border-primary transition relative group/card"
              onclick="showPlayer('${book.id}')">
             <!-- Delete Button -->
@@ -784,59 +831,69 @@ function renderLibraryGrid(books) {
                 </div>
             </div>
             <h4 class="font-medium truncate">${book.title}</h4>
-            <p class="text-sm text-gray-400">${book.total_chapters} chapters • ${book.total_duration || '--'}</p>
+            <p class="text-sm text-gray-400">${book.total_chapters} chapters • ${book.total_duration || "--"}</p>
         </div>
-    `).join('');
+    `,
+    )
+    .join("");
 }
 
 /**
  * Handle book deletion
  */
 async function deleteBook(event, bookId, title) {
-    event.stopPropagation();
-    
-    if (confirm(`Are you sure you want to delete "${title}"? This action cannot be undone.`)) {
-        // If this book is currently playing, stop and clear it
-        if (typeof playerState !== 'undefined' && playerState.book && playerState.book.id === bookId) {
-            console.log('Stopping player before deletion...');
-            if (playerState.audioElement) {
-                playerState.audioElement.pause();
-                playerState.audioElement.src = ""; // Clear source to release file handle
-                playerState.audioElement.load();
-            }
-            playerState.isPlaying = false;
-            playerState.book = null;
-        }
+  event.stopPropagation();
 
-        try {
-            await api.delete(bookId);
-            // Refresh library
-            await initDashboardView();
-        } catch (error) {
-            alert('Error: ' + error.message);
-        }
+  if (
+    confirm(
+      `Are you sure you want to delete "${title}"? This action cannot be undone.`,
+    )
+  ) {
+    // If this book is currently playing, stop and clear it
+    if (
+      typeof playerState !== "undefined" &&
+      playerState.book &&
+      playerState.book.id === bookId
+    ) {
+      console.log("Stopping player before deletion...");
+      if (playerState.audioElement) {
+        playerState.audioElement.pause();
+        playerState.audioElement.src = ""; // Clear source to release file handle
+        playerState.audioElement.load();
+      }
+      playerState.isPlaying = false;
+      playerState.book = null;
     }
+
+    try {
+      await api.delete(bookId);
+      // Refresh library
+      await initDashboardView();
+    } catch (error) {
+      alert("Error: " + error.message);
+    }
+  }
 }
 
 /**
  * Sort library by criteria
  */
 function sortLibrary(criteria) {
-    // Update button states
-    document.querySelectorAll('.sort-btn').forEach(btn => {
-        btn.classList.toggle('bg-dark-600', btn.dataset.sort === criteria);
-    });
-    
-    // Sort books
-    let sorted = [...state.library];
-    if (criteria === 'az') {
-        sorted.sort((a, b) => a.title.localeCompare(b.title));
-    } else {
-        // 'recent' - sort by created_at descending
-        sorted.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-    }
-    
-    renderLibraryGrid(sorted);
+  // Update button states
+  document.querySelectorAll(".sort-btn").forEach((btn) => {
+    btn.classList.toggle("bg-dark-600", btn.dataset.sort === criteria);
+  });
+
+  // Sort books
+  let sorted = [...state.library];
+  if (criteria === "az") {
+    sorted.sort((a, b) => a.title.localeCompare(b.title));
+  } else {
+    // 'recent' - sort by created_at descending
+    sorted.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+  }
+
+  renderLibraryGrid(sorted);
 }
 
 // ============================================
@@ -844,9 +901,9 @@ function sortLibrary(criteria) {
 // ============================================
 
 function formatFileSize(bytes) {
-    if (bytes < 1024) return bytes + ' B';
-    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
-    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+  if (bytes < 1024) return bytes + " B";
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
+  return (bytes / (1024 * 1024)).toFixed(1) + " MB";
 }
 
 /**
@@ -854,14 +911,14 @@ function formatFileSize(bytes) {
  * @param {string} bookId - ID of the book to play
  */
 function showPlayer(bookId) {
-    state.currentBook = bookId;
-    showView('player');
+  state.currentBook = bookId;
+  showView("player");
 }
 
 // ============================================
 // Initialize App
 // ============================================
 
-document.addEventListener('DOMContentLoaded', () => {
-    showView('upload');
+document.addEventListener("DOMContentLoaded", () => {
+  showView("upload");
 });

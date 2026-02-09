@@ -18,6 +18,7 @@ limitations under the License.
 """
 
 import os
+import re
 import asyncio
 from typing import Dict, Any
 
@@ -68,6 +69,29 @@ async def process_book(job: Job, config: Dict[str, Any]) -> None:
             f"Found {len(document.chapters)} chapters in '{document.title}'",
             "success",
         )
+
+        # Phase 1b: Remove footnote/number references if requested
+        strip_square = config.get("remove_square_bracket_numbers", False)
+        strip_paren = config.get("remove_paren_numbers", False)
+        if strip_square or strip_paren:
+            cleaned_chapters = []
+            for ch_title, ch_content in document.chapters:
+                if strip_square:
+                    ch_content = re.sub(r"\[\d+\]", "", ch_content)
+                if strip_paren:
+                    ch_content = re.sub(r"\(\d+\)", "", ch_content)
+                cleaned_chapters.append((ch_title, ch_content))
+            document.chapters = cleaned_chapters
+            removed = []
+            if strip_square:
+                removed.append("[N]")
+            if strip_paren:
+                removed.append("(N)")
+            job_manager._add_activity(
+                job,
+                f"Removed {' and '.join(removed)} footnote references from text",
+                "success",
+            )
 
         # Phase 2: Chunk the text
         job_manager._add_activity(job, "Preparing chapters for audio generation...")

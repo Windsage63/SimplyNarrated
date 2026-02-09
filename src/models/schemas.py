@@ -61,6 +61,12 @@ class GenerateRequest(BaseModel):
     speed: float = Field(default=1.0, ge=0.5, le=2.0, description="Playback speed")
     quality: AudioQuality = Field(default=AudioQuality.SD)
     format: AudioFormat = Field(default=AudioFormat.MP3)
+    remove_square_bracket_numbers: bool = Field(
+        default=False, description="Remove [N] footnote references from text"
+    )
+    remove_paren_numbers: bool = Field(
+        default=False, description="Remove (N) footnote references from text"
+    )
 
 
 class BookmarkRequest(BaseModel):
