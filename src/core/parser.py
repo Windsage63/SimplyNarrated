@@ -309,10 +309,10 @@ def _markdown_to_text(md: str) -> str:
     # Remove bold/italic markers
     text = re.sub(r"\*{1,2}([^*]+)\*{1,2}", r"\1", text)
     text = re.sub(r"_{1,2}([^_]+)_{1,2}", r"\1", text)
+    # Remove images (before links so ![alt](…) isn't partially matched)
+    text = re.sub(r"!\[[^\]]*\]\([^)]+\)", "", text)
     # Remove links, keep text
     text = re.sub(r"\[([^\]]+)\]\([^)]+\)", r"\1", text)
-    # Remove images
-    text = re.sub(r"!\[[^\]]*\]\([^)]+\)", "", text)
     # Remove code blocks
     text = re.sub(r"```[^`]*```", "", text, flags=re.DOTALL)
     text = re.sub(r"`([^`]+)`", r"\1", text)
