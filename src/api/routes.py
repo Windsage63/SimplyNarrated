@@ -410,11 +410,17 @@ async def delete_book(book_id: str):
         raise HTTPException(status_code=400, detail="Invalid book ID format")
 
     library = get_library_manager()
+    
+    # Check existence separate from deletion success
+    book_dir = library.get_book_dir(book_id)
+    if not os.path.exists(book_dir):
+        raise HTTPException(status_code=404, detail="Book not found")
+
     success = library.delete_book(book_id)
 
     if not success:
         raise HTTPException(
-            status_code=404, detail="Book not found or could not be deleted"
+            status_code=500, detail="The book files are currently in use. Please stop the player and try again."
         )
 
     return {"status": "success", "message": "Book deleted", "book_id": book_id}

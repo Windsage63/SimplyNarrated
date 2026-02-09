@@ -34,7 +34,7 @@ class TextChunk:
 
 
 # Maximum words per chunk
-MAX_WORDS_PER_CHUNK = 6000
+MAX_WORDS_PER_CHUNK = 4000
 
 # Approximate words per minute for speech
 WORDS_PER_MINUTE = 150
@@ -139,21 +139,69 @@ def chunk_chapters(
     chapters: List[Tuple[str, str]], max_words: int = MAX_WORDS_PER_CHUNK
 ) -> List[TextChunk]:
     """
-    Chunk a list of chapters, keeping chapter boundaries where possible.
+    Chunk a list of chapters, merging small ones together and splitting
+    large ones to respect max_words.
     """
-    all_chunks = []
+    final_chunks = []
+    current_bucket_text = []
+    current_bucket_word_count = 0
+    current_bucket_titles = []
     chunk_counter = 0
 
-    for title, content in chapters:
-        chapter_chunks = chunk_text(content, max_words, title)
+    def flush_bucket():
+        nonlocal chunk_counter
+        if not current_bucket_text:
+            return
 
-        # Update indices for global numbering
-        for chunk in chapter_chunks:
-            chunk.index = chunk_counter
-            all_chunks.append(chunk)
+        combined_text = "\n\n".join(current_bucket_text)
+        # Create a combined title for the merged chunk
+        if len(current_bucket_titles) > 1:
+            first = current_bucket_titles[0]
+            last = current_bucket_titles[-1]
+            bucket_title = f"{first} - {last}"
+        else:
+            bucket_title = current_bucket_titles[0]
+
+        # Use chunk_text to handle final padding/splitting if needed
+        bucket_chunks = chunk_text(combined_text, max_words, bucket_title)
+
+        for ch in bucket_chunks:
+            ch.index = chunk_counter
+            final_chunks.append(ch)
             chunk_counter += 1
 
-    return all_chunks
+        current_bucket_text.clear()
+        current_bucket_titles.clear()
+        return 0  # New count
+
+    for title, content in chapters:
+        words_in_chapter = count_words(content)
+
+        # If this chapter alone exceeds the limit, flush bucket and push through
+        if words_in_chapter > max_words:
+            current_bucket_word_count = flush_bucket()
+            chapter_chunks = chunk_text(content, max_words, title)
+            for ch in chapter_chunks:
+                ch.index = chunk_counter
+                final_chunks.append(ch)
+                chunk_counter += 1
+            continue
+
+        # If adding this chapter exceeds the limit, flush current bucket
+        if (
+            current_bucket_word_count + words_in_chapter > max_words
+            and current_bucket_text
+        ):
+            current_bucket_word_count = flush_bucket()
+
+        current_bucket_text.append(content)
+        current_bucket_titles.append(title)
+        current_bucket_word_count += words_in_chapter
+
+    # Final flush
+    flush_bucket()
+
+    return final_chunks
 
 
 def get_total_duration(chunks: List[TextChunk]) -> str:

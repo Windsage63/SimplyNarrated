@@ -202,18 +202,30 @@ class LibraryManager:
     def delete_book(self, book_id: str) -> bool:
         """Delete a book and all its files."""
         import shutil
+        import time
 
         book_dir = self.get_book_dir(book_id)
 
         if not os.path.exists(book_dir):
             return False
 
-        try:
-            shutil.rmtree(book_dir)
-            return True
-        except Exception as e:
-            print(f"Error deleting book {book_id}: {e}")
-            return False
+        # Try to delete multiple times (helps on Windows if files are temporarily locked)
+        max_retries = 3
+        retry_delay = 0.5  # seconds
+
+        for i in range(max_retries):
+            try:
+                shutil.rmtree(book_dir)
+                return True
+            except Exception as e:
+                # If it's the last attempt, log the error
+                if i == max_retries - 1:
+                    print(f"Error deleting book {book_id}: {e}")
+                    return False
+                # Wait before retrying
+                time.sleep(retry_delay)
+        
+        return False
 
     def count_in_progress(self, active_jobs: Dict[str, Any]) -> int:
         """Count how many jobs are currently in progress."""

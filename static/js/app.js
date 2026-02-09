@@ -797,6 +797,18 @@ async function deleteBook(event, bookId, title) {
     event.stopPropagation();
     
     if (confirm(`Are you sure you want to delete "${title}"? This action cannot be undone.`)) {
+        // If this book is currently playing, stop and clear it
+        if (typeof playerState !== 'undefined' && playerState.book && playerState.book.id === bookId) {
+            console.log('Stopping player before deletion...');
+            if (playerState.audioElement) {
+                playerState.audioElement.pause();
+                playerState.audioElement.src = ""; // Clear source to release file handle
+                playerState.audioElement.load();
+            }
+            playerState.isPlaying = false;
+            playerState.book = null;
+        }
+
         try {
             await api.delete(bookId);
             // Refresh library
