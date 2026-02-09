@@ -26,7 +26,7 @@ BookTalk is a local web application that converts books and text documents (`.tx
 
 - **Choice:** All processing runs on user's local machine
 - **Rationale:** Privacy-focused, no cloud costs, works offline after model download
-- **Trade-offs:** Requires GPU (or slower CPU inference), user must install Python
+- **Trade-offs:** Requires GPU (or slower CPU inference), user must install Python and PyTorch
 
 ### Decision 2: Chapter-Based Output
 
@@ -34,11 +34,10 @@ BookTalk is a local web application that converts books and text documents (`.tx
 - **Rationale:** Easier to navigate, resume listening, smaller file sizes for processing
 - **Trade-offs:** Multiple files to manage vs. single concatenated audiobook
 
-### Decision 3: Two-Voice System (Narrator + Dialogue)
+### Decision 3: Single Voice System
 
-- **Choice:** Users select one narrator voice and one dialogue voice
-- **Rationale:** Balances complexity vs. usability for non-technical users
-- **Trade-offs:** Less flexibility than per-character voice assignment
+- **Choice:** Users select one narrator voice
+- **Rationale:** Simpler to implement and use
 
 ### Decision 4: Smart Chunking Strategy
 
@@ -51,6 +50,12 @@ BookTalk is a local web application that converts books and text documents (`.tx
 - **Choice:** 5 distinct views managed via JavaScript routing
 - **Rationale:** Stitch UI designs show comprehensive user experience beyond basic converter
 - **Trade-offs:** More complex frontend, requires state management
+
+### Decision 6: File-Based Persistence
+
+- **Choice:** All metadata and user data stored in JSON files within the `data/` directory.
+- **Rationale:** Simplicity, portability, and zero-dependency database setup.
+- **Constraint:** No SQLite or other database engines are desired. Every data point must be traceable to a JSON file.
 
 ## 4. UI Screens (From Stitch Designs)
 

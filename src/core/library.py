@@ -34,6 +34,7 @@ class BookMetadata:
     title: str
     author: Optional[str] = None
     source_file: Optional[str] = None
+    original_filename: Optional[str] = None
     voice: Optional[str] = None
     total_chapters: int = 0
     total_duration: Optional[str] = None
@@ -113,6 +114,7 @@ class LibraryManager:
                 title=data.get("title", "Unknown Title"),
                 author=data.get("author"),
                 cover_url=data.get("cover_url"),
+                original_filename=data.get("original_filename"),
                 total_chapters=data.get("total_chapters", len(chapters)),
                 total_duration=data.get("total_duration"),
                 created_at=datetime.fromisoformat(

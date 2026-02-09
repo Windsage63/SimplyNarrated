@@ -126,6 +126,17 @@ const api = {
             method: 'POST'
         });
         return response.json();
+    },
+    
+    async delete(bookId) {
+        const response = await fetch(`${this.baseUrl}/book/${bookId}`, {
+            method: 'DELETE'
+        });
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.detail || 'Failed to delete book');
+        }
+        return response.json();
     }
 };
 
@@ -753,8 +764,16 @@ async function initDashboardView() {
 function renderLibraryGrid(books) {
     const grid = document.getElementById('library-grid');
     grid.innerHTML = books.map(book => `
-        <div class="glass rounded-xl p-4 cursor-pointer hover:border-primary transition"
+        <div class="glass rounded-xl p-4 cursor-pointer hover:border-primary transition relative group/card"
              onclick="showPlayer('${book.id}')">
+            <!-- Delete Button -->
+            <button onclick="deleteBook(event, '${book.id}', '${book.title.replace(/'/g, "\\'")}')"
+                    class="absolute top-2 right-2 z-10 w-8 h-8 rounded-full bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white 
+                           flex items-center justify-center opacity-0 group-hover/card:opacity-100 transition duration-200"
+                    title="Delete audiobook">
+                <span class="material-symbols-outlined text-sm">delete</span>
+            </button>
+
             <div class="aspect-[3/4] bg-gradient-to-br from-primary/30 via-dark-600 to-primary/10 
                         rounded-lg mb-3 flex items-center justify-center relative group">
                 <span class="material-symbols-outlined text-4xl text-gray-500">menu_book</span>
@@ -769,6 +788,23 @@ function renderLibraryGrid(books) {
             <p class="text-sm text-gray-400">${book.total_chapters} chapters • ${book.total_duration || '--'}</p>
         </div>
     `).join('');
+}
+
+/**
+ * Handle book deletion
+ */
+async function deleteBook(event, bookId, title) {
+    event.stopPropagation();
+    
+    if (confirm(`Are you sure you want to delete "${title}"? This action cannot be undone.`)) {
+        try {
+            await api.delete(bookId);
+            // Refresh library
+            await initDashboardView();
+        } catch (error) {
+            alert('Error: ' + error.message);
+        }
+    }
 }
 
 /**

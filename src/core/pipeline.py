@@ -43,6 +43,21 @@ async def process_book(job: Job, config: Dict[str, Any]) -> None:
     job_manager = get_job_manager()
 
     try:
+        # Move source file from uploads to book's library directory
+        import shutil
+
+        source_ext = os.path.splitext(job.file_path)[1]
+        new_source_path = os.path.join(job.output_dir, f"source{source_ext}")
+
+        try:
+            shutil.move(job.file_path, new_source_path)
+            job.file_path = new_source_path
+            job_manager._add_activity(job, "Source file moved to library", "info")
+        except Exception as e:
+            job_manager._add_activity(
+                job, f"Note: Source file already in place or move failed: {e}", "info"
+            )
+
         # Phase 1: Parse the file
         job_manager._add_activity(job, "Extracting text from file...")
         await asyncio.sleep(0.1)  # Yield to event loop
@@ -161,6 +176,7 @@ async def process_book(job: Job, config: Dict[str, Any]) -> None:
             "title": document.title,
             "author": document.author,
             "source_file": os.path.basename(job.file_path),
+            "original_filename": job.filename,
             "voice": voice_id,
             "total_chapters": len(chunks),
             "total_duration": total_duration,

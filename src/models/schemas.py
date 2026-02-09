@@ -143,6 +143,7 @@ class BookInfo(BaseModel):
     total_chapters: int
     total_duration: Optional[str] = None
     created_at: datetime
+    original_filename: Optional[str] = None
     chapters: List[ChapterInfo] = []
 
 

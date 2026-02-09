@@ -329,6 +329,7 @@ async def get_book(book_id: str):
 async def stream_audio(book_id: str, chapter: int):
     """
     Stream or download a chapter's audio file.
+    Supports both .mp3 and .wav formats.
     """
     # Validate book_id format to prevent path traversal
     if not re.match(r"^[a-f0-9-]{36}$", book_id):
@@ -337,26 +338,31 @@ async def stream_audio(book_id: str, chapter: int):
     job_manager = get_job_manager()
     library = get_library_manager()
 
-    # Check if this is an active job
+    # Try both mp3 and wav extensions
+    extensions = [(".mp3", "audio/mpeg"), (".wav", "audio/wav")]
+
+    # 1. Check if this is an active job
     job = job_manager.get_job(book_id)
     if job and job.output_dir:
-        audio_path = os.path.join(job.output_dir, f"chapter_{chapter:02d}.mp3")
+        for ext, media_type in extensions:
+            audio_path = os.path.join(job.output_dir, f"chapter_{chapter:02d}{ext}")
+            if os.path.exists(audio_path):
+                return FileResponse(
+                    audio_path,
+                    media_type=media_type,
+                    filename=f"chapter_{chapter:02d}{ext}",
+                )
+
+    # 2. Check library path
+    book_dir = library.get_book_dir(book_id)
+    for ext, media_type in extensions:
+        audio_path = os.path.join(book_dir, f"chapter_{chapter:02d}{ext}")
         if os.path.exists(audio_path):
             return FileResponse(
                 audio_path,
-                media_type="audio/mpeg",
-                filename=f"chapter_{chapter:02d}.mp3",
+                media_type=media_type,
+                filename=f"chapter_{chapter:02d}{ext}",
             )
-
-    # Check library path
-    book_dir = library.get_book_dir(book_id)
-    audio_path = os.path.join(book_dir, f"chapter_{chapter:02d}.mp3")
-    if os.path.exists(audio_path):
-        return FileResponse(
-            audio_path,
-            media_type="audio/mpeg",
-            filename=f"chapter_{chapter:02d}.mp3",
-        )
 
     raise HTTPException(status_code=404, detail="Audio file not found")
 
@@ -396,3 +402,23 @@ async def get_bookmark(book_id: str):
         "position": bookmark.position,
         "updated_at": bookmark.updated_at,
     }
+
+
+@router.delete("/book/{book_id}")
+async def delete_book(book_id: str):
+    """
+    Delete a book from the library.
+    """
+    # Validate book_id format to prevent path traversal
+    if not re.match(r"^[a-f0-9-]{36}$", book_id.lower()):
+        raise HTTPException(status_code=400, detail="Invalid book ID format")
+
+    library = get_library_manager()
+    success = library.delete_book(book_id)
+
+    if not success:
+        raise HTTPException(
+            status_code=404, detail="Book not found or could not be deleted"
+        )
+
+    return {"status": "success", "message": "Book deleted", "book_id": book_id}
