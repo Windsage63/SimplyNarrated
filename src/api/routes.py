@@ -49,12 +49,7 @@ MAX_FILE_SIZE = 50 * 1024 * 1024  # 50 MB
 
 # Sample quotes for voice previews - short, varied content
 SAMPLE_QUOTES = [
-    "The quick brown fox jumps over the lazy dog.",
-    "To be, or not to be, that is the question.",
-    "It was the best of times, it was the worst of times.",
-    "Hello! I'm your narrator for this audiobook adventure.",
-    "In a hole in the ground there lived a hobbit.",
-    "All happy families are alike; each unhappy family is unhappy in its own way.",
+    "Welcome to your audiobook library, where every story is unique and every voice has a tale to tell. Discover the magic of storytelling with our diverse range of voices, each ready to narrate your favorite books, and to bring your stories to life with the perfect voice.",
 ]
 
 
