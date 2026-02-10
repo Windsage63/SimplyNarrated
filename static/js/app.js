@@ -1,5 +1,5 @@
 /**
- * @fileoverview BookTalk - Main JavaScript Application, SPA routing, state management, and API client
+ * @fileoverview SimplyNarrated - Main JavaScript Application, SPA routing, state management, and API client
  * @author Timothy Mallory <windsage@live.com>
  * @license Apache-2.0
  * @copyright 2026 Timothy Mallory <windsage@live.com>

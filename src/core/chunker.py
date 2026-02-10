@@ -1,5 +1,5 @@
 """
-@fileoverview BookTalk - Text Chunker, Split text into manageable chunks for TTS processing
+@fileoverview SimplyNarrated - Text Chunker, Split text into manageable chunks for TTS processing
 @author Timothy Mallory <windsage@live.com>
 @license Apache-2.0
 @copyright 2026 Timothy Mallory <windsage@live.com>

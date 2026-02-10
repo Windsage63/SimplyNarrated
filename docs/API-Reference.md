@@ -1,10 +1,10 @@
-# BookTalk API Reference
+# SimplyNarrated API Reference
 
 Base URL: `/api`
 
 ## Overview
 
-The BookTalk API provides endpoints for file upload, text-to-speech generation, job management, and library access.
+The SimplyNarrated API provides endpoints for file upload, text-to-speech generation, job management, and library access.
 
 ## Endpoints
 
@@ -93,9 +93,16 @@ The BookTalk API provides endpoints for file upload, text-to-speech generation, 
       },
       ...
     ],
-    "total": 8
+    "total": 28
   }
   ```
+
+#### Get Voice Sample
+
+- **Method**: `GET`
+- **Path**: `/voice-sample/{voice_id}`
+- **Description**: Retrieve or generate a 3-second MP3 preview for a voice.
+- **Response**: `audio/mpeg` file stream.
 
 ### Library
 

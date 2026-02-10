@@ -1,5 +1,5 @@
 """
-@fileoverview BookTalk - Library Manager, File-based persistence for audiobook library using JSON metadata files
+@fileoverview SimplyNarrated - Library Manager, File-based persistence for audiobook library using JSON metadata files
 @author Timothy Mallory <windsage@live.com>
 @license Apache-2.0
 @copyright 2026 Timothy Mallory <windsage@live.com>

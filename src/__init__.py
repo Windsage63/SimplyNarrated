@@ -1,5 +1,5 @@
 """
-@fileoverview BookTalk - src package
+@fileoverview SimplyNarrated - src package
 @author Timothy Mallory <windsage@live.com>
 @license Apache-2.0
 @copyright 2026 Timothy Mallory <windsage@live.com>

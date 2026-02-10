@@ -1,5 +1,5 @@
 """
-Shared test fixtures for BookTalk test suite.
+Shared test fixtures for SimplyNarrated test suite.
 """
 
 import os

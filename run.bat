@@ -11,7 +11,7 @@ if not exist ".venv\Scripts\activate.bat" (
 
 call .venv\Scripts\activate.bat
 
-echo Starting BookTalk application...
+echo Starting SimplyNarrated application...
 echo URL: http://localhost:8010
 start http://localhost:8010
 python -m uvicorn src.main:app --reload --port 8010

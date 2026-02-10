@@ -1,5 +1,5 @@
 /**
- * @fileoverview BookTalk - Audiobook Player View, Full-featured audiobook player adapted from Stitch design
+ * @fileoverview SimplyNarrated - Audiobook Player View, Full-featured audiobook player adapted from Stitch design
  * @author Timothy Mallory <windsage@live.com>
  * @license Apache-2.0
  * @copyright 2026 Timothy Mallory <windsage@live.com>

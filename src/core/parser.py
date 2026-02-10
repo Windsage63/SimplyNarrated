@@ -1,5 +1,5 @@
 """
-@fileoverview BookTalk - File Parser, Extract and normalize text from various file formats
+@fileoverview SimplyNarrated - File Parser, Extract and normalize text from various file formats
 @author Timothy Mallory <windsage@live.com>
 @license Apache-2.0
 @copyright 2026 Timothy Mallory <windsage@live.com>

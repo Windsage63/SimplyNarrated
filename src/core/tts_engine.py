@@ -1,5 +1,5 @@
 """
-@fileoverview BookTalk - TTS Engine, Wrapper for Kokoro-82M text-to-speech model
+@fileoverview SimplyNarrated - TTS Engine, Wrapper for Kokoro-82M text-to-speech model
 @author Timothy Mallory <windsage@live.com>
 @license Apache-2.0
 @copyright 2026 Timothy Mallory <windsage@live.com>

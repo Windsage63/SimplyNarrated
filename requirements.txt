@@ -1,4 +1,4 @@
-# BookTalk Dependencies
+# SimplyNarrated Dependencies
 # Tested for Python 3.12 with Kokoro TTS
 
 # ============================================

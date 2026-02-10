@@ -1,5 +1,5 @@
 /**
- * @fileoverview BookTalk - Progress View, conversion progress tracking and status polling
+ * @fileoverview SimplyNarrated - Progress View, conversion progress tracking and status polling
  * @author Timothy Mallory <windsage@live.com>
  * @license Apache-2.0
  * @copyright 2026 Timothy Mallory <windsage@live.com>

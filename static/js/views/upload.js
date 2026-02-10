@@ -1,5 +1,5 @@
 /**
- * @fileoverview BookTalk - Upload View, file upload, voice selection, and audio settings
+ * @fileoverview SimplyNarrated - Upload View, file upload, voice selection, and audio settings
  * @author Timothy Mallory <windsage@live.com>
  * @license Apache-2.0
  * @copyright 2026 Timothy Mallory <windsage@live.com>

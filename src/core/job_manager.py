@@ -1,5 +1,5 @@
 """
-@fileoverview BookTalk - Job Manager, Handles conversion job state management and background task execution
+@fileoverview SimplyNarrated - Job Manager, Handles conversion job state management and background task execution
 @author Timothy Mallory <windsage@live.com>
 @license Apache-2.0
 @copyright 2026 Timothy Mallory <windsage@live.com>

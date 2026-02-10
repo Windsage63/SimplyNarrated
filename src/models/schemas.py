@@ -1,5 +1,5 @@
 """
-@fileoverview BookTalk - Pydantic schemas for API requests and responses
+@fileoverview SimplyNarrated - Pydantic schemas for API requests and responses
 @author Timothy Mallory <windsage@live.com>
 @license Apache-2.0
 @copyright 2026 Timothy Mallory <windsage@live.com>

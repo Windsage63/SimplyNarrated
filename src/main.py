@@ -1,5 +1,5 @@
 """
-@fileoverview BookTalk - Text-to-Audiobook Conversion Application, Main FastAPI entry point
+@fileoverview SimplyNarrated - Text-to-Audiobook Conversion Application, Main FastAPI entry point
 @author Timothy Mallory <windsage@live.com>
 @license Apache-2.0
 @copyright 2026 Timothy Mallory <windsage@live.com>
@@ -60,7 +60,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="BookTalk",
+    title="SimplyNarrated",
     description="Convert books and text documents to audiobooks using AI",
     version="0.1.0",
     lifespan=lifespan,

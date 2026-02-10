@@ -1,5 +1,5 @@
 """
-@fileoverview BookTalk - API Routes, All REST API endpoints for the application
+@fileoverview SimplyNarrated - API Routes, All REST API endpoints for the application
 @author Timothy Mallory <windsage@live.com>
 @license Apache-2.0
 @copyright 2026 Timothy Mallory <windsage@live.com>

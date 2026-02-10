@@ -1,5 +1,5 @@
 """
-@fileoverview BookTalk - Audio Encoder, Convert raw audio to MP3/WAV and manage chapter files
+@fileoverview SimplyNarrated - Audio Encoder, Convert raw audio to MP3/WAV and manage chapter files
 @author Timothy Mallory <windsage@live.com>
 @license Apache-2.0
 @copyright 2026 Timothy Mallory <windsage@live.com>

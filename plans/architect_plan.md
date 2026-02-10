@@ -1,11 +1,11 @@
-# BookTalk - Architectural Blueprint
+# SimplyNarrated - Architectural Blueprint
 
 > **Text-to-Audiobook Conversion Application**
 > Using Kokoro-82M TTS with FastAPI Backend
 
 ## 1. Executive Summary
 
-BookTalk is a local web application that converts books and text documents (`.txt`, `.md`, `.epub`, `.pdf`) into audiobooks saved as MP3 chapter files. Designed for non-technical users, it provides a polished multi-page interface with a landing page, file upload/configuration screen, conversion progress tracker, audiobook player, and user dashboard. The system uses the Kokoro-82M model running locally on GPU for high-quality, expressive speech synthesis.
+SimplyNarrated is a local web application that converts books and text documents (`.txt`, `.md`, `.epub`, `.pdf`) into audiobooks saved as MP3 chapter files. Designed for non-technical users, it provides a polished multi-page interface with a landing page, file upload/configuration screen, conversion progress tracker, audiobook player, and user dashboard. The system uses the Kokoro-82M model running locally on GPU for high-quality, expressive speech synthesis.
 
 ## 2. Technical Stack
 

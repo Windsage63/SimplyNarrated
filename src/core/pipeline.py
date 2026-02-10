@@ -1,5 +1,5 @@
 """
-@fileoverview BookTalk - Processing Pipeline, Orchestrates the full conversion from file to audiobook
+@fileoverview SimplyNarrated - Processing Pipeline, Orchestrates the full conversion from file to audiobook
 @author Timothy Mallory <windsage@live.com>
 @license Apache-2.0
 @copyright 2026 Timothy Mallory <windsage@live.com>
