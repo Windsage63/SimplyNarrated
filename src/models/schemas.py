@@ -77,6 +77,13 @@ class BookmarkRequest(BaseModel):
     position: float = Field(description="Position in seconds")
 
 
+class UpdateMetadataRequest(BaseModel):
+    """Request to update book metadata."""
+
+    title: Optional[str] = Field(default=None, min_length=1, max_length=500)
+    author: Optional[str] = Field(default=None, max_length=500)
+
+
 # --- Response Schemas ---
 
 
@@ -135,6 +142,7 @@ class ChapterInfo(BaseModel):
     title: str
     duration: Optional[str] = None
     audio_path: Optional[str] = None
+    text_path: Optional[str] = None
     completed: bool = False
 
 

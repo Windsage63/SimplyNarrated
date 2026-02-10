@@ -95,70 +95,6 @@ def parse_markdown(file_path: str) -> ParsedDocument:
     )
 
 
-def parse_epub(file_path: str) -> ParsedDocument:
-    """Parse an EPUB file."""
-    try:
-        import ebooklib
-        from ebooklib import epub
-        from html.parser import HTMLParser
-    except ImportError:
-        raise ImportError("ebooklib is required for EPUB parsing")
-
-    class HTMLTextExtractor(HTMLParser):
-        """Extract text from HTML content."""
-
-        def __init__(self):
-            super().__init__()
-            self.text_parts = []
-
-        def handle_data(self, data):
-            self.text_parts.append(data)
-
-        def get_text(self):
-            return " ".join(self.text_parts)
-
-    book = epub.read_epub(file_path)
-
-    # Extract metadata
-    title = book.get_metadata("DC", "title")
-    title = title[0][0] if title else "Untitled"
-
-    author = book.get_metadata("DC", "creator")
-    author = author[0][0] if author else None
-
-    # Extract chapters
-    chapters = []
-    all_text_parts = []
-
-    for item in book.get_items_of_type(ebooklib.ITEM_DOCUMENT):
-        content = item.get_content().decode("utf-8", errors="ignore")
-
-        # Extract text from HTML
-        parser = HTMLTextExtractor()
-        parser.feed(content)
-        text = parser.get_text().strip()
-
-        if text:
-            # Try to get chapter title from content (before normalization)
-            chapter_title = (
-                _extract_chapter_title(text) or f"Chapter {len(chapters) + 1}"
-            )
-            
-            # Normalize text to remove hard line breaks
-            text = _normalize_line_breaks(text)
-            
-            chapters.append((chapter_title, text))
-            all_text_parts.append(text)
-
-    return ParsedDocument(
-        title=title,
-        author=author,
-        raw_text="\n\n".join(all_text_parts),
-        chapters=chapters,
-        format="epub",
-    )
-
-
 def parse_pdf(file_path: str) -> ParsedDocument:
     """Parse a PDF file."""
     try:
@@ -209,7 +145,6 @@ def parse_file(file_path: str) -> ParsedDocument:
     parsers = {
         "txt": parse_txt,
         "md": parse_markdown,
-        "epub": parse_epub,
         "pdf": parse_pdf,
     }
 

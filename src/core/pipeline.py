@@ -166,6 +166,12 @@ async def process_book(job: Job, config: Dict[str, Any]) -> None:
                 ),
             )
 
+            # Save chapter text
+            text_filename = f"chapter_{chapter_num:02d}.txt"
+            text_path = os.path.join(job.output_dir, text_filename)
+            with open(text_path, "w", encoding="utf-8") as tf:
+                tf.write(chunk.content)
+
             job_manager._add_activity(
                 job, f"Chapter {chapter_num} complete: {chunk.title}", "success"
             )
@@ -188,6 +194,7 @@ async def process_book(job: Job, config: Dict[str, Any]) -> None:
                     if hasattr(chunk, "estimated_duration")
                     else None,
                     "audio_path": f"chapter_{chapter_num:02d}.{encoder_settings.format}",
+                    "text_path": f"chapter_{chapter_num:02d}.txt",
                     "completed": True,
                 }
             )

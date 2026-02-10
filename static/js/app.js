@@ -134,6 +134,19 @@ const api = {
     return response.json();
   },
 
+  async updateMetadata(bookId, data) {
+    const response = await fetch(`${this.baseUrl}/book/${bookId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.detail || "Failed to update metadata");
+    }
+    return response.json();
+  },
+
   async delete(bookId) {
     const response = await fetch(`${this.baseUrl}/book/${bookId}`, {
       method: "DELETE",

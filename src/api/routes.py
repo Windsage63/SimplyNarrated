@@ -35,6 +35,7 @@ from src.models.schemas import (
     LibraryResponse,
     BookInfo,
     JobStatus,
+    UpdateMetadataRequest,
 )
 from src.core.job_manager import get_job_manager
 from src.core.library import get_library_manager
@@ -44,7 +45,7 @@ from src.core.tts_engine import PRESET_VOICES
 router = APIRouter()
 
 # Supported file extensions
-SUPPORTED_EXTENSIONS = {".txt", ".md", ".epub", ".pdf"}
+SUPPORTED_EXTENSIONS = {".txt", ".md", ".pdf"}
 MAX_FILE_SIZE = 50 * 1024 * 1024  # 50 MB
 
 # Sample quotes for voice previews - short, varied content
@@ -353,6 +354,28 @@ async def stream_audio(book_id: str, chapter: int):
     raise HTTPException(status_code=404, detail="Audio file not found")
 
 
+@router.get("/text/{book_id}/{chapter}")
+async def get_chapter_text(book_id: str, chapter: int):
+    """
+    Get the text content for a specific chapter.
+    """
+    # Validate book_id format to prevent path traversal
+    if not re.match(r"^[a-f0-9-]{36}$", book_id):
+        raise HTTPException(status_code=400, detail="Invalid book ID format")
+
+    library = get_library_manager()
+    book_dir = library.get_book_dir(book_id)
+    text_path = os.path.join(book_dir, f"chapter_{chapter:02d}.txt")
+
+    if not os.path.exists(text_path):
+        raise HTTPException(status_code=404, detail="Chapter text not found")
+
+    async with aiofiles.open(text_path, "r", encoding="utf-8") as f:
+        content = await f.read()
+
+    return {"book_id": book_id, "chapter": chapter, "content": content}
+
+
 @router.post("/bookmark")
 async def save_bookmark(book_id: str, chapter: int, position: float):
     """
@@ -388,6 +411,27 @@ async def get_bookmark(book_id: str):
         "position": bookmark.position,
         "updated_at": bookmark.updated_at,
     }
+
+
+@router.patch("/book/{book_id}")
+async def update_book_metadata(book_id: str, request: UpdateMetadataRequest):
+    """
+    Update metadata (title, author) for a specific book.
+    """
+    if not re.match(r"^[a-f0-9-]{36}$", book_id):
+        raise HTTPException(status_code=400, detail="Invalid book ID format")
+
+    updates = request.model_dump(exclude_none=True)
+    if not updates:
+        raise HTTPException(status_code=400, detail="No fields to update")
+
+    library = get_library_manager()
+    success = library.update_book_metadata(book_id, updates)
+
+    if not success:
+        raise HTTPException(status_code=404, detail="Book not found")
+
+    return {"status": "updated", "book_id": book_id, **updates}
 
 
 @router.delete("/book/{book_id}")

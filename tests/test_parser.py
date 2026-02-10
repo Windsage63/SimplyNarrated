@@ -29,9 +29,6 @@ class TestDetectFormat:
     def test_md(self, tmp_path):
         assert detect_format(str(tmp_path / "file.md")) == "md"
 
-    def test_epub(self, tmp_path):
-        assert detect_format(str(tmp_path / "file.epub")) == "epub"
-
     def test_pdf(self, tmp_path):
         assert detect_format(str(tmp_path / "file.PDF")) == "pdf"
 

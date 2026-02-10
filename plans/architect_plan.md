@@ -5,7 +5,7 @@
 
 ## 1. Executive Summary
 
-SimplyNarrated is a local web application that converts books and text documents (`.txt`, `.md`, `.epub`, `.pdf`) into audiobooks saved as MP3 chapter files. Designed for non-technical users, it provides a polished multi-page interface with a landing page, file upload/configuration screen, conversion progress tracker, audiobook player, and user dashboard. The system uses the Kokoro-82M model running locally on GPU for high-quality, expressive speech synthesis.
+SimplyNarrated is a local web application that converts books and text documents (`.txt`, `.md`, `.pdf`) into audiobooks saved as MP3 chapter files. Designed for non-technical users, it provides a polished multi-page interface with a landing page, file upload/configuration screen, conversion progress tracker, audiobook player, and user dashboard. The system uses the Kokoro-82M model running locally on GPU for high-quality, expressive speech synthesis.
 
 ## 2. Technical Stack
 
@@ -15,7 +15,7 @@ SimplyNarrated is a local web application that converts books and text documents
 | **Backend** | Python 3.12 / FastAPI | Modern async framework, auto-generated API docs |
 | **TTS Model** | Kokoro-82M (82M) | Apache 2.0 license, high-quality, lightweight, low VRAM |
 | **Audio** | pydub + ffmpeg | MP3/WAV encoding and audio manipulation |
-| **File Parsing** | ebooklib, PyMuPDF, markdown | EPUB, PDF, and Markdown parsing |
+| **File Parsing** | PyMuPDF, markdown | PDF and Markdown parsing |
 | **Local Server** | Uvicorn | ASGI server for FastAPI |
 | **Icons** | Material Symbols Outlined | Google icon font from Stitch designs |
 | **Typography** | Inter (Google Fonts) | Clean, professional font family |
@@ -89,7 +89,7 @@ font-family: 'Inter', sans-serif;
 
 | Component | Description | Priority |
 | --------- | ----------- | -------- |
-| **File Parser** | Extract and normalize text from TXT/MD/EPUB/PDF | P0 |
+| **File Parser** | Extract and normalize text from TXT/MD/PDF | P0 |
 | **Text Chunker** | Split text into ≤4000 word segments at natural breaks | P0 |
 | **Dialogue Detector** | Identify quoted speech for voice switching | P0 |
 | **TTS Engine** | Kokoro-82M wrapper with voice selection | P0 |
@@ -177,7 +177,7 @@ font-family: 'Inter', sans-serif;
 
 ### Functional Requirements
 
-- [ ] FR-1: Accept `.txt`, `.md`, `.epub`, `.pdf` file uploads (max 50MB)
+- [ ] FR-1: Accept `.txt`, `.md`, `.pdf` file uploads (max 50MB)
 - [ ] FR-2: Parse and extract clean text from all supported formats
 - [ ] FR-3: Chunk text at natural boundaries (chapters, headings) or ≤4000 words
 - [ ] FR-4: Detect quoted dialogue using regex patterns (`"..."`, `'...'`, etc.)
@@ -244,7 +244,6 @@ Build a working end-to-end pipeline: upload a TXT file → generate single chapt
 | Risk | Mitigation |
 | ---- | ---------- |
 | GPU memory limits | Use streaming/batched inference, test with long documents |
-| EPUB parsing complexity | Use well-tested ebooklib, handle edge cases gracefully |
 | Dialogue detection accuracy | Start simple (regex), allow user override in future |
 | Large file processing time | Show granular progress, allow background processing |
 | Frontend complexity | Use Stitch HTML as starting point, adapt incrementally |
@@ -252,7 +251,6 @@ Build a working end-to-end pipeline: upload a TXT file → generate single chapt
 ### Reference Files
 
 - `kokoro` - PyPI package for TTS model
-- `ebooklib` - EPUB parsing library
 - `PyMuPDF` - PDF text extraction
 - `docs/stitch/` - UI design mockups and HTML templates
 

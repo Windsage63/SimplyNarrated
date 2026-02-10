@@ -21,7 +21,7 @@ The SimplyNarrated API provides endpoints for file upload, text-to-speech genera
   ```json
   {
     "job_id": "uuid-string",
-    "filename": "book.epub",
+    "filename": "book.txt",
     "file_size": 1024000,
     "estimated_time": "~5 minutes",
     "chapters_detected": 12

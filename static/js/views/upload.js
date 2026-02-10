@@ -31,7 +31,7 @@ function renderUploadView() {
                         <span class="material-symbols-outlined text-5xl text-primary mb-4">cloud_upload</span>
                         <h2 class="text-xl font-semibold mb-2">Drop your file here</h2>
                         <p class="text-gray-400 mb-4">or click to browse</p>
-                        <p class="text-sm text-gray-500">Supports: TXT, MD, EPUB, PDF (max 50MB)</p>
+                        <p class="text-sm text-gray-500">Supports: TXT, MD, PDF (max 50MB)</p>
                     </div>
                     <div id="file-selected" class="hidden">
                         <span class="material-symbols-outlined text-5xl text-green-500 mb-4">check_circle</span>
@@ -39,7 +39,7 @@ function renderUploadView() {
                         <p class="text-gray-400" id="selected-filesize">1.2 MB</p>
                         <button onclick="clearFile()" class="mt-4 text-primary hover:underline">Choose different file</button>
                     </div>
-                    <input type="file" id="file-input" class="hidden" accept=".txt,.md,.epub,.pdf">
+                    <input type="file" id="file-input" class="hidden" accept=".txt,.md,.pdf">
                 </div>
             </div>
             
@@ -271,11 +271,11 @@ function selectVoice(voiceId) {
 }
 
 function handleFileSelect(file) {
-  const validExts = [".txt", ".md", ".epub", ".pdf"];
+  const validExts = [".txt", ".md", ".pdf"];
   const ext = file.name.toLowerCase().substring(file.name.lastIndexOf("."));
 
   if (!validExts.includes(ext)) {
-    alert("Unsupported file type. Please use TXT, MD, EPUB, or PDF.");
+    alert("Unsupported file type. Please use TXT, MD, or PDF.");
     return;
   }
 

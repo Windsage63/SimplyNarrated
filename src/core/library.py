@@ -105,6 +105,7 @@ class LibraryManager:
                         title=ch.get("title", f"Chapter {ch.get('number', 0)}"),
                         duration=ch.get("duration"),
                         audio_path=ch.get("audio_path"),
+                        text_path=ch.get("text_path"),
                         completed=ch.get("completed", False),
                     )
                 )
