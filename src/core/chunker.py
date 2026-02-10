@@ -151,7 +151,7 @@ def chunk_chapters(
     def flush_bucket():
         nonlocal chunk_counter
         if not current_bucket_text:
-            return
+            return 0
 
         combined_text = "\n\n".join(current_bucket_text)
         # Create a combined title for the merged chunk

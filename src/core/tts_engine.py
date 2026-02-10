@@ -17,9 +17,20 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
+import os
+import warnings
 import numpy as np
-from typing import Optional, Tuple, List
+from typing import Optional, Tuple, List, Dict
 from dataclasses import dataclass
+
+# Suppress annoying PyTorch and Library warnings
+warnings.filterwarnings("ignore", category=UserWarning, module="torch.nn.modules.rnn")
+warnings.filterwarnings("ignore", category=FutureWarning, module="torch.nn.utils.weight_norm")
+
+# Directory containing local voice .pt files
+VOICES_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "static", "voices")
+# Default repository ID for Kokoro base model
+REPO_ID = "hexgrad/Kokoro-82M"
 
 
 @dataclass
@@ -76,30 +87,70 @@ class TTSEngine:
 
     def __init__(self, device: Optional[str] = None):
         """Initialize the TTS engine."""
-        self.pipeline = None
+        self._pipelines: Dict[str, object] = {}  # keyed by lang_code 'a' or 'b'
+        self._shared_model = None  # Shared KModel instance to save memory
         self._initialized = False
         self._device = device  # Kokoro handles device selection automatically
 
-    def initialize(self) -> None:
-        """Load the Kokoro model."""
-        if self._initialized:
-            return
+    @staticmethod
+    def _lang_code_for_voice(voice_id: str) -> str:
+        """Derive Kokoro lang_code from voice ID prefix.
 
-        try:
+        af_*/am_* -> 'a' (American English)
+        bf_*/bm_* -> 'b' (British English)
+        """
+        if voice_id.startswith(("bf_", "bm_")):
+            return "b"
+        return "a"
+
+    @staticmethod
+    def _resolve_voice(voice_id: str) -> str:
+        """Return local .pt path if available, otherwise the bare voice ID."""
+        local_path = os.path.join(VOICES_DIR, f"{voice_id}.pt")
+        if os.path.isfile(local_path):
+            return local_path
+        return voice_id
+
+    def _get_pipeline(self, voice_id: str):
+        """Get (or lazily create) the KPipeline for the given voice."""
+        lang_code = self._lang_code_for_voice(voice_id)
+        if lang_code not in self._pipelines:
             from kokoro import KPipeline
 
-            print("Loading Kokoro-82M...")
-            # 'a' = American English, 'b' = British English
-            self.pipeline = KPipeline(lang_code="a")
+            label = "American" if lang_code == "a" else "British"
+            
+            # If we don't have a shared model yet, creating the first pipeline will load it.
+            # Subsequent pipelines use the already-loaded shared model.
+            if self._shared_model is None:
+                print("Loading Kokoro-82M (base model)...")
+                pipeline = KPipeline(lang_code=lang_code, repo_id=REPO_ID, device=self._device)
+                self._shared_model = pipeline.model
+                print("Kokoro-82M (base model) loaded successfully!")
+                print(f"Initializing {label} English G2P rules...")
+            else:
+                print(f"Initializing {label} English G2P rules (sharing base model)...")
+                # Reuse the model for other languages (fixes British pronunciation rules)
+                pipeline = KPipeline(
+                    lang_code=lang_code, 
+                    model=self._shared_model, 
+                    repo_id=REPO_ID,
+                    device=self._device
+                )
+            
+            self._pipelines[lang_code] = pipeline
+            print(f"{label} English G2P rules initialized!")
             self._initialized = True
-            print("Kokoro-82M loaded successfully!")
+            
+        return self._pipelines[lang_code]
 
-        except Exception as e:
-            print(f"Failed to load Kokoro model: {e}")
-            raise RuntimeError(f"Could not initialize TTS engine: {e}")
+    def initialize(self) -> None:
+        """Pre-load the American English pipeline."""
+        if self._initialized:
+            return
+        self._get_pipeline("af_heart")  # triggers 'a' pipeline creation
 
     def is_initialized(self) -> bool:
-        """Check if the model is loaded."""
+        """Check if at least one pipeline is loaded."""
         return self._initialized
 
     def get_available_voices(self) -> List[VoiceConfig]:
@@ -127,9 +178,14 @@ class TTSEngine:
             self.initialize()
 
         try:
+            # Select the correct pipeline for this voice's language
+            pipeline = self._get_pipeline(voice_id)
+            # Use local .pt file if available, otherwise Kokoro downloads from HF
+            voice = self._resolve_voice(voice_id)
+
             # Generate audio using Kokoro
             # Returns generator of (graphemes, phonemes, audio) tuples
-            generator = self.pipeline(text, voice=voice_id, speed=speed)
+            generator = pipeline(text, voice=voice, speed=speed)
 
             # Collect all audio chunks
             audio_chunks = []
@@ -164,9 +220,11 @@ class TTSEngine:
 
     def cleanup(self) -> None:
         """Release model resources."""
-        if self.pipeline is not None:
-            del self.pipeline
-            self.pipeline = None
+        if self._pipelines:
+            for key in list(self._pipelines):
+                del self._pipelines[key]
+            self._pipelines.clear()
+            self._shared_model = None
             self._initialized = False
 
             # Clear CUDA cache if available

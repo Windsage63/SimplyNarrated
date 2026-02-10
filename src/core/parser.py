@@ -222,12 +222,14 @@ def parse_file(file_path: str) -> ParsedDocument:
 
 def _split_into_chapters(text: str) -> List[Tuple[str, str]]:
     """Split text into chapters based on common patterns."""
-    # Common chapter patterns
+    # Common chapter patterns, tried in priority order
     chapter_patterns = [
         r"(?:^|\n\n)(Chapter\s+\d+[^\n]*)\n",
         r"(?:^|\n\n)(CHAPTER\s+\d+[^\n]*)\n",
         r"(?:^|\n\n)(Part\s+\d+[^\n]*)\n",
         r"(?:^|\n\n)(PART\s+\d+[^\n]*)\n",
+        # ALL-CAPS section headers surrounded by blank lines (e.g. essay titles)
+        r"\n\n\n+([A-Z][A-Z][A-Z \-'.,;:!?]+)\n",
         r"(?:^|\n\n)(\d+\.\s+[^\n]+)\n",
     ]
 
@@ -235,15 +237,29 @@ def _split_into_chapters(text: str) -> List[Tuple[str, str]]:
 
     for pattern in chapter_patterns:
         matches = list(re.finditer(pattern, text, re.IGNORECASE))
-        if matches:
-            for i, match in enumerate(matches):
-                title = match.group(1).strip()
-                start = match.end()
-                end = matches[i + 1].start() if i + 1 < len(matches) else len(text)
-                content = text[start:end].strip()
-                if content:
-                    chapters.append((title, content))
-            break
+        if not matches:
+            continue
+
+        # Heuristic: if the numbered-list pattern's first match is far into
+        # the document, it's likely matching numbered paragraphs rather than
+        # chapter headings — skip it.
+        if pattern == r"(?:^|\n\n)(\d+\.\s+[^\n]+)\n":
+            if matches[0].start() / max(len(text), 1) > 0.3:
+                continue
+
+        # Capture any text before the first match as a preamble chapter
+        preamble = text[: matches[0].start()].strip()
+        if preamble:
+            chapters.append(("Preamble", preamble))
+
+        for i, match in enumerate(matches):
+            title = match.group(1).strip()
+            start = match.end()
+            end = matches[i + 1].start() if i + 1 < len(matches) else len(text)
+            content = text[start:end].strip()
+            if content:
+                chapters.append((title, content))
+        break
 
     # If no chapters found, treat entire text as one chapter
     if not chapters:
@@ -261,6 +277,11 @@ def _split_markdown_chapters(content: str) -> List[Tuple[str, str]]:
     chapters = []
 
     if matches:
+        # Capture any text before the first heading as a preamble
+        preamble = content[: matches[0].start()].strip()
+        if preamble:
+            chapters.append(("Preamble", _markdown_to_text(preamble)))
+
         for i, match in enumerate(matches):
             title = match.group(1).strip().lstrip("#").strip()
             start = match.end()

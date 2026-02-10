@@ -142,6 +142,54 @@ class TestSplitIntoChapters:
         assert len(chapters) == 1
         assert chapters[0][0] == "Chapter 1"
 
+    def test_preamble_captured_before_chapter_headings(self):
+        text = "This is introductory text.\n\nMore intro.\n\nChapter 1\nFirst chapter.\n\nChapter 2\nSecond chapter."
+        chapters = _split_into_chapters(text)
+        assert chapters[0][0] == "Preamble"
+        assert "introductory text" in chapters[0][1]
+        assert len(chapters) >= 3
+
+    def test_no_preamble_when_chapter_at_start(self):
+        text = "Chapter 1\nContent here.\n\nChapter 2\nMore content."
+        chapters = _split_into_chapters(text)
+        assert chapters[0][0] != "Preamble"
+
+    def test_numbered_paragraphs_deep_in_text_skipped(self):
+        """Numbered items far into the text should not be treated as chapters."""
+        intro = "Some text. " * 500  # large block before numbered items
+        text = intro + "\n\n1. First point here\nContent.\n\n2. Second point here\nMore."
+        chapters = _split_into_chapters(text)
+        # Should fall back to single chapter since numbered items are >30% in
+        assert len(chapters) == 1
+        assert chapters[0][0] == "Chapter 1"
+
+    def test_numbered_pattern_used_when_near_start(self):
+        text = "\n\n1. Introduction\nFirst content.\n\n2. Background\nSecond content."
+        chapters = _split_into_chapters(text)
+        assert len(chapters) >= 2
+        assert "Introduction" in chapters[0][0] or "Introduction" in chapters[0][1]
+
+    def test_allcaps_section_headers(self):
+        text = (
+            "Some preamble text.\n\n\n\n"
+            "COMPENSATION\n\nFirst essay content here.\n\n\n\n"
+            "SELF-RELIANCE\n\nSecond essay content here."
+        )
+        chapters = _split_into_chapters(text)
+        titles = [t for t, _ in chapters]
+        assert "COMPENSATION" in titles
+        assert "SELF-RELIANCE" in titles
+
+    def test_allcaps_headers_capture_preamble(self):
+        text = (
+            "Introduction and preamble.\n\n\n\n"
+            "THE AMERICAN SCHOLAR\n\nEssay one.\n\n\n\n"
+            "FRIENDSHIP\n\nEssay two."
+        )
+        chapters = _split_into_chapters(text)
+        assert chapters[0][0] == "Preamble"
+        assert "Introduction" in chapters[0][1]
+
 
 # ---------------------------------------------------------------------------
 # parse_txt

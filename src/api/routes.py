@@ -232,7 +232,7 @@ async def get_voice_sample(voice_id: str):
         raise HTTPException(status_code=400, detail="Invalid voice ID")
 
     # Check for cached sample (mp3 only)
-    cache_dir = os.path.join(os.path.dirname(__file__), "..", "..", "static", "voices")
+    cache_dir = os.path.join(os.path.dirname(__file__), "..", "..", "static", "voices", "audio")
     os.makedirs(cache_dir, exist_ok=True)
 
     cache_path = os.path.join(cache_dir, f"{voice_id}.mp3")
