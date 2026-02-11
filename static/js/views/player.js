@@ -307,6 +307,7 @@ function setupAudioListeners() {
     // Auto-advance to next chapter
     if (playerState.currentChapter < playerState.book.total_chapters) {
       loadChapter(playerState.currentChapter + 1);
+      playerState.audioElement.play();
     } else {
       playerState.isPlaying = false;
       updatePlayButton();

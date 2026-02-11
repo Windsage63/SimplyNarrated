@@ -132,6 +132,7 @@ cython_debug/
 
 # Project specific
 .user-private/
+python_embedded/
 data/library/
 data/uploads/
 *.log

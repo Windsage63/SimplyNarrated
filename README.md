@@ -15,7 +15,21 @@ The system uses the **Kokoro-82M** model running locally on GPU for high-quality
 - **Library Management**: Dashboard to manage your converted books.
 - **Modern UI**: Polished interface with dark mode support.
 
-## Installation
+## Quick Start (One-Click Setup)
+
+The easiest way to get started — no Python installation required.
+
+1. **Run the installer**: Double-click `install.bat` (or right-click → *Run as administrator*).
+   - Select your GPU when prompted (RTX 50 series, RTX 30/40 series, or CPU only).
+   - The script downloads a portable Python environment and installs all dependencies automatically.
+2. **Launch the app**: Double-click `run.bat`.
+3. **Open in browser**: Navigate to `http://localhost:8010`.
+
+> **Note:** First-time installation downloads ~2 GB of dependencies (Python + PyTorch + models). Ensure you have a stable internet connection.
+
+## Manual Installation
+
+For advanced users who prefer to manage their own Python environment.
 
 ### Prerequisites
 
@@ -27,7 +41,14 @@ The system uses the **Kokoro-82M** model running locally on GPU for high-quality
 1. **Install PyTorch with CUDA support** (Important: do this first):
 
    ```bash
-   pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu130
+   # RTX 50 series (Blackwell) — CUDA 12.8
+   pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu128
+
+   # RTX 30/40 series (Ampere / Ada) — CUDA 12.6
+   pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu126
+
+   # CPU only (no GPU)
+   pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
    ```
 
 2. **Install project dependencies**:
@@ -36,16 +57,20 @@ The system uses the **Kokoro-82M** model running locally on GPU for high-quality
    pip install -r requirements.txt
    ```
 
-## Usage
-
-1. **Start the server**:
+3. **Start the server**:
 
    ```bash
-   uvicorn src.main:app --reload
+   uvicorn src.main:app --reload --port 8010
    ```
 
-2. **Open the application**:
-   Navigate to `http://localhost:8000` in your web browser.
+4. **Open the application**: Navigate to `http://localhost:8010`.
+
+## Running the Application
+
+After installation, use `run.bat` to start SimplyNarrated at any time:
+
+- Double-click `run.bat` — it launches the server and opens your browser automatically.
+- The app runs at `http://localhost:8010`.
 
 ## Project Structure
 
