@@ -280,20 +280,3 @@ def _markdown_to_text(md: str) -> str:
     text = re.sub(r"\n{3,}", "\n\n", text)
     return text.strip()
 
-
-def _extract_chapter_title(text: str) -> Optional[str]:
-    """Try to extract a chapter title from text content."""
-    lines = text.strip().split("\n")[:5]  # Check first 5 lines
-
-    for line in lines:
-        line = line.strip()
-        if not line:
-            continue
-        # Check for chapter-like patterns
-        if re.match(r"^(Chapter|CHAPTER|Part|PART)\s+", line):
-            return line[:100]  # Limit length
-        if len(line) < 60 and line[0].isupper():
-            # Short line starting with capital might be a title
-            return line
-
-    return None

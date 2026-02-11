@@ -41,10 +41,11 @@ The SimplyNarrated API provides endpoints for file upload, text-to-speech genera
   {
     "job_id": "uuid-string",
     "narrator_voice": "af_heart",
-    "dialogue_voice": null,
     "speed": 1.0,
     "quality": "hd",
-    "format": "mp3"
+    "format": "mp3",
+    "remove_square_bracket_numbers": false,
+    "remove_paren_numbers": false
   }
   ```
 
@@ -120,21 +121,38 @@ The SimplyNarrated API provides endpoints for file upload, text-to-speech genera
 
 ### Playback
 
-#### stream Audio
+#### Stream Audio
 
 - **Method**: `GET`
 - **Path**: `/audio/{book_id}/{chapter}`
 - **Description**: Stream or download the MP3 file for a specific chapter.
+
+#### Get Chapter Text
+
+- **Method**: `GET`
+- **Path**: `/text/{book_id}/{chapter}`
+- **Description**: Get the plain-text content for a specific chapter.
+- **Response**:
+
+  ```json
+  {
+    "book_id": "uuid-string",
+    "chapter": 1,
+    "content": "Chapter text content..."
+  }
+  ```
 
 #### Save Bookmark
 
 - **Method**: `POST`
 - **Path**: `/bookmark`
 - **Description**: Save the current playback position.
-- **Request Body**:
+- **Query Parameters**: `book_id` (string), `chapter` (int), `position` (float)
+- **Response**:
 
   ```json
   {
+    "status": "saved",
     "book_id": "uuid-string",
     "chapter": 1,
     "position": 120.5
@@ -146,3 +164,34 @@ The SimplyNarrated API provides endpoints for file upload, text-to-speech genera
 - **Method**: `GET`
 - **Path**: `/bookmark/{book_id}`
 - **Description**: Get the last saved playback position for a book.
+
+### Book Management
+
+#### Update Book Metadata
+
+- **Method**: `PATCH`
+- **Path**: `/book/{book_id}`
+- **Description**: Update the title or author of a book.
+- **Request Body**:
+
+  ```json
+  {
+    "title": "New Title",
+    "author": "New Author"
+  }
+  ```
+
+#### Delete Book
+
+- **Method**: `DELETE`
+- **Path**: `/book/{book_id}`
+- **Description**: Delete a book and all its files from the library.
+- **Response**:
+
+  ```json
+  {
+    "status": "success",
+    "message": "Book deleted",
+    "book_id": "uuid-string"
+  }
+  ```

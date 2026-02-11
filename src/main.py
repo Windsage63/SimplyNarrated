@@ -40,6 +40,7 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 STATIC_DIR = os.path.join(BASE_DIR, "static")
 DATA_DIR = os.path.join(BASE_DIR, "data")
 LIBRARY_DIR = os.path.join(DATA_DIR, "library")
+APP_VERSION = "0.1.0"
 
 
 @asynccontextmanager
@@ -62,7 +63,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="SimplyNarrated",
     description="Convert books and text documents to audiobooks using AI",
-    version="0.1.0",
+    version=APP_VERSION,
     lifespan=lifespan,
 )
 
@@ -82,4 +83,4 @@ async def serve_index():
 @app.get("/health")
 async def health_check():
     """Health check endpoint."""
-    return {"status": "healthy", "version": "0.1.0"}
+    return {"status": "healthy", "version": APP_VERSION}

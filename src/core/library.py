@@ -19,11 +19,14 @@ limitations under the License.
 
 import os
 import json
+import logging
 from datetime import datetime
 from typing import List, Optional, Dict, Any
 from dataclasses import dataclass, field, asdict
 
 from src.models.schemas import BookInfo, ChapterInfo
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -79,7 +82,7 @@ class LibraryManager:
                     if book:
                         books.append(book)
                 except Exception as e:
-                    print(f"Error loading book {book_id}: {e}")
+                    logger.warning("Error loading book %s: %s", book_id, e)
 
         # Sort by created_at descending (newest first)
         books.sort(key=lambda b: b.created_at, reverse=True)
@@ -124,7 +127,7 @@ class LibraryManager:
                 chapters=chapters,
             )
         except Exception as e:
-            print(f"Error reading metadata for {book_id}: {e}")
+            logger.warning("Error reading metadata for %s: %s", book_id, e)
             return None
 
     def save_book(self, book_id: str, metadata: BookMetadata) -> bool:
@@ -140,7 +143,7 @@ class LibraryManager:
                 json.dump(data, f, indent=2, default=str)
             return True
         except Exception as e:
-            print(f"Error saving metadata for {book_id}: {e}")
+            logger.error("Error saving metadata for %s: %s", book_id, e)
             return False
 
     def update_book_metadata(self, book_id: str, updates: Dict[str, Any]) -> bool:
@@ -160,7 +163,7 @@ class LibraryManager:
                 json.dump(data, f, indent=2, default=str)
             return True
         except Exception as e:
-            print(f"Error updating metadata for {book_id}: {e}")
+            logger.error("Error updating metadata for %s: %s", book_id, e)
             return False
 
     def get_bookmark(self, book_id: str) -> Optional[Bookmark]:
@@ -179,7 +182,7 @@ class LibraryManager:
                 updated_at=data.get("updated_at", datetime.now().isoformat()),
             )
         except Exception as e:
-            print(f"Error reading bookmark for {book_id}: {e}")
+            logger.warning("Error reading bookmark for %s: %s", book_id, e)
             return None
 
     def save_bookmark(self, book_id: str, chapter: int, position: float) -> bool:
@@ -197,7 +200,7 @@ class LibraryManager:
                 json.dump(asdict(bookmark), f, indent=2)
             return True
         except Exception as e:
-            print(f"Error saving bookmark for {book_id}: {e}")
+            logger.error("Error saving bookmark for %s: %s", book_id, e)
             return False
 
     def delete_book(self, book_id: str) -> bool:
@@ -221,23 +224,12 @@ class LibraryManager:
             except Exception as e:
                 # If it's the last attempt, log the error
                 if i == max_retries - 1:
-                    print(f"Error deleting book {book_id}: {e}")
+                    logger.error("Error deleting book %s: %s", book_id, e)
                     return False
                 # Wait before retrying
                 time.sleep(retry_delay)
         
         return False
-
-    def count_in_progress(self, active_jobs: Dict[str, Any]) -> int:
-        """Count how many jobs are currently in progress."""
-        from src.models.schemas import JobStatus
-
-        count = 0
-        for job in active_jobs.values():
-            if hasattr(job, "status") and job.status == JobStatus.PROCESSING:
-                count += 1
-        return count
-
 
 # Global library manager instance
 _library_manager: Optional[LibraryManager] = None

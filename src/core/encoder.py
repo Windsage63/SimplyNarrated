@@ -104,54 +104,6 @@ def encode_audio(
     return output_path
 
 
-def concatenate_audio_files(
-    file_paths: list,
-    output_path: str,
-    format: str = "mp3",
-) -> str:
-    """
-    Concatenate multiple audio files into one.
-
-    Args:
-        file_paths: List of paths to audio files
-        output_path: Path for the output file
-        format: Output format (mp3 or wav)
-
-    Returns:
-        Path to the concatenated file
-    """
-    try:
-        from pydub import AudioSegment
-    except ImportError:
-        raise ImportError("pydub is required for audio concatenation")
-
-    if not file_paths:
-        raise ValueError("No files to concatenate")
-
-    # Load first file
-    combined = AudioSegment.from_file(file_paths[0])
-
-    # Append remaining files
-    for path in file_paths[1:]:
-        audio = AudioSegment.from_file(path)
-        combined += audio
-
-    # Export
-    combined.export(output_path, format=format)
-    return output_path
-
-
-def get_audio_duration(file_path: str) -> float:
-    """Get duration of an audio file in seconds."""
-    try:
-        from pydub import AudioSegment
-
-        audio = AudioSegment.from_file(file_path)
-        return len(audio) / 1000.0  # pydub uses milliseconds
-    except Exception:
-        return 0.0
-
-
 def format_duration(seconds: float) -> str:
     """Format duration as human-readable string."""
     hours = int(seconds // 3600)
@@ -161,21 +113,3 @@ def format_duration(seconds: float) -> str:
     if hours > 0:
         return f"{hours}:{minutes:02d}:{secs:02d}"
     return f"{minutes}:{secs:02d}"
-
-
-def add_id3_metadata(
-    file_path: str,
-    title: str,
-    track_number: int = 1,
-    album: Optional[str] = None,
-    artist: Optional[str] = None,
-    cover_path: Optional[str] = None,
-) -> None:
-    """
-    Add ID3 metadata to an MP3 file.
-
-    Note: Requires mutagen library for full ID3 support.
-    For now, this is a stub that can be implemented later.
-    """
-    # TODO: Implement ID3 tagging with mutagen
-    pass

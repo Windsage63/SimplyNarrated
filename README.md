@@ -35,6 +35,15 @@ The easiest way to get started — no Python installation required. This uses a 
 
 > **Note:** First-time installation downloads ~2 GB of dependencies (Python + PyTorch + models). Ensure you have a stable internet connection.
 
+## 🚀 Running the Application
+
+After installation, use `run.bat` to start SimplyNarrated at any time:
+
+- Double-click `run.bat` — it launches the server and opens your browser automatically.
+- The app runs at `http://localhost:8010`.
+
+---
+
 ## 🛠️ Manual Installation (for advanced users)
 
 For advanced users who prefer to manage their own Python environment.
@@ -73,12 +82,7 @@ For advanced users who prefer to manage their own Python environment.
 
 4. **Open the application**: Navigate to `http://localhost:8010`.
 
-## 🚀 Running the Application
-
-After installation, use `run.bat` to start SimplyNarrated at any time:
-
-- Double-click `run.bat` — it launches the server and opens your browser automatically.
-- The app runs at `http://localhost:8010`.
+---
 
 ## 📁 Project Structure
 

@@ -12,7 +12,6 @@ from src.core.parser import (
     parse_file,
     _normalize_line_breaks,
     _markdown_to_text,
-    _extract_chapter_title,
     _split_into_chapters,
 )
 
@@ -101,24 +100,6 @@ class TestMarkdownToText:
     def test_removes_code_blocks(self):
         result = _markdown_to_text("```python\nprint('hi')\n```")
         assert "print" not in result
-
-
-# ---------------------------------------------------------------------------
-# _extract_chapter_title
-# ---------------------------------------------------------------------------
-
-
-class TestExtractChapterTitle:
-    def test_finds_chapter_heading(self):
-        text = "Chapter 1: The Beginning\nSome content here."
-        assert _extract_chapter_title(text) == "Chapter 1: The Beginning"
-
-    def test_no_match_returns_none(self):
-        text = "This is just normal text with no heading."
-        # May or may not match depending on heuristics — short uppercase line
-        result = _extract_chapter_title(text)
-        # Acceptable: either None or the short line itself
-        assert result is None or isinstance(result, str)
 
 
 # ---------------------------------------------------------------------------

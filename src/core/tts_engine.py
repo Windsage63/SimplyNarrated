@@ -18,10 +18,13 @@ limitations under the License.
 """
 
 import os
+import logging
 import warnings
 import numpy as np
 from typing import Optional, Tuple, List, Dict
 from dataclasses import dataclass
+
+logger = logging.getLogger(__name__)
 
 # Suppress annoying PyTorch and Library warnings
 warnings.filterwarnings("ignore", category=UserWarning, module="torch.nn.modules.rnn")
@@ -122,13 +125,13 @@ class TTSEngine:
             # If we don't have a shared model yet, creating the first pipeline will load it.
             # Subsequent pipelines use the already-loaded shared model.
             if self._shared_model is None:
-                print("Loading Kokoro-82M (base model)...")
+                logger.info("Loading Kokoro-82M (base model)...")
                 pipeline = KPipeline(lang_code=lang_code, repo_id=REPO_ID, device=self._device)
                 self._shared_model = pipeline.model
-                print("Kokoro-82M (base model) loaded successfully!")
-                print(f"Initializing {label} English G2P rules...")
+                logger.info("Kokoro-82M (base model) loaded successfully!")
+                logger.info("Initializing %s English G2P rules...", label)
             else:
-                print(f"Initializing {label} English G2P rules (sharing base model)...")
+                logger.info("Initializing %s English G2P rules (sharing base model)...", label)
                 # Reuse the model for other languages (fixes British pronunciation rules)
                 pipeline = KPipeline(
                     lang_code=lang_code, 
@@ -138,7 +141,7 @@ class TTSEngine:
                 )
             
             self._pipelines[lang_code] = pipeline
-            print(f"{label} English G2P rules initialized!")
+            logger.info("%s English G2P rules initialized!", label)
             self._initialized = True
             
         return self._pipelines[lang_code]
@@ -204,14 +207,10 @@ class TTSEngine:
             return audio, sample_rate
 
         except Exception as e:
-            import traceback
-
-            traceback.print_exc()
+            logger.exception("Speech generation failed")
             raise RuntimeError(f"Speech generation failed: {e}")
 
-    def generate_sample(
-        self, voice_id: str, duration_seconds: float = 3.0
-    ) -> Tuple[np.ndarray, int]:
+    def generate_sample(self, voice_id: str) -> Tuple[np.ndarray, int]:
         """Generate a sample for voice preview."""
         sample_text = (
             "Hello! This is a sample of my voice. I hope you like how I sound."

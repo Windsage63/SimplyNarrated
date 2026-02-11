@@ -69,14 +69,6 @@ class GenerateRequest(BaseModel):
     )
 
 
-class BookmarkRequest(BaseModel):
-    """Request to save a playback bookmark."""
-
-    book_id: str
-    chapter: int
-    position: float = Field(description="Position in seconds")
-
-
 class UpdateMetadataRequest(BaseModel):
     """Request to update book metadata."""
 

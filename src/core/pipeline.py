@@ -19,14 +19,20 @@ limitations under the License.
 
 import os
 import re
+import json
+import shutil
 import asyncio
+import logging
 from typing import Dict, Any
+from datetime import datetime
 
 from src.core.parser import parse_file
 from src.core.chunker import chunk_chapters, get_total_duration
 from src.core.tts_engine import get_tts_engine
 from src.core.encoder import encode_audio, get_encoder_settings, format_duration
-from src.core.job_manager import Job
+from src.core.job_manager import Job, JobStatus
+
+logger = logging.getLogger(__name__)
 
 
 async def process_book(job: Job, config: Dict[str, Any]) -> None:
@@ -45,8 +51,6 @@ async def process_book(job: Job, config: Dict[str, Any]) -> None:
 
     try:
         # Move source file from uploads to book's library directory
-        import shutil
-
         source_ext = os.path.splitext(job.file_path)[1]
         new_source_path = os.path.join(job.output_dir, f"source{source_ext}")
 
@@ -114,7 +118,7 @@ async def process_book(job: Job, config: Dict[str, Any]) -> None:
         tts_engine = get_tts_engine()
         if not tts_engine.is_initialized():
             # Run initialization in thread pool to not block
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             await loop.run_in_executor(None, tts_engine.initialize)
 
         job_manager._add_activity(job, "TTS model ready", "success")
@@ -130,7 +134,7 @@ async def process_book(job: Job, config: Dict[str, Any]) -> None:
 
         for i, chunk in enumerate(chunks):
             # Check for cancellation
-            if job.status.value == "cancelled":
+            if job.status == JobStatus.CANCELLED:
                 return
 
             chapter_num = i + 1
@@ -146,7 +150,7 @@ async def process_book(job: Job, config: Dict[str, Any]) -> None:
 
             # Generate speech (run in thread pool)
             # Use default args to capture values, avoiding lambda closure bug
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             chunk_content = chunk.content
             audio, sample_rate = await loop.run_in_executor(
                 None,
@@ -200,8 +204,6 @@ async def process_book(job: Job, config: Dict[str, Any]) -> None:
             )
 
         # Save metadata file with full library format
-        from datetime import datetime
-
         metadata = {
             "id": job.id,
             "title": document.title,
@@ -218,8 +220,6 @@ async def process_book(job: Job, config: Dict[str, Any]) -> None:
         }
 
         metadata_path = os.path.join(job.output_dir, "metadata.json")
-        import json
-
         with open(metadata_path, "w") as f:
             json.dump(metadata, f, indent=2)
 
@@ -229,8 +229,6 @@ async def process_book(job: Job, config: Dict[str, Any]) -> None:
         )
 
     except Exception as e:
-        import traceback
-
-        traceback.print_exc()
+        logger.exception("Pipeline error for job %s", job.id)
         job_manager._add_activity(job, f"Error: {str(e)}", "error")
         raise

@@ -20,7 +20,6 @@ limitations under the License.
 import os
 import re
 import uuid
-import random
 import asyncio
 import aiofiles
 from fastapi import APIRouter, UploadFile, File, HTTPException, BackgroundTasks
@@ -48,10 +47,8 @@ router = APIRouter()
 SUPPORTED_EXTENSIONS = {".txt", ".md", ".pdf"}
 MAX_FILE_SIZE = 50 * 1024 * 1024  # 50 MB
 
-# Sample quotes for voice previews - short, varied content
-SAMPLE_QUOTES = [
-    "Welcome to your audiobook library, where every story is unique and every voice has a tale to tell. Discover the magic of storytelling with our diverse range of voices, each ready to narrate your favorite books, and to bring your stories to life with the perfect voice.",
-]
+# Sample quote for voice preview
+SAMPLE_QUOTE = "Welcome to your audiobook library, where every story is unique and every voice has a tale to tell. Discover the magic of storytelling with our diverse range of voices, each ready to narrate your favorite books, and to bring your stories to life with the perfect voice."
 
 
 def _get_available_voices() -> list:
@@ -242,11 +239,11 @@ async def get_voice_sample(voice_id: str):
     # Generate new sample
     try:
         tts_engine = get_tts_engine()
-        quote = random.choice(SAMPLE_QUOTES)
+        quote = SAMPLE_QUOTE
         logger.info(f"Generating voice sample for {voice_id}: '{quote[:50]}...'")
 
         # Run TTS in thread pool to not block
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         audio, sample_rate = await loop.run_in_executor(
             None, lambda: tts_engine.generate_speech(quote, voice_id, speed=1.0)
         )
@@ -260,7 +257,7 @@ async def get_voice_sample(voice_id: str):
         cache_path_mp3 = os.path.join(cache_dir, f"{voice_id}.mp3")
         settings = EncoderSettings(format="mp3", bitrate="128k")
 
-        actual_path = await loop.run_in_executor(
+        actual_path = await asyncio.get_running_loop().run_in_executor(
             None, lambda: encode_audio(audio, sample_rate, cache_path_mp3, settings)
         )
 
@@ -322,6 +319,9 @@ async def stream_audio(book_id: str, chapter: int):
     if not re.match(r"^[a-f0-9-]{36}$", book_id):
         raise HTTPException(status_code=400, detail="Invalid book ID format")
 
+    if chapter < 1:
+        raise HTTPException(status_code=400, detail="Chapter number must be >= 1")
+
     job_manager = get_job_manager()
     library = get_library_manager()
 
@@ -362,6 +362,9 @@ async def get_chapter_text(book_id: str, chapter: int):
     # Validate book_id format to prevent path traversal
     if not re.match(r"^[a-f0-9-]{36}$", book_id):
         raise HTTPException(status_code=400, detail="Invalid book ID format")
+
+    if chapter < 1:
+        raise HTTPException(status_code=400, detail="Chapter number must be >= 1")
 
     library = get_library_manager()
     book_dir = library.get_book_dir(book_id)
@@ -440,7 +443,7 @@ async def delete_book(book_id: str):
     Delete a book from the library.
     """
     # Validate book_id format to prevent path traversal
-    if not re.match(r"^[a-f0-9-]{36}$", book_id.lower()):
+    if not re.match(r"^[a-f0-9-]{36}$", book_id):
         raise HTTPException(status_code=400, detail="Invalid book ID format")
 
     library = get_library_manager()

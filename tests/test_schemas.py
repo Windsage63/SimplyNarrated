@@ -10,7 +10,6 @@ from src.models.schemas import (
     AudioFormat,
     JobStatus,
     GenerateRequest,
-    BookmarkRequest,
     UploadResponse,
     BookInfo,
     ChapterInfo,
@@ -91,14 +90,6 @@ class TestGenerateRequest:
         assert req.narrator_voice == "bm_lewis"
         assert req.quality == AudioQuality.ULTRA
         assert req.format == AudioFormat.MP3
-
-
-class TestBookmarkRequest:
-    def test_construction(self):
-        bm = BookmarkRequest(book_id="abc", chapter=3, position=42.5)
-        assert bm.book_id == "abc"
-        assert bm.chapter == 3
-        assert bm.position == 42.5
 
 
 # ---------------------------------------------------------------------------
