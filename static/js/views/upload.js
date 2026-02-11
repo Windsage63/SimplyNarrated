@@ -189,7 +189,7 @@ async function loadVoices() {
 async function playVoicePreview(voiceId, button) {
   const iconSpan = button.querySelector("span");
 
-  // If this voice is already playing, stop it
+  // If this voice is already playing or loading, stop it
   if (currentPreviewVoiceId === voiceId && currentPreviewAudio) {
     stopVoicePreview();
     return;
@@ -198,10 +198,9 @@ async function playVoicePreview(voiceId, button) {
   // Stop any currently playing preview
   stopVoicePreview();
 
-  // Show loading state
+  // Show loading state (keep button enabled so user can cancel)
   iconSpan.textContent = "hourglass_empty";
   iconSpan.classList.add("animate-spin");
-  button.disabled = true;
 
   try {
     // Fetch and play the sample
@@ -209,23 +208,27 @@ async function playVoicePreview(voiceId, button) {
     currentPreviewAudio = audio;
     currentPreviewVoiceId = voiceId;
 
-    audio.oncanplaythrough = () => {
+    // Use addEventListener with { once: true } to prevent duplicate play() calls
+    audio.addEventListener("canplaythrough", () => {
+      // Guard: only play if this audio is still the current one (user may have cancelled)
+      if (currentPreviewAudio !== audio) return;
       iconSpan.textContent = "stop";
       iconSpan.classList.remove("animate-spin");
-      button.disabled = false;
       audio.play();
-    };
+    }, { once: true });
 
     audio.onended = () => {
+      // Guard: only reset if this audio is still the current one
+      if (currentPreviewAudio !== audio) return;
       iconSpan.textContent = "play_arrow";
       currentPreviewAudio = null;
       currentPreviewVoiceId = null;
     };
 
     audio.onerror = () => {
+      if (currentPreviewAudio !== audio) return;
       iconSpan.textContent = "play_arrow";
       iconSpan.classList.remove("animate-spin");
-      button.disabled = false;
       currentPreviewAudio = null;
       currentPreviewVoiceId = null;
       console.error("Failed to load voice sample");
@@ -236,7 +239,6 @@ async function playVoicePreview(voiceId, button) {
     console.error("Failed to play preview:", error);
     iconSpan.textContent = "play_arrow";
     iconSpan.classList.remove("animate-spin");
-    button.disabled = false;
   }
 }
 
