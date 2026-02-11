@@ -140,9 +140,10 @@ async function pollStatus() {
       document.getElementById("cancel-btn").classList.add("hidden");
 
       // Show completion UI
-      document.getElementById("progress-fill").style.width = "100%";
-      document.getElementById("progress-text").textContent = "100%";
-      document.getElementById("current-step").textContent =
+      const completionCircle = document.getElementById("progress-circle");
+      if (completionCircle) completionCircle.style.strokeDashoffset = "0";
+      document.getElementById("progress-percent").textContent = "100%";
+      document.getElementById("progress-chapter").textContent =
         "Conversion Complete!";
       document.getElementById("time-remaining").textContent = "Ready to play";
 
