@@ -29,8 +29,8 @@ To construct a valid browser URL for any file in your current environment, follo
 | Variable | Value |
 | :--- | :--- |
 | **Distro** | `Ubuntu-24.04` |
-| **Path** | `/home/wind/projects/Infographic/index.html` |
-| **Result** | `file://///wsl.localhost/Ubuntu-24.04/home/wind/projects/Infographic/index.html` |
+| **Path** | `/home/user/project/index.html` |
+| **Result** | `file://///wsl.localhost/Ubuntu-24.04/home/user/project/index.html` |
 
 ## Expected Output
 
