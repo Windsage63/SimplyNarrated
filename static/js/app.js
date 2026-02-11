@@ -157,6 +157,21 @@ const api = {
     }
     return response.json();
   },
+
+  async uploadCover(bookId, file) {
+    const formData = new FormData();
+    formData.append("file", file);
+
+    const response = await fetch(`${this.baseUrl}/book/${bookId}/cover`, {
+      method: "POST",
+      body: formData,
+    });
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.detail || "Failed to upload cover");
+    }
+    return response.json();
+  },
 };
 
 // ============================================

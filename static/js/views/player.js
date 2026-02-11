@@ -32,12 +32,19 @@ function renderPlayerView(bookId) {
                     <p id="book-author" class="text-lg text-gray-400">--</p>
                 </div>
                 
-                <!-- Book Cover / Gradient Placeholder -->
+                <!-- Book Cover / Gradient Placeholder (click to edit metadata) -->
                 <div class="flex justify-center mb-8">
-                    <div id="book-cover" class="relative group">
-                        <div class="w-64 h-80 rounded-xl bg-gradient-to-br from-primary/40 via-dark-600 to-primary/20 
-                                    flex items-center justify-center shadow-2xl border border-white/10">
+                    <div id="book-cover" class="relative group cursor-pointer" onclick="openEditMetaModal()">
+                        <div id="book-cover-inner" class="w-64 h-80 rounded-xl bg-gradient-to-br from-primary/40 via-dark-600 to-primary/20 
+                                    flex items-center justify-center shadow-2xl border border-white/10 overflow-hidden">
                             <span class="material-symbols-outlined text-7xl text-white/30">menu_book</span>
+                        </div>
+                        <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 
+                                    transition flex items-center justify-center rounded-xl">
+                            <div class="flex flex-col items-center gap-1">
+                                <span class="material-symbols-outlined text-2xl text-white">edit</span>
+                                <span class="text-xs text-white/80 font-medium">Edit</span>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -107,12 +114,7 @@ function renderPlayerView(bookId) {
                         <span>View Text</span>
                     </button>
 
-                    <!-- Edit Meta -->
-                    <button onclick="openEditMetaModal()" class="flex items-center gap-2 px-3 py-2 rounded-lg 
-                                                                 bg-dark-600 hover:bg-dark-700 transition">
-                        <span class="material-symbols-outlined text-lg">edit_note</span>
-                        <span>Edit Meta</span>
-                    </button>
+
                 </div>
             </div>
             
@@ -182,6 +184,25 @@ function renderPlayerView(bookId) {
                                    class="w-full px-3 py-2 rounded-lg bg-dark-600 border border-white/10 
                                           text-white focus:outline-none focus:border-primary transition">
                         </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-400 mb-1">Cover Image</label>
+                            <div class="flex items-center gap-4">
+                                <div id="meta-cover-preview" class="w-16 h-20 rounded-lg bg-gradient-to-br from-primary/30 via-dark-600 to-primary/10 
+                                            flex items-center justify-center border border-white/10 overflow-hidden flex-shrink-0">
+                                    <span class="material-symbols-outlined text-2xl text-gray-500">menu_book</span>
+                                </div>
+                                <div class="flex-1">
+                                    <label class="flex items-center gap-2 px-3 py-2 rounded-lg bg-dark-600 hover:bg-dark-700 
+                                                  border border-white/10 transition cursor-pointer text-sm">
+                                        <span class="material-symbols-outlined text-lg">upload</span>
+                                        <span id="meta-cover-label">Choose image...</span>
+                                        <input type="file" id="meta-cover-file" accept="image/jpeg,image/png" class="hidden"
+                                               onchange="previewCoverFile(this)">
+                                    </label>
+                                    <p class="text-xs text-gray-500 mt-1">JPG or PNG, max 5 MB</p>
+                                </div>
+                            </div>
+                        </div>
                         <div class="flex justify-end gap-3 pt-2">
                             <button onclick="closeEditMetaModal()" class="px-4 py-2 rounded-lg bg-dark-600 hover:bg-dark-700 transition text-sm">
                                 Cancel
@@ -226,6 +247,9 @@ async function initPlayerView(bookId) {
       playerState.book.author || "Unknown Author";
     document.getElementById("chapter-count").textContent =
       `${playerState.book.total_chapters} Chapters`;
+
+    // Render book cover image if available
+    updateBookCover();
 
     // Render chapter list
     renderChapterList();
@@ -570,6 +594,41 @@ function closeTextModal() {
 }
 
 /**
+ * Update the book cover display in the player
+ */
+function updateBookCover() {
+  const container = document.getElementById("book-cover-inner");
+  if (!container) return;
+
+  if (playerState.book && playerState.book.cover_url) {
+    container.innerHTML = `<img src="${playerState.book.cover_url}" alt="Book cover" 
+                                class="w-full h-full object-cover">`;
+  } else {
+    container.innerHTML =
+      '<span class="material-symbols-outlined text-7xl text-white/30">menu_book</span>';
+  }
+}
+
+/**
+ * Preview a selected cover file in the edit modal
+ */
+function previewCoverFile(input) {
+  const preview = document.getElementById("meta-cover-preview");
+  const label = document.getElementById("meta-cover-label");
+
+  if (input.files && input.files[0]) {
+    const file = input.files[0];
+    label.textContent = file.name;
+
+    const reader = new FileReader();
+    reader.onload = function (e) {
+      preview.innerHTML = `<img src="${e.target.result}" alt="Cover preview" class="w-full h-full object-cover">`;
+    };
+    reader.readAsDataURL(file);
+  }
+}
+
+/**
  * Open the edit metadata modal, pre-filled with current book info
  */
 function openEditMetaModal() {
@@ -577,6 +636,21 @@ function openEditMetaModal() {
 
   document.getElementById("meta-title").value = playerState.book.title || "";
   document.getElementById("meta-author").value = playerState.book.author || "";
+
+  // Reset file input
+  const fileInput = document.getElementById("meta-cover-file");
+  fileInput.value = "";
+  document.getElementById("meta-cover-label").textContent = "Choose image...";
+
+  // Show current cover in preview
+  const preview = document.getElementById("meta-cover-preview");
+  if (playerState.book.cover_url) {
+    preview.innerHTML = `<img src="${playerState.book.cover_url}" alt="Cover preview" class="w-full h-full object-cover">`;
+  } else {
+    preview.innerHTML =
+      '<span class="material-symbols-outlined text-2xl text-gray-500">menu_book</span>';
+  }
+
   document.getElementById("meta-modal").classList.remove("hidden");
 }
 
@@ -595,28 +669,41 @@ async function saveMetadata() {
 
   const title = document.getElementById("meta-title").value.trim();
   const author = document.getElementById("meta-author").value.trim();
+  const coverFile = document.getElementById("meta-cover-file").files[0];
 
   const updates = {};
   if (title && title !== playerState.book.title) updates.title = title;
   if (author !== (playerState.book.author || "")) updates.author = author;
 
-  if (Object.keys(updates).length === 0) {
+  const hasTextUpdates = Object.keys(updates).length > 0;
+  const hasCover = !!coverFile;
+
+  if (!hasTextUpdates && !hasCover) {
     closeEditMetaModal();
     return;
   }
 
   try {
-    await api.updateMetadata(playerState.book.id, updates);
-
-    // Update local state and UI
-    if (updates.title) {
-      playerState.book.title = updates.title;
-      document.getElementById("book-title").textContent = updates.title;
+    // Upload cover image if selected
+    if (hasCover) {
+      const coverResult = await api.uploadCover(playerState.book.id, coverFile);
+      playerState.book.cover_url = coverResult.cover_url;
+      updateBookCover();
     }
-    if ("author" in updates) {
-      playerState.book.author = updates.author;
-      document.getElementById("book-author").textContent =
-        updates.author || "Unknown Author";
+
+    // Update text metadata if changed
+    if (hasTextUpdates) {
+      await api.updateMetadata(playerState.book.id, updates);
+
+      if (updates.title) {
+        playerState.book.title = updates.title;
+        document.getElementById("book-title").textContent = updates.title;
+      }
+      if ("author" in updates) {
+        playerState.book.author = updates.author;
+        document.getElementById("book-author").textContent =
+          updates.author || "Unknown Author";
+      }
     }
 
     closeEditMetaModal();

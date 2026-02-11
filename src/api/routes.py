@@ -225,7 +225,9 @@ async def get_voice_sample(voice_id: str):
         raise HTTPException(status_code=400, detail="Invalid voice ID")
 
     # Check for cached sample (mp3 only)
-    cache_dir = os.path.join(os.path.dirname(__file__), "..", "..", "static", "voices", "audio")
+    cache_dir = os.path.join(
+        os.path.dirname(__file__), "..", "..", "static", "voices", "audio"
+    )
     os.makedirs(cache_dir, exist_ok=True)
 
     cache_path = os.path.join(cache_dir, f"{voice_id}.mp3")
@@ -437,6 +439,93 @@ async def update_book_metadata(book_id: str, request: UpdateMetadataRequest):
     return {"status": "updated", "book_id": book_id, **updates}
 
 
+MAX_COVER_SIZE = 5 * 1024 * 1024  # 5 MB
+ALLOWED_COVER_TYPES = {"image/jpeg": ".jpg", "image/png": ".png"}
+
+
+@router.post("/book/{book_id}/cover")
+async def upload_cover(book_id: str, file: UploadFile = File(...)):
+    """
+    Upload a cover image for a book.
+    Accepts .jpg/.png files up to 5 MB.
+    """
+    if not re.match(r"^[a-f0-9-]{36}$", book_id):
+        raise HTTPException(status_code=400, detail="Invalid book ID format")
+
+    # Validate content type
+    if file.content_type not in ALLOWED_COVER_TYPES:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid file type. Only JPG and PNG images are allowed.",
+        )
+
+    # Validate file extension
+    filename = file.filename or "cover"
+    ext = os.path.splitext(filename)[1].lower()
+    if ext not in (".jpg", ".jpeg", ".png"):
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid file extension. Only .jpg and .png are allowed.",
+        )
+
+    # Read with size limit
+    content = await file.read(MAX_COVER_SIZE + 1)
+    if len(content) > MAX_COVER_SIZE:
+        raise HTTPException(
+            status_code=413,
+            detail=f"File too large. Maximum size: {MAX_COVER_SIZE // (1024 * 1024)}MB",
+        )
+
+    library = get_library_manager()
+    book_dir = library.get_book_dir(book_id)
+    if not os.path.exists(os.path.join(book_dir, "metadata.json")):
+        raise HTTPException(status_code=404, detail="Book not found")
+
+    # Remove any existing cover files
+    for old_cover in ("cover.jpg", "cover.png"):
+        old_path = os.path.join(book_dir, old_cover)
+        if os.path.exists(old_path):
+            os.remove(old_path)
+
+    # Determine save extension from content type
+    save_ext = ALLOWED_COVER_TYPES[file.content_type]
+    cover_filename = f"cover{save_ext}"
+    cover_path = os.path.join(book_dir, cover_filename)
+
+    async with aiofiles.open(cover_path, "wb") as f:
+        await f.write(content)
+
+    # Update metadata
+    cover_url = f"/api/book/{book_id}/cover"
+    library.update_book_metadata(book_id, {"cover_url": cover_url})
+
+    return {"status": "uploaded", "cover_url": cover_url}
+
+
+@router.get("/book/{book_id}/cover")
+async def get_cover(book_id: str):
+    """
+    Serve the cover image for a book.
+    """
+    if not re.match(r"^[a-f0-9-]{36}$", book_id):
+        raise HTTPException(status_code=400, detail="Invalid book ID format")
+
+    library = get_library_manager()
+    book_dir = library.get_book_dir(book_id)
+
+    # Check for cover files
+    for filename, media_type in [("cover.jpg", "image/jpeg"), ("cover.png", "image/png")]:
+        cover_path = os.path.join(book_dir, filename)
+        if os.path.exists(cover_path) and os.path.getsize(cover_path) > 0:
+            return FileResponse(
+                cover_path,
+                media_type=media_type,
+                filename=filename,
+            )
+
+    raise HTTPException(status_code=404, detail="Cover image not found")
+
+
 @router.delete("/book/{book_id}")
 async def delete_book(book_id: str):
     """
@@ -447,7 +536,7 @@ async def delete_book(book_id: str):
         raise HTTPException(status_code=400, detail="Invalid book ID format")
 
     library = get_library_manager()
-    
+
     # Check existence separate from deletion success
     book_dir = library.get_book_dir(book_id)
     if not os.path.exists(book_dir):
@@ -457,7 +546,8 @@ async def delete_book(book_id: str):
 
     if not success:
         raise HTTPException(
-            status_code=500, detail="The book files are currently in use. Please stop the player and try again."
+            status_code=500,
+            detail="The book files are currently in use. Please stop the player and try again.",
         )
 
     return {"status": "success", "message": "Book deleted", "book_id": book_id}

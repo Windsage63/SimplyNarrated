@@ -19,8 +19,12 @@ limitations under the License.
 
 import os
 import re
+import shutil
+import logging
 from typing import Tuple, List, Optional
 from dataclasses import dataclass
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -155,6 +159,121 @@ def parse_file(file_path: str) -> ParsedDocument:
     return parser(file_path)
 
 
+def extract_cover_image(file_path: str, output_dir: str) -> Optional[str]:
+    """
+    Attempt to extract a cover image from the source file.
+
+    For PDF: extracts the first image from page 1.
+    For Markdown: locates the first local image reference.
+    For TXT: no cover extraction.
+
+    Returns the filename of the saved cover image (e.g. 'cover.jpg'), or None.
+    """
+    format_type = detect_format(file_path)
+
+    if format_type == "pdf":
+        return _extract_cover_from_pdf(file_path, output_dir)
+    elif format_type == "md":
+        return _extract_cover_from_markdown(file_path, output_dir)
+    return None
+
+
+def _extract_cover_from_pdf(file_path: str, output_dir: str) -> Optional[str]:
+    """Extract the first image from page 1 of a PDF as the cover."""
+    try:
+        import pymupdf
+    except ImportError:
+        return None
+
+    try:
+        doc = pymupdf.open(file_path)
+        if len(doc) == 0:
+            doc.close()
+            return None
+
+        # Get images from the first page
+        page = doc[0]
+        images = page.get_images(full=True)
+
+        if not images:
+            doc.close()
+            return None
+
+        # Use the first image
+        xref = images[0][0]
+        base_image = doc.extract_image(xref)
+        doc.close()
+
+        if not base_image or not base_image.get("image"):
+            return None
+
+        # Determine extension from the image format
+        img_ext = base_image.get("ext", "png").lower()
+        if img_ext in ("jpg", "jpeg"):
+            cover_filename = "cover.jpg"
+        elif img_ext == "png":
+            cover_filename = "cover.png"
+        else:
+            # Convert unknown formats to png extension
+            cover_filename = "cover.png"
+
+        cover_path = os.path.join(output_dir, cover_filename)
+        with open(cover_path, "wb") as f:
+            f.write(base_image["image"])
+
+        logger.info("Extracted cover image from PDF: %s", cover_filename)
+        return cover_filename
+
+    except Exception as e:
+        logger.warning("Failed to extract cover from PDF: %s", e)
+        return None
+
+
+def _extract_cover_from_markdown(file_path: str, output_dir: str) -> Optional[str]:
+    """Find the first local image reference in a markdown file and copy it as cover."""
+    try:
+        with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
+            content = f.read()
+
+        # Find the first markdown image reference: ![alt](path)
+        match = re.search(r"!\[[^\]]*\]\(([^)]+)\)", content)
+        if not match:
+            return None
+
+        img_ref = match.group(1).strip()
+
+        # Only handle local file paths — skip URLs to avoid SSRF
+        if img_ref.startswith(("http://", "https://", "ftp://", "data:", "//")):
+            return None
+
+        # Resolve relative to the source file's directory
+        source_dir = os.path.dirname(os.path.abspath(file_path))
+        img_path = os.path.normpath(os.path.join(source_dir, img_ref))
+
+        # Security: ensure the resolved path is within or near the source directory
+        if not os.path.isfile(img_path):
+            return None
+
+        # Determine cover filename from the image extension
+        ext = os.path.splitext(img_path)[1].lower()
+        if ext in (".jpg", ".jpeg"):
+            cover_filename = "cover.jpg"
+        elif ext == ".png":
+            cover_filename = "cover.png"
+        else:
+            return None
+
+        cover_path = os.path.join(output_dir, cover_filename)
+        shutil.copy2(img_path, cover_path)
+
+        logger.info("Copied cover image from markdown reference: %s", cover_filename)
+        return cover_filename
+
+    except Exception as e:
+        logger.warning("Failed to extract cover from markdown: %s", e)
+        return None
+
+
 def _split_into_chapters(text: str) -> List[Tuple[str, str]]:
     """Split text into chapters based on common patterns."""
     # Common chapter patterns, tried in priority order
@@ -279,4 +398,3 @@ def _markdown_to_text(md: str) -> str:
     # Clean up whitespace
     text = re.sub(r"\n{3,}", "\n\n", text)
     return text.strip()
-

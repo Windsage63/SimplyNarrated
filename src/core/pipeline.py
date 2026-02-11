@@ -27,6 +27,7 @@ from typing import Dict, Any
 from datetime import datetime
 
 from src.core.parser import parse_file
+from src.core.parser import extract_cover_image
 from src.core.chunker import chunk_chapters, get_total_duration
 from src.core.tts_engine import get_tts_engine
 from src.core.encoder import encode_audio, get_encoder_settings, format_duration
@@ -73,6 +74,11 @@ async def process_book(job: Job, config: Dict[str, Any]) -> None:
             f"Found {len(document.chapters)} chapters in '{document.title}'",
             "success",
         )
+
+        # Phase 1a: Attempt to extract cover image
+        cover_filename = extract_cover_image(job.file_path, job.output_dir)
+        if cover_filename:
+            job_manager._add_activity(job, "Cover image extracted from source file", "success")
 
         # Phase 1b: Remove footnote/number references if requested
         strip_square = config.get("remove_square_bracket_numbers", False)
@@ -208,6 +214,7 @@ async def process_book(job: Job, config: Dict[str, Any]) -> None:
             "id": job.id,
             "title": document.title,
             "author": document.author,
+            "cover_url": f"/api/book/{job.id}/cover" if cover_filename else None,
             "source_file": os.path.basename(job.file_path),
             "original_filename": job.filename,
             "voice": voice_id,

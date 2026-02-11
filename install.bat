@@ -71,6 +71,7 @@ if exist "%PY_EXE%" (
 
 REM -------------------------------------------------------
 REM  Step 3: Patch ._pth file to enable site-packages
+REM            and add project root to path
 REM -------------------------------------------------------
 set "PTH_FILE=%PY_DIR%\python312._pth"
 
@@ -88,6 +89,15 @@ if exist "%PTH_FILE%" (
         ) else (
             echo [OK] site-packages already enabled
         )
+    )
+
+    REM Add project root (..) so "import src.*" works from any context
+    findstr /C:".." "%PTH_FILE%" >nul 2>&1
+    if errorlevel 1 (
+        echo ..>> "%PTH_FILE%"
+        echo [OK] Added project root to %PTH_FILE%
+    ) else (
+        echo [OK] Project root already in path
     )
 ) else (
     echo WARNING: %PTH_FILE% not found. Packages may not be discoverable.

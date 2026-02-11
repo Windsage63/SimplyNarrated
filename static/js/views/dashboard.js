@@ -148,8 +148,12 @@ function renderLibraryGrid(books) {
             </button>
 
             <div class="aspect-[3/4] bg-gradient-to-br from-primary/30 via-dark-600 to-primary/10 
-                        rounded-lg mb-3 flex items-center justify-center relative group">
-                <span class="material-symbols-outlined text-4xl text-gray-500">menu_book</span>
+                        rounded-lg mb-3 flex items-center justify-center relative group overflow-hidden">
+                ${
+                  book.cover_url
+                    ? `<img src="${book.cover_url}" alt="Book cover" class="w-full h-full object-cover">`
+                    : '<span class="material-symbols-outlined text-4xl text-gray-500">menu_book</span>'
+                }
                 <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 
                             transition flex items-center justify-center rounded-lg">
                     <div class="w-12 h-12 rounded-full bg-primary flex items-center justify-center">
