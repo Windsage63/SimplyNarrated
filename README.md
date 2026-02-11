@@ -1,10 +1,14 @@
-# SimplyNarrated
+# 🔊 SimplyNarrated
 
-**SimplyNarrated** is a local web application that converts books and text documents (`.txt`, `.md`, `.pdf`) into audiobooks saved as MP3 chapter files. Designed for non-technical users, it provides a polished multi-page interface with a landing page, file upload/configuration screen, conversion progress tracker, audiobook player, and user dashboard.
+A local web application that converts books and text documents (`.txt`, `.md`, `.pdf`) into audiobooks saved as MP3 chapter files. Designed for non-technical users, it provides a polished multi-page interface with a landing page, file upload/configuration screen, conversion progress tracker, audiobook player, and user dashboard.
 
 The system uses the **Kokoro-82M** model running locally on GPU for high-quality, expressive speech synthesis.
 
-## Features
+## 💻 Landing Page
+
+![SimplyNarrated](docs/img/convert.png)
+
+## ✨ Features
 
 - **Local Inference**: Uses Kokoro-82M TTS model running locally. Includes pre-distributed voice tensors for zero-download voice switching.
 - **Dual-Region Support**: Automatic selection of American ('a') or British ('b') G2P rules based on voice selection.
@@ -15,9 +19,13 @@ The system uses the **Kokoro-82M** model running locally on GPU for high-quality
 - **Library Management**: Dashboard to manage your converted books.
 - **Modern UI**: Polished interface with dark mode support.
 
-## Quick Start (One-Click Setup)
+## 🎮Media Player
 
-The easiest way to get started — no Python installation required.
+![SimplyNarrated](docs/img/player.png)
+
+## 🚀 Quick Start (One-Click Setup - Seriously Recommended)
+
+The easiest way to get started — no Python installation required. This uses a pre-configured Python environment with all dependencies installed.
 
 1. **Run the installer**: Double-click `install.bat` (or right-click → *Run as administrator*).
    - Select your GPU when prompted (RTX 50 series, RTX 30/40 series, or CPU only).
@@ -27,7 +35,7 @@ The easiest way to get started — no Python installation required.
 
 > **Note:** First-time installation downloads ~2 GB of dependencies (Python + PyTorch + models). Ensure you have a stable internet connection.
 
-## Manual Installation
+## 🛠️ Manual Installation (for advanced users)
 
 For advanced users who prefer to manage their own Python environment.
 
@@ -65,14 +73,14 @@ For advanced users who prefer to manage their own Python environment.
 
 4. **Open the application**: Navigate to `http://localhost:8010`.
 
-## Running the Application
+## 🚀 Running the Application
 
 After installation, use `run.bat` to start SimplyNarrated at any time:
 
 - Double-click `run.bat` — it launches the server and opens your browser automatically.
 - The app runs at `http://localhost:8010`.
 
-## Project Structure
+## 📁 Project Structure
 
 - `src/`: Source code
   - `api/`: FastAPI routes and endpoints
@@ -85,12 +93,12 @@ After installation, use `run.bat` to start SimplyNarrated at any time:
   - `voices/audio/`: Cached voice sample previews (`.mp3`)
 - `tests/`: Unit and integration tests
 
-## Documentation
+## 📄 Documentation
 
 - [API Reference](docs/API-Reference.md)
 - [Architecture Plan](plans/architect_plan.md)
 
-## Acknowledgements
+## 📝 Acknowledgements
 
 **SimplyNarrated** uses the Kokoro TTS Engine developed by Hexgrad. This project is built on top of the following resources:
 
