@@ -104,6 +104,25 @@ if exist "%PTH_FILE%" (
 )
 
 REM -------------------------------------------------------
+REM  Step 3b: Create sitecustomize.py for PYTHONPATH support
+REM           (needed for VS Code pytest discovery)
+REM -------------------------------------------------------
+set "SITECUST=%PY_DIR%\Lib\site-packages\sitecustomize.py"
+if not exist "%SITECUST%" (
+    mkdir "%PY_DIR%\Lib\site-packages" 2>nul
+    (
+        echo """Enable PYTHONPATH support for embedded Python."""
+        echo import os, sys
+        echo for p in os.environ.get^("PYTHONPATH", ""^).split^(os.pathsep^):
+        echo     if p and p not in sys.path:
+        echo         sys.path.append^(p^)
+    ) > "%SITECUST%"
+    echo [OK] Created sitecustomize.py for VS Code integration
+) else (
+    echo [OK] sitecustomize.py already exists
+)
+
+REM -------------------------------------------------------
 REM  Step 4: Bootstrap pip
 REM -------------------------------------------------------
 "%PY_EXE%" -m pip --version >nul 2>&1
