@@ -17,6 +17,7 @@ The system uses the **Kokoro-82M** model running locally on GPU for high-quality
 - **Memory Efficient**: Shares a single base model across multiple language pipelines to save RAM.
 - **Multiple Formats**: Supports uploading TXT, MD, PDF, and Gutenberg ZIP (HTML) files.
 - **Gutenberg Import**: Upload Project Gutenberg HTML ZIP downloads — the app extracts the HTML text and cover image automatically.
+- **Get More Books Shortcut**: Library view includes a `Get More Books` button that links to Project Gutenberg with a quick format tip before opening.
 - **Smart Chunking**: Splits text into natural chapters or segments.
 - **Early Chapter Estimate**: Upload response includes an estimated chapter count before generation starts.
 - **Audiobook Player**: Built-in player with progress tracking and bookmarks.
@@ -29,7 +30,9 @@ The system uses the **Kokoro-82M** model running locally on GPU for high-quality
 
 - Output format is currently **MP3-only**.
 - Voice generation is currently **single-narrator voice** during conversion.
-- The landing page is intentionally lightweight and currently uses no custom brand artwork.
+- For best Gutenberg imports, use **HTML ZIP** downloads; **TXT** downloads are also supported.
+- ZIP cover auto-detection currently uses image filenames containing **"cover"**.
+- Landing and dashboard include updated branded UI with Gutenberg-focused onboarding.
 
 ## 🎮Simple Media Player
 

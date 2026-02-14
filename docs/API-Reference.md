@@ -22,6 +22,10 @@ The API supports upload, conversion job lifecycle, voice previews, playback/book
 - **Path**: `/upload`
 - **Body**: `multipart/form-data` with `file`
 - **Supports**: `.txt`, `.md`, `.pdf`, `.zip` (Gutenberg HTML) (max 50MB)
+- **ZIP Behavior**:
+  - Selects the largest `.html`/`.htm` file in the archive as the narration source.
+  - Removes Gutenberg header/footer boilerplate before chapter splitting.
+  - Attempts cover extraction from image filenames containing `cover`.
 - **Response**:
 
   ```json
@@ -94,6 +98,8 @@ The API supports upload, conversion job lifecycle, voice previews, playback/book
 - **Response**: `audio/mpeg`
 
 ### Library
+
+- UI includes a `Get More Books` action in the dashboard header that opens Project Gutenberg after showing a brief download-format tip.
 
 #### Get Library
 
