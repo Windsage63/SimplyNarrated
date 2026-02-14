@@ -21,6 +21,8 @@ import os
 import re
 import shutil
 import logging
+import zipfile
+import html as html_module
 from typing import Tuple, List, Optional
 from dataclasses import dataclass
 
@@ -142,6 +144,140 @@ def parse_pdf(file_path: str) -> ParsedDocument:
     )
 
 
+def parse_zip(file_path: str) -> ParsedDocument:
+    """Parse a Gutenberg-style ZIP containing HTML and optional cover image."""
+    MAX_ZIP_MEMBERS = 200
+    MAX_UNCOMPRESSED = 100 * 1024 * 1024  # 100 MB safety limit
+
+    try:
+        zf = zipfile.ZipFile(file_path)
+    except (zipfile.BadZipFile, Exception) as e:
+        raise ValueError(f"Invalid or corrupt ZIP file: {e}")
+
+    members = zf.infolist()
+    if len(members) > MAX_ZIP_MEMBERS:
+        zf.close()
+        raise ValueError(f"ZIP has too many members ({len(members)})")
+
+    total_uncompressed = sum(m.file_size for m in members if not m.is_dir())
+    if total_uncompressed > MAX_UNCOMPRESSED:
+        zf.close()
+        raise ValueError("ZIP uncompressed content exceeds size limit")
+
+    # Find the largest HTML file
+    html_members = [
+        m for m in members
+        if not m.is_dir()
+        and m.filename.lower().endswith((".html", ".htm"))
+        and not m.filename.startswith(("__MACOSX/", "."))
+        and _safe_zip_member(m.filename)
+    ]
+
+    if not html_members:
+        zf.close()
+        raise ValueError("ZIP does not contain any HTML files")
+
+    largest_html = max(html_members, key=lambda m: m.file_size)
+
+    raw_html = zf.read(largest_html.filename)
+    zf.close()
+
+    # Decode HTML
+    html_text = raw_html.decode("utf-8", errors="ignore")
+
+    # Extract title from <title> tag
+    title_match = re.search(r"<title>(.*?)</title>", html_text, re.IGNORECASE | re.DOTALL)
+    title = "Untitled"
+    if title_match:
+        title = html_module.unescape(title_match.group(1).strip())
+        # Strip common Gutenberg suffixes like " | Project Gutenberg"
+        title = re.sub(r"\s*\|\s*Project\s+Gutenberg\b.*$", "", title, flags=re.IGNORECASE).strip()
+
+    # Strip Gutenberg header/footer boilerplate
+    body_html = _strip_gutenberg_boilerplate(html_text)
+
+    # Convert HTML to plain text
+    plain_text = _html_to_text(body_html)
+
+    # Split into chapters
+    chapters = _split_into_chapters(plain_text)
+
+    # Normalize each chapter
+    normalized_chapters = []
+    for ch_title, ch_content in chapters:
+        normalized_chapters.append((ch_title, _normalize_line_breaks(ch_content)))
+
+    full_text = "\n\n".join([f"{t}\n\n{c}" for t, c in normalized_chapters])
+
+    return ParsedDocument(
+        title=title,
+        author=None,
+        raw_text=full_text,
+        chapters=normalized_chapters,
+        format="zip",
+    )
+
+
+def _safe_zip_member(name: str) -> bool:
+    """Check that a ZIP member path is safe (no path traversal)."""
+    if name.startswith("/") or ".." in name.split("/"):
+        return False
+    return True
+
+
+def _strip_gutenberg_boilerplate(html_text: str) -> str:
+    """Remove Project Gutenberg header and footer sections from HTML."""
+    # Remove everything inside <section id="pg-header">...</section>
+    html_text = re.sub(
+        r'<(?:div|section)[^>]*id=["\']pg-header["\'][^>]*>.*?</(?:div|section)>',
+        "", html_text, flags=re.DOTALL | re.IGNORECASE,
+    )
+    # Remove everything inside <section id="pg-footer">...</section>
+    html_text = re.sub(
+        r'<(?:div|section)[^>]*id=["\']pg-footer["\'][^>]*>.*?</(?:div|section)>',
+        "", html_text, flags=re.DOTALL | re.IGNORECASE,
+    )
+    return html_text
+
+
+def _html_to_text(html_text: str) -> str:
+    """Convert HTML to readable plain text for audiobook narration."""
+    # Remove script and style blocks
+    text = re.sub(r"<script[^>]*>.*?</script>", "", html_text, flags=re.DOTALL | re.IGNORECASE)
+    text = re.sub(r"<style[^>]*>.*?</style>", "", text, flags=re.DOTALL | re.IGNORECASE)
+
+    # Remove <head>...</head>
+    text = re.sub(r"<head[^>]*>.*?</head>", "", text, flags=re.DOTALL | re.IGNORECASE)
+
+    # Remove image tags
+    text = re.sub(r"<img[^>]*>", "", text, flags=re.IGNORECASE)
+
+    # Convert <br> and <br/> to newlines
+    text = re.sub(r"<br\s*/?>", "\n", text, flags=re.IGNORECASE)
+
+    # Convert block-level closing tags to double newlines
+    block_tags = r"</(?:p|div|h[1-6]|li|blockquote|tr|section|article|header|footer|pre)>"
+    text = re.sub(block_tags, "\n\n", text, flags=re.IGNORECASE)
+
+    # Convert <hr> to double newline
+    text = re.sub(r"<hr[^>]*>", "\n\n", text, flags=re.IGNORECASE)
+
+    # Remove all remaining HTML tags
+    text = re.sub(r"<[^>]+>", "", text)
+
+    # Decode HTML entities
+    text = html_module.unescape(text)
+
+    # Collapse excessive blank lines
+    text = re.sub(r"\n{3,}", "\n\n", text)
+
+    # Strip leading/trailing whitespace per line
+    lines = [line.strip() for line in text.split("\n")]
+    text = "\n".join(lines)
+
+    return text.strip()
+
+
 def parse_file(file_path: str) -> ParsedDocument:
     """Parse a file based on its format."""
     format_type = detect_format(file_path)
@@ -150,6 +286,7 @@ def parse_file(file_path: str) -> ParsedDocument:
         "txt": parse_txt,
         "md": parse_markdown,
         "pdf": parse_pdf,
+        "zip": parse_zip,
     }
 
     parser = parsers.get(format_type)
@@ -175,6 +312,8 @@ def extract_cover_image(file_path: str, output_dir: str) -> Optional[str]:
         return _extract_cover_from_pdf(file_path, output_dir)
     elif format_type == "md":
         return _extract_cover_from_markdown(file_path, output_dir)
+    elif format_type == "zip":
+        return _extract_cover_from_zip(file_path, output_dir)
     return None
 
 
@@ -271,6 +410,53 @@ def _extract_cover_from_markdown(file_path: str, output_dir: str) -> Optional[st
 
     except Exception as e:
         logger.warning("Failed to extract cover from markdown: %s", e)
+        return None
+
+
+def _extract_cover_from_zip(file_path: str, output_dir: str) -> Optional[str]:
+    """Extract a cover image from a ZIP archive.
+
+    Looks for an image file whose name contains 'cover' (case-insensitive).
+    """
+    try:
+        with zipfile.ZipFile(file_path) as zf:
+            image_members = [
+                m for m in zf.infolist()
+                if not m.is_dir()
+                and _safe_zip_member(m.filename)
+                and m.filename.lower().endswith((".jpg", ".jpeg", ".png", ".gif"))
+            ]
+
+            # Find the member whose basename contains 'cover'
+            cover_member = None
+            for m in image_members:
+                basename = os.path.basename(m.filename).lower()
+                if "cover" in basename:
+                    cover_member = m
+                    break
+
+            if not cover_member:
+                return None
+
+            # Determine output extension
+            ext = os.path.splitext(cover_member.filename)[1].lower()
+            if ext in (".jpg", ".jpeg"):
+                cover_filename = "cover.jpg"
+            elif ext == ".png":
+                cover_filename = "cover.png"
+            else:
+                cover_filename = "cover.png"
+
+            cover_data = zf.read(cover_member.filename)
+            cover_path = os.path.join(output_dir, cover_filename)
+            with open(cover_path, "wb") as f:
+                f.write(cover_data)
+
+            logger.info("Extracted cover image from ZIP: %s", cover_filename)
+            return cover_filename
+
+    except Exception as e:
+        logger.warning("Failed to extract cover from ZIP: %s", e)
         return None
 
 

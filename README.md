@@ -2,7 +2,7 @@
 
 ![SimplyNarrated](docs/img/Landing-page.png)
 
-A local web application that converts books and text documents (`.txt`, `.md`, `.pdf`) into audiobooks saved as MP3 chapter files. Designed for non-technical users, it provides a polished multi-page interface with a landing page, file upload/configuration screen, conversion progress tracker, audiobook player, and user dashboard.
+A local web application that converts books and text documents (`.txt`, `.md`, `.pdf`, `.zip`) into audiobooks saved as MP3 chapter files. Designed for non-technical users, it provides a polished multi-page interface with a landing page, file upload/configuration screen, conversion progress tracker, audiobook player, and user dashboard.
 
 The system uses the **Kokoro-82M** model running locally on GPU for high-quality, expressive speech synthesis.
 
@@ -15,7 +15,8 @@ The system uses the **Kokoro-82M** model running locally on GPU for high-quality
 - **Local Inference**: Uses Kokoro-82M TTS model running locally. Includes pre-distributed voice tensors for zero-download voice switching.
 - **Dual-Region Support**: Automatic selection of American ('a') or British ('b') G2P rules based on voice selection.
 - **Memory Efficient**: Shares a single base model across multiple language pipelines to save RAM.
-- **Multiple Formats**: Supports uploading TXT, MD, and PDF files.
+- **Multiple Formats**: Supports uploading TXT, MD, PDF, and Gutenberg ZIP (HTML) files.
+- **Gutenberg Import**: Upload Project Gutenberg HTML ZIP downloads — the app extracts the HTML text and cover image automatically.
 - **Smart Chunking**: Splits text into natural chapters or segments.
 - **Early Chapter Estimate**: Upload response includes an estimated chapter count before generation starts.
 - **Audiobook Player**: Built-in player with progress tracking and bookmarks.

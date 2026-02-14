@@ -122,6 +122,25 @@ class TestUploadEndpoint:
         assert resp.status_code == 400
         assert "Unsupported" in resp.json()["detail"]
 
+    async def test_upload_zip(self, app_client, tmp_uploads_dir):
+        """Upload a Gutenberg-style ZIP should succeed."""
+        import zipfile as zf
+        import io
+
+        buf = io.BytesIO()
+        with zf.ZipFile(buf, "w") as z:
+            z.writestr("book.html", "<html><body><p>Hello world</p></body></html>")
+        buf.seek(0)
+
+        resp = await app_client.post(
+            "/api/upload",
+            files={"file": ("gutenberg.zip", buf, "application/zip")},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "job_id" in data
+        assert data["filename"] == "gutenberg.zip"
+
     async def test_upload_too_large(self, app_client):
         # 51 MB of zeros
         big = b"\x00" * (51 * 1024 * 1024)

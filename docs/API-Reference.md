@@ -21,7 +21,7 @@ The API supports upload, conversion job lifecycle, voice previews, playback/book
 - **Method**: `POST`
 - **Path**: `/upload`
 - **Body**: `multipart/form-data` with `file`
-- **Supports**: `.txt`, `.md`, `.pdf` (max 50MB)
+- **Supports**: `.txt`, `.md`, `.pdf`, `.zip` (Gutenberg HTML) (max 50MB)
 - **Response**:
 
   ```json

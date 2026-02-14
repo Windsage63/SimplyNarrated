@@ -3,6 +3,7 @@ Shared test fixtures for SimplyNarrated test suite.
 """
 
 import json
+import zipfile
 import pytest
 import numpy as np
 from datetime import datetime
@@ -123,6 +124,60 @@ def sample_md_file(tmp_uploads_dir):
     """Write a sample .md file into the uploads dir and return its path."""
     path = tmp_uploads_dir / "sample.md"
     path.write_text(SAMPLE_MD_CONTENT, encoding="utf-8")
+    return str(path)
+
+
+SAMPLE_ZIP_HTML = """\
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<title>The Test Book | Project Gutenberg</title>
+</head><body>
+<section id="pg-header"><div>*** START OF THE PROJECT GUTENBERG EBOOK ***</div></section>
+<div class="chapter"><h2>Chapter 1</h2>
+<p>It was a bright cold day in April, and the clocks were striking thirteen.</p>
+<p>Winston Smith hurried through the glass doors of Victory Mansions.</p>
+</div>
+<div class="chapter"><h2>Chapter 2</h2>
+<p>He took a twenty-five cent piece out of his pocket.</p>
+<p>The hallway smelt of boiled cabbage and old rag mats.</p>
+</div>
+<section id="pg-footer"><div>*** END OF THE PROJECT GUTENBERG EBOOK ***</div></section>
+</body></html>
+"""
+
+
+@pytest.fixture
+def sample_zip_file(tmp_uploads_dir):
+    """Create a Gutenberg-style ZIP with HTML content and a fake cover image."""
+    path = tmp_uploads_dir / "test_book.zip"
+    with zipfile.ZipFile(str(path), "w") as zf:
+        zf.writestr("pg12345-images.html", SAMPLE_ZIP_HTML)
+        # Minimal PNG: 1x1 pixel
+        png_data = (
+            b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01"
+            b"\x00\x00\x00\x01\x08\x02\x00\x00\x00\x90wS\xde\x00"
+            b"\x00\x00\x0cIDATx\x9cc\xf8\x0f\x00\x00\x01\x01\x00"
+            b"\x05\x18\xd8N\x00\x00\x00\x00IEND\xaeB`\x82"
+        )
+        zf.writestr("12345-cover.png", png_data)
+    return str(path)
+
+
+@pytest.fixture
+def sample_zip_no_html(tmp_uploads_dir):
+    """Create a ZIP with no HTML files."""
+    path = tmp_uploads_dir / "no_html.zip"
+    with zipfile.ZipFile(str(path), "w") as zf:
+        zf.writestr("readme.txt", "Just a text file.")
+    return str(path)
+
+
+@pytest.fixture
+def sample_zip_no_cover(tmp_uploads_dir):
+    """Create a ZIP with HTML but no cover image."""
+    path = tmp_uploads_dir / "no_cover.zip"
+    with zipfile.ZipFile(str(path), "w") as zf:
+        zf.writestr("book.html", SAMPLE_ZIP_HTML)
     return str(path)
 
 

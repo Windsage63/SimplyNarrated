@@ -4,15 +4,20 @@ Tests for the file parser module.
 
 import os
 import pytest
+import zipfile
 
 from src.core.parser import (
     detect_format,
     parse_txt,
     parse_markdown,
+    parse_zip,
     parse_file,
+    extract_cover_image,
     _normalize_line_breaks,
     _markdown_to_text,
     _split_into_chapters,
+    _html_to_text,
+    _strip_gutenberg_boilerplate,
 )
 
 
@@ -248,3 +253,132 @@ class TestParseFile:
         path.write_text("data")
         with pytest.raises(ValueError, match="Unsupported format"):
             parse_file(str(path))
+
+    def test_zip_dispatch(self, sample_zip_file):
+        doc = parse_file(sample_zip_file)
+        assert doc.format == "zip"
+
+
+# ---------------------------------------------------------------------------
+# detect_format for zip
+# ---------------------------------------------------------------------------
+
+
+class TestDetectFormatZip:
+    def test_zip(self, tmp_path):
+        assert detect_format(str(tmp_path / "file.zip")) == "zip"
+
+
+# ---------------------------------------------------------------------------
+# parse_zip
+# ---------------------------------------------------------------------------
+
+
+class TestParseZip:
+    def test_basic_parse(self, sample_zip_file):
+        doc = parse_zip(sample_zip_file)
+        assert doc.format == "zip"
+        assert doc.title == "The Test Book"
+        assert len(doc.chapters) >= 2
+        assert doc.raw_text
+
+    def test_gutenberg_title_cleaned(self, sample_zip_file):
+        doc = parse_zip(sample_zip_file)
+        assert "Project Gutenberg" not in doc.title
+
+    def test_boilerplate_removed(self, sample_zip_file):
+        doc = parse_zip(sample_zip_file)
+        assert "START OF THE PROJECT GUTENBERG" not in doc.raw_text
+        assert "END OF THE PROJECT GUTENBERG" not in doc.raw_text
+
+    def test_html_tags_removed(self, sample_zip_file):
+        doc = parse_zip(sample_zip_file)
+        assert "<p>" not in doc.raw_text
+        assert "<div" not in doc.raw_text
+
+    def test_content_preserved(self, sample_zip_file):
+        doc = parse_zip(sample_zip_file)
+        assert "bright cold day" in doc.raw_text
+        assert "boiled cabbage" in doc.raw_text
+
+    def test_no_html_raises(self, sample_zip_no_html):
+        with pytest.raises(ValueError, match="does not contain any HTML"):
+            parse_zip(sample_zip_no_html)
+
+    def test_invalid_zip(self, tmp_path):
+        path = tmp_path / "bad.zip"
+        path.write_text("not a zip file")
+        with pytest.raises(ValueError, match="Invalid or corrupt ZIP"):
+            parse_zip(str(path))
+
+    def test_path_traversal_rejected(self, tmp_path):
+        """ZIP members with path traversal should be skipped."""
+        path = tmp_path / "traversal.zip"
+        with zipfile.ZipFile(str(path), "w") as zf:
+            zf.writestr("../../../evil.html", "<p>Malicious</p>")
+        with pytest.raises(ValueError, match="does not contain any HTML"):
+            parse_zip(str(path))
+
+
+# ---------------------------------------------------------------------------
+# _html_to_text
+# ---------------------------------------------------------------------------
+
+
+class TestHtmlToText:
+    def test_strips_tags(self):
+        assert "Hello" in _html_to_text("<p>Hello</p>")
+        assert "<p>" not in _html_to_text("<p>Hello</p>")
+
+    def test_strips_scripts(self):
+        html = "<p>text</p><script>alert('x')</script>"
+        result = _html_to_text(html)
+        assert "alert" not in result
+
+    def test_strips_style(self):
+        html = "<style>body{color:red}</style><p>visible</p>"
+        result = _html_to_text(html)
+        assert "color" not in result
+        assert "visible" in result
+
+    def test_decodes_entities(self):
+        assert "&" in _html_to_text("<p>A &amp; B</p>")
+
+    def test_br_to_newline(self):
+        result = _html_to_text("line1<br>line2")
+        assert "line1" in result and "line2" in result
+
+
+# ---------------------------------------------------------------------------
+# _strip_gutenberg_boilerplate
+# ---------------------------------------------------------------------------
+
+
+class TestStripGutenbergBoilerplate:
+    def test_removes_header(self):
+        html = '<section id="pg-header"><div>Header stuff</div></section><p>Content</p>'
+        result = _strip_gutenberg_boilerplate(html)
+        assert "Header stuff" not in result
+        assert "Content" in result
+
+    def test_removes_footer(self):
+        html = '<p>Content</p><section id="pg-footer"><div>Footer stuff</div></section>'
+        result = _strip_gutenberg_boilerplate(html)
+        assert "Footer stuff" not in result
+        assert "Content" in result
+
+
+# ---------------------------------------------------------------------------
+# extract_cover_image for zip
+# ---------------------------------------------------------------------------
+
+
+class TestExtractCoverFromZip:
+    def test_cover_extracted(self, sample_zip_file, tmp_path):
+        result = extract_cover_image(sample_zip_file, str(tmp_path))
+        assert result == "cover.png"
+        assert os.path.exists(os.path.join(str(tmp_path), "cover.png"))
+
+    def test_no_cover_returns_none(self, sample_zip_no_cover, tmp_path):
+        result = extract_cover_image(sample_zip_no_cover, str(tmp_path))
+        assert result is None

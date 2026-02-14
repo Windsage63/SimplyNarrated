@@ -26,8 +26,15 @@ function renderDashboardView() {
         <div class="space-y-8">
             <!-- Welcome Section -->
             <div class="glass rounded-2xl p-6">
-                <h2 class="text-2xl font-bold mb-1">Welcome back!</h2>
-                <p id="welcome-stats" class="text-gray-400">Loading your library...</p>
+                <div class="flex items-center justify-between flex-wrap gap-3">
+                    <h2 class="text-2xl font-bold mb-0">Welcome back!</h2>
+                    <button onclick="openGutenbergLink()"
+                       class="px-5 py-2.5 rounded-xl bg-primary hover:bg-primary-hover font-semibold transition shadow-lg shadow-primary/20 inline-flex items-center gap-2 text-sm text-white">
+                        <span class="material-symbols-outlined text-base">menu_book</span>
+                        Get More Books
+                    </button>
+                </div>
+                <p id="welcome-stats" class="text-gray-400 mt-1">Loading your library...</p>
             </div>
             
             <!-- Activity Panel -->
@@ -274,4 +281,32 @@ function sortLibrary(criteria) {
   }
 
   renderLibraryGrid(sorted);
+}
+
+/**
+ * Show a tip dialog then open Project Gutenberg in a new tab.
+ */
+function openGutenbergLink() {
+  const dialog = document.createElement("div");
+  dialog.className =
+    "fixed inset-0 z-50 flex items-center justify-center bg-black/60";
+  dialog.innerHTML = `
+    <div class="glass rounded-2xl p-8 max-w-md mx-4 text-center space-y-4">
+      <span class="material-symbols-outlined text-primary text-5xl">menu_book</span>
+      <h3 class="text-xl font-bold">Downloading from Project Gutenberg</h3>
+      <p class="text-gray-300 text-sm leading-relaxed">
+        For the best results, download books as <strong>HTML (zip)</strong> files.
+        Plain <strong>.txt</strong> files also work well.<br><br>
+        After downloading, come back here and upload the file to convert it into an audiobook.
+      </p>
+      <button onclick="this.closest('.fixed').remove(); window.open('https://www.gutenberg.org/', '_blank', 'noopener,noreferrer')"
+              class="px-6 py-3 rounded-xl bg-primary hover:bg-primary-hover font-semibold transition shadow-lg shadow-primary/20 inline-flex items-center gap-2">
+        <span class="material-symbols-outlined">open_in_new</span>
+        Go to Project Gutenberg
+      </button>
+      <button onclick="this.closest('.fixed').remove()"
+              class="block mx-auto text-sm text-gray-400 hover:text-white transition">Cancel</button>
+    </div>
+  `;
+  document.body.appendChild(dialog);
 }

@@ -45,7 +45,7 @@ from src.core.tts_engine import PRESET_VOICES
 router = APIRouter()
 
 # Supported file extensions
-SUPPORTED_EXTENSIONS = {".txt", ".md", ".pdf"}
+SUPPORTED_EXTENSIONS = {".txt", ".md", ".pdf", ".zip"}
 MAX_FILE_SIZE = 50 * 1024 * 1024  # 50 MB
 
 # Sample quote for voice preview
@@ -83,6 +83,22 @@ def _estimate_chapters(file_ext: str, content: bytes, file_size: int) -> int:
             text = content.decode("utf-8", errors="ignore")
             words = len(text.split())
             return max(1, math.ceil(words / 4000))
+        if file_ext == ".zip":
+            # ZIP with HTML: estimate from uncompressed HTML size
+            import zipfile, io
+            try:
+                with zipfile.ZipFile(io.BytesIO(content)) as zf:
+                    html_sizes = [
+                        info.file_size
+                        for info in zf.infolist()
+                        if not info.is_dir()
+                        and info.filename.lower().endswith((".html", ".htm"))
+                    ]
+                    if html_sizes:
+                        largest = max(html_sizes)
+                        return max(1, math.ceil(largest / (20 * 1024)))
+            except Exception:
+                pass
     except Exception:
         pass
 
