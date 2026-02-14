@@ -47,7 +47,9 @@ function renderDashboardView() {
                     <span class="material-symbols-outlined text-primary">library_books</span>
                     My Library
                 </h3>
-                <div class="flex gap-2">
+              <div class="flex items-center gap-2">
+                <input id="library-search" type="search" placeholder="Search library..."
+                     class="px-3 py-1.5 text-sm rounded-lg bg-dark-700 border border-dark-600 focus:outline-none focus:border-primary w-44 sm:w-56" />
                     <button onclick="sortLibrary('recent')" class="sort-btn px-3 py-1.5 text-xs font-semibold 
                                                                      bg-dark-600 rounded-lg hover:bg-dark-700 transition"
                             data-sort="recent">Recent</button>
@@ -91,21 +93,7 @@ async function initDashboardView() {
     // Show activity panel if there are in-progress jobs
     if (data.in_progress > 0) {
       document.getElementById("activity-section").classList.remove("hidden");
-      // Activity cards would be populated by polling - for now show placeholder
-      document.getElementById("activity-cards").innerHTML = `
-                <div class="glass rounded-xl p-4">
-                    <div class="flex justify-between items-start mb-3">
-                        <div>
-                            <h4 class="font-semibold text-sm">Processing...</h4>
-                            <p class="text-xs text-gray-400 mt-0.5">Conversion in progress</p>
-                        </div>
-                        <span class="text-primary text-sm font-bold">--</span>
-                    </div>
-                    <div class="w-full bg-dark-600 h-2 rounded-full overflow-hidden">
-                        <div class="bg-primary h-full animate-pulse" style="width: 50%;"></div>
-                    </div>
-                </div>
-            `;
+      await renderActivityCards();
     }
 
     const grid = document.getElementById("library-grid");
@@ -122,10 +110,74 @@ async function initDashboardView() {
     document
       .querySelector('.sort-btn[data-sort="recent"]')
       .classList.add("bg-dark-600");
+
+    // Search filtering
+    const searchInput = document.getElementById("library-search");
+    if (searchInput) {
+      searchInput.addEventListener("input", () => {
+        renderLibraryGrid(getVisibleLibraryBooks());
+      });
+    }
   } catch (error) {
     console.error("Failed to load library:", error);
     document.getElementById("welcome-stats").textContent =
       "Error loading library.";
+  }
+}
+
+function getVisibleLibraryBooks() {
+  const searchInput = document.getElementById("library-search");
+  const query = (searchInput?.value || "").trim().toLowerCase();
+  if (!query) return [...state.library];
+
+  return state.library.filter((book) => {
+    const title = (book.title || "").toLowerCase();
+    const author = (book.author || "").toLowerCase();
+    return title.includes(query) || author.includes(query);
+  });
+}
+
+async function renderActivityCards() {
+  const cards = document.getElementById("activity-cards");
+  if (!cards) return;
+
+  if (!state.currentJob?.job_id) {
+    cards.innerHTML = `
+      <div class="glass rounded-xl p-4">
+        <div class="flex justify-between items-start mb-3">
+          <div>
+            <h4 class="font-semibold text-sm">Processing...</h4>
+            <p class="text-xs text-gray-400 mt-0.5">A conversion is running</p>
+          </div>
+          <span class="text-primary text-sm font-bold">--</span>
+        </div>
+        <div class="w-full bg-dark-600 h-2 rounded-full overflow-hidden">
+          <div class="bg-primary h-full animate-pulse" style="width: 50%;"></div>
+        </div>
+      </div>
+    `;
+    return;
+  }
+
+  try {
+    const status = await api.getStatus(state.currentJob.job_id);
+    const pct = Math.max(0, Math.min(100, Math.round(status.progress || 0)));
+    cards.innerHTML = `
+      <div class="glass rounded-xl p-4">
+        <div class="flex justify-between items-start mb-3">
+          <div>
+            <h4 class="font-semibold text-sm">${state.currentJob.filename || "Current conversion"}</h4>
+            <p class="text-xs text-gray-400 mt-0.5">${status.status} • Chapter ${status.current_chapter}/${status.total_chapters || "?"}</p>
+          </div>
+          <span class="text-primary text-sm font-bold">${pct}%</span>
+        </div>
+        <div class="w-full bg-dark-600 h-2 rounded-full overflow-hidden">
+          <div class="bg-primary h-full transition-all" style="width: ${pct}%;"></div>
+        </div>
+      </div>
+    `;
+  } catch {
+    cards.innerHTML = "";
   }
 }
 
@@ -180,20 +232,17 @@ async function deleteBook(event, bookId, title) {
       `Are you sure you want to delete "${title}"? This action cannot be undone.`,
     )
   ) {
-    // If this book is currently playing, stop and clear it
-    if (
-      typeof playerState !== "undefined" &&
-      playerState.book &&
-      playerState.book.id === bookId
-    ) {
-      console.log("Stopping player before deletion...");
-      if (playerState.audioElement) {
-        playerState.audioElement.pause();
-        playerState.audioElement.src = ""; // Clear source to release file handle
-        playerState.audioElement.load();
-      }
+    // Always release any player resources before deleting a book.
+    // This prevents stale browser file handles after leaving the player view.
+    if (typeof teardownPlayerView === "function") {
+      teardownPlayerView();
+    } else if (typeof playerState !== "undefined" && playerState.audioElement) {
+      playerState.audioElement.pause();
+      playerState.audioElement.removeAttribute("src");
+      playerState.audioElement.load();
       playerState.isPlaying = false;
       playerState.book = null;
+      playerState.audioElement = null;
     }
 
     try {
@@ -216,7 +265,7 @@ function sortLibrary(criteria) {
   });
 
   // Sort books
-  let sorted = [...state.library];
+  let sorted = getVisibleLibraryBooks();
   if (criteria === "az") {
     sorted.sort((a, b) => a.title.localeCompare(b.title));
   } else {

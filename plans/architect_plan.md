@@ -3,6 +3,17 @@
 > **Text-to-Audiobook Conversion Application**
 > Using Kokoro-82M TTS with FastAPI Backend
 
+## 0. Implementation Status Snapshot (2026-02-14)
+
+This blueprint contains target architecture and planned capabilities. Current implementation differs in a few important ways:
+
+- Output is currently **MP3-only** (WAV is planned, not implemented).
+- Conversion uses a **single narrator voice** in the active pipeline (dialogue voice switching is planned).
+- Job management now includes **persisted job state**, **restart recovery**, and **bounded concurrent processing**.
+- Landing page route is implemented with a **lightweight starter screen** pending full branded hero assets.
+
+Use this section as the source of truth when blueprint intent and runtime behavior conflict.
+
 ## 1. Executive Summary
 
 SimplyNarrated is a local web application that converts books and text documents (`.txt`, `.md`, `.pdf`) into audiobooks saved as MP3 chapter files. Designed for non-technical users, it provides a polished multi-page interface with a landing page, file upload/configuration screen, conversion progress tracker, audiobook player, and user dashboard. The system uses the Kokoro-82M model running locally on GPU for high-quality, expressive speech synthesis.

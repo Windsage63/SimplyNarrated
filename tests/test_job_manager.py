@@ -88,8 +88,11 @@ class TestStartJob:
 
         ok = await job_manager.start_job(job.id, {}, dummy)
         assert ok is True
-        assert job.status == JobStatus.PROCESSING
         assert job.output_dir is not None
+
+        # Let queued task acquire slot and transition to processing
+        await asyncio.sleep(0)
+        assert job.status in (JobStatus.PENDING, JobStatus.PROCESSING, JobStatus.COMPLETED)
 
         # Wait for the task to finish
         if job._task:
@@ -158,6 +161,29 @@ class TestCancelJob:
         job = job_manager.create_job("l.txt", "/l.txt")
         assert job_manager.cancel_job(job.id) is False
 
+    async def test_cancel_queued_job(self, tmp_data_dir):
+        manager = JobManager(str(tmp_data_dir), max_concurrent_jobs=1)
+
+        blocker = asyncio.Event()
+
+        async def blocking(j, cfg):
+            await blocker.wait()
+
+        first = manager.create_job("m1.txt", "/m1.txt")
+        second = manager.create_job("m2.txt", "/m2.txt")
+
+        await manager.start_job(first.id, {}, blocking)
+        await asyncio.sleep(0)
+        await manager.start_job(second.id, {}, blocking)
+
+        # second should be queued and cancellable
+        await asyncio.sleep(0)
+        assert manager.cancel_job(second.id) is True
+        assert manager.get_job(second.id).status == JobStatus.CANCELLED
+
+        manager.cancel_job(first.id)
+        await asyncio.sleep(0.2)
+
 
 # ---------------------------------------------------------------------------
 # Counting
@@ -165,21 +191,76 @@ class TestCancelJob:
 
 
 class TestCountProcessingJobs:
-    async def test_counts_correctly(self, job_manager):
+    async def test_counts_correctly(self, tmp_data_dir):
+        manager = JobManager(str(tmp_data_dir), max_concurrent_jobs=2)
+
         async def slow(j, cfg):
             await asyncio.sleep(10)
 
-        j1 = job_manager.create_job("a.txt", "/a.txt")
-        j2 = job_manager.create_job("b.txt", "/b.txt")
-        j3 = job_manager.create_job("c.txt", "/c.txt")
+        j1 = manager.create_job("a.txt", "/a.txt")
+        j2 = manager.create_job("b.txt", "/b.txt")
+        j3 = manager.create_job("c.txt", "/c.txt")
 
-        await job_manager.start_job(j1.id, {}, slow)
-        await job_manager.start_job(j2.id, {}, slow)
+        await manager.start_job(j1.id, {}, slow)
+        await manager.start_job(j2.id, {}, slow)
         # j3 stays PENDING
+        await asyncio.sleep(0)
 
-        assert job_manager.count_processing_jobs() == 2
+        assert manager.count_processing_jobs() == 2
 
         # Cleanup
-        job_manager.cancel_job(j1.id)
-        job_manager.cancel_job(j2.id)
+        manager.cancel_job(j1.id)
+        manager.cancel_job(j2.id)
         await asyncio.sleep(0.2)
+
+
+class TestPersistenceAndRecovery:
+    def test_persists_jobs_to_disk(self, tmp_data_dir):
+        manager = JobManager(str(tmp_data_dir), max_concurrent_jobs=1)
+        job = manager.create_job("persist.txt", "/persist.txt")
+
+        reloaded = JobManager(str(tmp_data_dir), max_concurrent_jobs=1)
+        fetched = reloaded.get_job(job.id)
+        assert fetched is not None
+        assert fetched.filename == "persist.txt"
+        assert fetched.status == JobStatus.PENDING
+
+    def test_marks_processing_jobs_failed_after_restart(self, tmp_data_dir):
+        manager = JobManager(str(tmp_data_dir), max_concurrent_jobs=1)
+        job = manager.create_job("recovery.txt", "/recovery.txt")
+        job.status = JobStatus.PROCESSING
+        manager._persist_jobs()
+
+        reloaded = JobManager(str(tmp_data_dir), max_concurrent_jobs=1)
+        recovered = reloaded.get_job(job.id)
+        assert recovered is not None
+        assert recovered.status == JobStatus.FAILED
+        assert "restart" in (recovered.error or "").lower()
+
+
+class TestBoundedConcurrency:
+    async def test_only_one_job_processes_with_limit_one(self, tmp_data_dir):
+        manager = JobManager(str(tmp_data_dir), max_concurrent_jobs=1)
+        gate = asyncio.Event()
+
+        async def blocking(j, cfg):
+            await gate.wait()
+
+        j1 = manager.create_job("q1.txt", "/q1.txt")
+        j2 = manager.create_job("q2.txt", "/q2.txt")
+
+        await manager.start_job(j1.id, {}, blocking)
+        await manager.start_job(j2.id, {}, blocking)
+        await asyncio.sleep(0)
+
+        assert manager.get_job(j1.id).status == JobStatus.PROCESSING
+        assert manager.get_job(j2.id).status == JobStatus.PENDING
+
+        gate.set()
+        if j1._task:
+            await j1._task
+        if j2._task:
+            await j2._task
+
+        assert manager.get_job(j1.id).status == JobStatus.COMPLETED
+        assert manager.get_job(j2.id).status == JobStatus.COMPLETED

@@ -229,6 +229,33 @@ const playerState = {
 };
 
 /**
+ * Tear down player resources when leaving player view.
+ * Ensures file handles are released (important on Windows).
+ */
+function teardownPlayerView() {
+  if (playerState.bookmarkSaveTimeout) {
+    clearTimeout(playerState.bookmarkSaveTimeout);
+    playerState.bookmarkSaveTimeout = null;
+  }
+
+  const audio = playerState.audioElement;
+  if (audio) {
+    try {
+      audio.pause();
+      audio.removeAttribute("src");
+      audio.load();
+    } catch (error) {
+      console.warn("Failed to fully release audio element:", error);
+    }
+  }
+
+  playerState.isPlaying = false;
+  playerState.currentChapter = 1;
+  playerState.book = null;
+  playerState.audioElement = null;
+}
+
+/**
  * Initialize the player view
  * @param {string} bookId - ID of the book to play
  */

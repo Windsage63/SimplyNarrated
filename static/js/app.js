@@ -22,7 +22,7 @@
 // ============================================
 
 const state = {
-  currentView: "upload",
+  currentView: "landing",
   currentJob: null,
   currentBook: null,
   selectedFile: null,
@@ -179,6 +179,15 @@ const api = {
 // ============================================
 
 function showView(viewName) {
+  // Cleanup player resources when navigating away from player view
+  if (
+    state.currentView === "player" &&
+    viewName !== "player" &&
+    typeof teardownPlayerView === "function"
+  ) {
+    teardownPlayerView();
+  }
+
   state.currentView = viewName;
 
   // Update nav active state
@@ -192,6 +201,10 @@ function showView(viewName) {
   const container = document.getElementById("view-container");
 
   switch (viewName) {
+    case "landing":
+      container.innerHTML = renderLandingView();
+      initLandingView();
+      break;
     case "upload":
       container.innerHTML = renderUploadView();
       initUploadView();
@@ -232,5 +245,5 @@ function showPlayer(bookId) {
 // ============================================
 
 document.addEventListener("DOMContentLoaded", () => {
-  showView("upload");
+  showView("landing");
 });

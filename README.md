@@ -1,10 +1,12 @@
-# 🔊 SimplyNarrated
+# 🎧 SimplyNarrated
+
+![SimplyNarrated](docs/img/Landing-page.png)
 
 A local web application that converts books and text documents (`.txt`, `.md`, `.pdf`) into audiobooks saved as MP3 chapter files. Designed for non-technical users, it provides a polished multi-page interface with a landing page, file upload/configuration screen, conversion progress tracker, audiobook player, and user dashboard.
 
 The system uses the **Kokoro-82M** model running locally on GPU for high-quality, expressive speech synthesis.
 
-## 💻 Landing Page
+## 💻 Intuitive Creation Screen
 
 ![SimplyNarrated](docs/img/convert.png)
 
@@ -15,11 +17,20 @@ The system uses the **Kokoro-82M** model running locally on GPU for high-quality
 - **Memory Efficient**: Shares a single base model across multiple language pipelines to save RAM.
 - **Multiple Formats**: Supports uploading TXT, MD, and PDF files.
 - **Smart Chunking**: Splits text into natural chapters or segments.
+- **Early Chapter Estimate**: Upload response includes an estimated chapter count before generation starts.
 - **Audiobook Player**: Built-in player with progress tracking and bookmarks.
 - **Library Management**: Dashboard to manage your converted books.
+- **Cover Management**: Upload and serve JPG/PNG cover images per book.
+- **Reliable Jobs**: Persisted job ledger with restart recovery and bounded concurrent processing queue.
 - **Modern UI**: Polished interface with dark mode support.
 
-## 🎮Media Player
+## 📌 Current Product Scope
+
+- Output format is currently **MP3-only**.
+- Voice generation is currently **single-narrator voice** during conversion.
+- The landing page is intentionally lightweight and currently uses no custom brand artwork.
+
+## 🎮Simple Media Player
 
 ![SimplyNarrated](docs/img/player.png)
 
@@ -101,6 +112,7 @@ For advanced users who prefer to manage their own Python environment.
 
 - [API Reference](docs/API-Reference.md)
 - [Architecture Plan](plans/architect_plan.md)
+- [Landing Page Creative Brief](docs/Landing-Page-Creative-Brief.md)
 
 ## 📝 Acknowledgements
 

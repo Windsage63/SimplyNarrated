@@ -68,6 +68,9 @@ def _populate_book(library_dir: str, book_id: str = "aaaaaaaa-bbbb-cccc-dddd-eee
     )
     segment.export(os.path.join(book_dir, "chapter_01.mp3"), format="mp3", bitrate="128k")
 
+    with open(os.path.join(book_dir, "chapter_01.txt"), "w", encoding="utf-8") as f:
+        f.write("This is chapter one text content.")
+
     return book_id
 
 
@@ -102,6 +105,7 @@ class TestUploadEndpoint:
         assert "job_id" in data
         assert data["filename"] == "test.txt"
         assert data["file_size"] == len(content)
+        assert data["chapters_detected"] == 1
 
     async def test_upload_md(self, app_client):
         resp = await app_client.post(
@@ -295,6 +299,10 @@ class TestBookEndpoint:
         resp = await app_client.get("/api/book/00000000-0000-0000-0000-000000000000")
         assert resp.status_code == 404
 
+    async def test_book_invalid_id(self, app_client):
+        resp = await app_client.get("/api/book/not-a-valid-uuid")
+        assert resp.status_code == 400
+
 
 # ===========================================================================
 # Audio streaming
@@ -347,6 +355,45 @@ class TestBookmarkEndpoints:
         data = resp.json()
         assert data["chapter"] == 1
         assert data["position"] == 0.0
+
+    async def test_bookmark_invalid_book_id(self, app_client):
+        resp = await app_client.get("/api/bookmark/not-a-valid-uuid")
+        assert resp.status_code == 400
+
+    async def test_save_bookmark_invalid_book_id(self, app_client):
+        resp = await app_client.post(
+            "/api/bookmark?book_id=not-a-valid-uuid&chapter=1&position=10"
+        )
+        assert resp.status_code == 400
+
+
+class TestTextEndpoint:
+    async def test_get_chapter_text(self, app_client, tmp_library_dir):
+        book_id = _populate_book(str(tmp_library_dir))
+        resp = await app_client.get(f"/api/text/{book_id}/1")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["book_id"] == book_id
+        assert data["chapter"] == 1
+        assert "chapter one text" in data["content"].lower()
+
+    async def test_get_chapter_text_invalid_book_id(self, app_client):
+        resp = await app_client.get("/api/text/not-a-valid-uuid/1")
+        assert resp.status_code == 400
+
+
+class TestCoverEndpoints:
+    async def test_get_cover_invalid_book_id(self, app_client):
+        resp = await app_client.get("/api/book/not-a-valid-uuid/cover")
+        assert resp.status_code == 400
+
+    async def test_upload_cover_invalid_book_id(self, app_client):
+        png_header = b"\x89PNG\r\n\x1a\n"
+        resp = await app_client.post(
+            "/api/book/not-a-valid-uuid/cover",
+            files={"file": ("cover.png", io.BytesIO(png_header), "image/png")},
+        )
+        assert resp.status_code == 400
 
 
 # ===========================================================================

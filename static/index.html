@@ -22,12 +22,25 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>SimplyNarrated - Text to Audiobook</title>
+    <title>SimplyNarrated - Turn Documents Into Audiobooks, Locally</title>
     <meta
       name="description"
-      content="Convert your books and documents into high-quality audiobooks using AI"
+      content="Upload TXT, Markdown, or PDF files and generate chapter-based MP3 audiobooks with natural AI voices — directly on your machine."
     />
     <link rel="icon" type="image/svg+xml" href="/static/favicon.svg" />
+
+    <!-- OpenGraph -->
+    <meta
+      property="og:title"
+      content="SimplyNarrated - Turn Documents Into Audiobooks, Locally"
+    />
+    <meta
+      property="og:description"
+      content="Private AI narration for TXT, MD, and PDF. Convert documents into chapter-based MP3 audiobooks with natural AI voices."
+    />
+    <meta property="og:image" content="/static/img/hero.png" />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
 
     <!-- TailwindCSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -130,6 +143,92 @@
         vertical-align: -0.1em;
         display: inline;
       }
+
+      /* Hero section */
+      .hero-section {
+        position: relative;
+        overflow: hidden;
+        border-radius: 1rem;
+      }
+
+      .hero-image-wrap {
+        position: relative;
+        width: 100%;
+        border-radius: 1rem;
+        overflow: hidden;
+      }
+
+      .hero-image-wrap img {
+        width: 100%;
+        height: auto;
+        display: block;
+        border-radius: 1rem;
+      }
+
+      .hero-image-wrap::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(
+          to bottom,
+          transparent 40%,
+          rgba(10, 15, 22, 0.6) 70%,
+          rgba(10, 15, 22, 0.95) 100%
+        );
+        pointer-events: none;
+      }
+
+      .hero-overlay {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        padding: 2rem 2.5rem;
+        z-index: 2;
+      }
+
+      .proof-strip {
+        display: flex;
+        gap: 2rem;
+        flex-wrap: wrap;
+        justify-content: center;
+      }
+
+      .proof-item {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        color: rgba(229, 231, 235, 0.8);
+        font-size: 0.875rem;
+      }
+
+      .proof-item .material-symbols-outlined {
+        font-size: 1.25rem;
+        color: #137fec;
+      }
+
+      .feature-card {
+        transition:
+          transform 0.2s ease,
+          box-shadow 0.2s ease;
+      }
+
+      .feature-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 24px rgba(19, 127, 236, 0.15);
+      }
+
+      @media (max-width: 640px) {
+        .hero-overlay {
+          padding: 1.5rem 1.25rem;
+        }
+        .proof-strip {
+          gap: 1rem;
+        }
+        .hero-overlay h2 {
+          font-size: 1.5rem !important;
+        }
+      }
     </style>
   </head>
   <body class="dark min-h-screen">
@@ -147,6 +246,14 @@
             <h1 class="text-xl font-semibold">SimplyNarrated</h1>
           </div>
           <nav class="flex items-center gap-4">
+            <button
+              onclick="showView('landing')"
+              class="px-3 py-2 rounded-lg hover:bg-dark-700 transition"
+              id="nav-landing"
+            >
+              <span class="material-symbols-outlined align-middle">home</span>
+              <span class="ml-1 hidden sm:inline">Home</span>
+            </button>
             <button
               onclick="showView('upload')"
               class="px-3 py-2 rounded-lg hover:bg-dark-700 transition"
@@ -184,6 +291,7 @@
     ></script>
 
     <!-- JavaScript -->
+    <script src="/static/js/views/landing.js"></script>
     <script src="/static/js/views/player.js"></script>
     <script src="/static/js/views/upload.js"></script>
     <script src="/static/js/views/progress.js"></script>

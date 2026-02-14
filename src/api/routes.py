@@ -21,6 +21,7 @@ import os
 import re
 import uuid
 import asyncio
+import math
 import aiofiles
 from fastapi import APIRouter, UploadFile, File, HTTPException, BackgroundTasks
 from fastapi.responses import FileResponse
@@ -49,6 +50,7 @@ MAX_FILE_SIZE = 50 * 1024 * 1024  # 50 MB
 
 # Sample quote for voice preview
 SAMPLE_QUOTE = "Welcome to your audiobook library, where every story is unique and every voice has a tale to tell. Discover the magic of storytelling with our diverse range of voices, each ready to narrate your favorite books, and to bring your stories to life with the perfect voice."
+BOOK_ID_PATTERN = re.compile(r"^[a-f0-9-]{36}$")
 
 
 def _get_available_voices() -> list:
@@ -66,6 +68,26 @@ def _get_available_voices() -> list:
 
 # Cache the converted list
 AVAILABLE_VOICES = _get_available_voices()
+
+
+def _validate_book_id_or_400(book_id: str) -> None:
+    """Validate UUID-like book IDs to prevent path traversal."""
+    if not BOOK_ID_PATTERN.match(book_id):
+        raise HTTPException(status_code=400, detail="Invalid book ID format")
+
+
+def _estimate_chapters(file_ext: str, content: bytes, file_size: int) -> int:
+    """Estimate likely chapter count during upload for early UX feedback."""
+    try:
+        if file_ext in {".txt", ".md"}:
+            text = content.decode("utf-8", errors="ignore")
+            words = len(text.split())
+            return max(1, math.ceil(words / 4000))
+    except Exception:
+        pass
+
+    # Conservative fallback when content is binary (e.g., PDF): ~20KB per chapter.
+    return max(1, math.ceil(file_size / (20 * 1024)))
 
 
 @router.post("/upload", response_model=UploadResponse)
@@ -107,13 +129,14 @@ async def upload_file(file: UploadFile = File(...)):
 
     # Estimate conversion time (rough: 1 min per 10KB)
     estimated_minutes = max(1, file_size // (10 * 1024))
+    chapters_detected = _estimate_chapters(ext, content, file_size)
 
     return UploadResponse(
         job_id=job.id,
         filename=filename,
         file_size=file_size,
         estimated_time=f"~{estimated_minutes} minutes",
-        chapters_detected=0,  # Will be updated after parsing
+        chapters_detected=chapters_detected,
     )
 
 
@@ -302,6 +325,8 @@ async def get_book(book_id: str):
     """
     Get details for a specific book.
     """
+    _validate_book_id_or_400(book_id)
+
     library = get_library_manager()
     book = library.get_book(book_id)
 
@@ -317,9 +342,7 @@ async def stream_audio(book_id: str, chapter: int):
     Stream or download a chapter's audio file.
     Supports both .mp3 and .wav formats.
     """
-    # Validate book_id format to prevent path traversal
-    if not re.match(r"^[a-f0-9-]{36}$", book_id):
-        raise HTTPException(status_code=400, detail="Invalid book ID format")
+    _validate_book_id_or_400(book_id)
 
     if chapter < 1:
         raise HTTPException(status_code=400, detail="Chapter number must be >= 1")
@@ -361,9 +384,7 @@ async def get_chapter_text(book_id: str, chapter: int):
     """
     Get the text content for a specific chapter.
     """
-    # Validate book_id format to prevent path traversal
-    if not re.match(r"^[a-f0-9-]{36}$", book_id):
-        raise HTTPException(status_code=400, detail="Invalid book ID format")
+    _validate_book_id_or_400(book_id)
 
     if chapter < 1:
         raise HTTPException(status_code=400, detail="Chapter number must be >= 1")
@@ -386,6 +407,8 @@ async def save_bookmark(book_id: str, chapter: int, position: float):
     """
     Save a playback bookmark for a book.
     """
+    _validate_book_id_or_400(book_id)
+
     library = get_library_manager()
     success = library.save_bookmark(book_id, chapter, position)
 
@@ -405,6 +428,8 @@ async def get_bookmark(book_id: str):
     """
     Get the user's playback position for a book.
     """
+    _validate_book_id_or_400(book_id)
+
     library = get_library_manager()
     bookmark = library.get_bookmark(book_id)
 
@@ -423,8 +448,7 @@ async def update_book_metadata(book_id: str, request: UpdateMetadataRequest):
     """
     Update metadata (title, author) for a specific book.
     """
-    if not re.match(r"^[a-f0-9-]{36}$", book_id):
-        raise HTTPException(status_code=400, detail="Invalid book ID format")
+    _validate_book_id_or_400(book_id)
 
     updates = request.model_dump(exclude_none=True)
     if not updates:
@@ -449,8 +473,7 @@ async def upload_cover(book_id: str, file: UploadFile = File(...)):
     Upload a cover image for a book.
     Accepts .jpg/.png files up to 5 MB.
     """
-    if not re.match(r"^[a-f0-9-]{36}$", book_id):
-        raise HTTPException(status_code=400, detail="Invalid book ID format")
+    _validate_book_id_or_400(book_id)
 
     # Validate content type
     if file.content_type not in ALLOWED_COVER_TYPES:
@@ -507,8 +530,7 @@ async def get_cover(book_id: str):
     """
     Serve the cover image for a book.
     """
-    if not re.match(r"^[a-f0-9-]{36}$", book_id):
-        raise HTTPException(status_code=400, detail="Invalid book ID format")
+    _validate_book_id_or_400(book_id)
 
     library = get_library_manager()
     book_dir = library.get_book_dir(book_id)
@@ -531,9 +553,7 @@ async def delete_book(book_id: str):
     """
     Delete a book from the library.
     """
-    # Validate book_id format to prevent path traversal
-    if not re.match(r"^[a-f0-9-]{36}$", book_id):
-        raise HTTPException(status_code=400, detail="Invalid book ID format")
+    _validate_book_id_or_400(book_id)
 
     library = get_library_manager()
 
