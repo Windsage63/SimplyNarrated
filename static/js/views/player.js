@@ -357,7 +357,10 @@ function setupAudioListeners() {
     document.getElementById("progress-slider").max = audio.duration;
 
     if (playerState.pendingSeekTime > 0) {
-      audio.currentTime = Math.min(playerState.pendingSeekTime, audio.duration || playerState.pendingSeekTime);
+      audio.currentTime = Math.min(
+        playerState.pendingSeekTime,
+        audio.duration || playerState.pendingSeekTime,
+      );
       playerState.pendingSeekTime = 0;
       updateOverallProgress();
     }
@@ -388,7 +391,9 @@ function loadChapter(chapterNum) {
 
   playerState.currentChapter = chapterNum;
   const audio = playerState.audioElement;
-  const chapter = playerState.book.chapters.find((ch) => ch.number === chapterNum);
+  const chapter = playerState.book.chapters.find(
+    (ch) => ch.number === chapterNum,
+  );
   if (chapter && typeof chapter.start_seconds === "number") {
     audio.currentTime = chapter.start_seconds;
   }
@@ -492,7 +497,8 @@ function updateOverallProgress() {
 
   const audio = playerState.audioElement;
   const duration = audio.duration || 0;
-  const progress = duration > 0 ? Math.round((audio.currentTime / duration) * 100) : 0;
+  const progress =
+    duration > 0 ? Math.round((audio.currentTime / duration) * 100) : 0;
 
   const activeChapter = getCurrentChapter();
   if (activeChapter && activeChapter.number !== playerState.currentChapter) {
@@ -560,10 +566,14 @@ async function saveBookmarkToServer() {
   if (!playerState.book) return;
 
   try {
-    const currentChapter = getCurrentChapter() || { number: 1, start_seconds: 0 };
+    const currentChapter = getCurrentChapter() || {
+      number: 1,
+      start_seconds: 0,
+    };
     const relativePosition = Math.max(
       0,
-      playerState.audioElement.currentTime - (currentChapter.start_seconds || 0),
+      playerState.audioElement.currentTime -
+        (currentChapter.start_seconds || 0),
     );
 
     await fetch(
@@ -661,7 +671,10 @@ function computeTranscriptAnchor(transcriptData) {
   const chapterDuration = Math.max(0.001, end - start);
   const rel = Math.min(
     1,
-    Math.max(0, (playerState.audioElement.currentTime - start) / chapterDuration),
+    Math.max(
+      0,
+      (playerState.audioElement.currentTime - start) / chapterDuration,
+    ),
   );
 
   const textStart = chapter.transcript_start ?? 0;
