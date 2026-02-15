@@ -198,6 +198,14 @@ function renderLibraryGrid(books) {
       (book) => `
         <div class="glass rounded-xl p-4 cursor-pointer hover:border-primary transition relative group/card"
              onclick="showPlayer('${book.id}')">
+          <!-- Download Button -->
+          <button onclick="downloadBook(event, '${book.id}')"
+              class="absolute top-2 left-2 z-10 w-8 h-8 rounded-full bg-blue-500/20 hover:bg-blue-500 text-blue-300 hover:text-white 
+                   flex items-center justify-center opacity-0 group-hover/card:opacity-100 transition duration-200"
+              title="Download audiobook">
+            <span class="material-symbols-outlined text-sm">download</span>
+          </button>
+
             <!-- Delete Button -->
             <button onclick="deleteBook(event, '${book.id}', '${book.title.replace(/'/g, "\\'")}')"
                     class="absolute top-2 right-2 z-10 w-8 h-8 rounded-full bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white 
@@ -260,6 +268,12 @@ async function deleteBook(event, bookId, title) {
       alert("Error: " + error.message);
     }
   }
+}
+
+function downloadBook(event, bookId) {
+  event.stopPropagation();
+  const url = api.downloadBookUrl(bookId);
+  window.location.href = url;
 }
 
 /**

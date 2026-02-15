@@ -23,17 +23,29 @@ import json
 import shutil
 import asyncio
 import logging
+import numpy as np
 from typing import Dict, Any
 from datetime import datetime
 
 from src.core.parser import parse_file
 from src.core.parser import extract_cover_image
-from src.core.chunker import chunk_chapters, get_total_duration
+from src.core.chunker import chunk_text
 from src.core.tts_engine import get_tts_engine
-from src.core.encoder import encode_audio, get_encoder_settings, format_duration
+from src.core.encoder import (
+    encode_audio,
+    get_encoder_settings,
+    format_duration,
+    mux_m4b_from_segments,
+)
 from src.core.job_manager import Job, JobStatus
 
 logger = logging.getLogger(__name__)
+
+
+def _sanitize_book_filename(title: str, fallback: str) -> str:
+    candidate = re.sub(r"[\\/:*?\"<>|]+", " ", title or "")
+    candidate = re.sub(r"\s+", " ", candidate).strip().strip(".")
+    return candidate or fallback
 
 
 async def process_book(job: Job, config: Dict[str, Any]) -> None:
@@ -103,17 +115,15 @@ async def process_book(job: Job, config: Dict[str, Any]) -> None:
                 "success",
             )
 
-        # Phase 2: Chunk the text
+        # Phase 2: Prepare natural chapters for audio generation
         job_manager._add_activity(job, "Preparing chapters for audio generation...")
         await asyncio.sleep(0.1)
 
-        chunks = chunk_chapters(document.chapters)
-        job.total_chapters = len(chunks)
-
-        total_duration = get_total_duration(chunks)
+        natural_chapters = document.chapters
+        job.total_chapters = len(natural_chapters)
         job_manager._add_activity(
             job,
-            f"Prepared {len(chunks)} audio segments (~{total_duration} estimated)",
+            f"Prepared {len(natural_chapters)} natural chapters",
             "success",
         )
 
@@ -132,58 +142,106 @@ async def process_book(job: Job, config: Dict[str, Any]) -> None:
         # Phase 4: Generate audio for each chunk
         encoder_settings = get_encoder_settings(
             quality=config.get("quality", "sd"),
-            format=config.get("format", "mp3"),
+            format="m4a",
         )
 
         voice_id = config.get("narrator_voice", "af_heart")
         speed = config.get("speed", 1.0)
 
-        for i, chunk in enumerate(chunks):
+        segment_dir = os.path.join(job.output_dir, "_segments")
+        os.makedirs(segment_dir, exist_ok=True)
+
+        chapter_list = []
+        segment_paths = []
+        transcript_sections = []
+        transcript_cursor = 0
+        cumulative_seconds = 0.0
+
+        for i, (chapter_title, chapter_text) in enumerate(natural_chapters):
             # Check for cancellation
             if job.status == JobStatus.CANCELLED:
                 return
 
             chapter_num = i + 1
             job.current_chapter = chapter_num
-            progress = (i / len(chunks)) * 100
+            progress = (i / len(natural_chapters)) * 100
 
             job_manager.update_progress(
                 job.id,
                 progress,
                 chapter_num,
-                f"Generating audio for chapter {chapter_num}/{len(chunks)}...",
+                f"Generating audio for chapter {chapter_num}/{len(natural_chapters)}...",
             )
 
-            # Generate speech (run in thread pool)
-            # Use default args to capture values, avoiding lambda closure bug
+            parts = chunk_text(chapter_text, chapter_title=chapter_title)
+            chapter_audio_parts = []
+            chapter_sample_rate = None
+
             loop = asyncio.get_running_loop()
-            chunk_content = chunk.content
-            audio, sample_rate = await loop.run_in_executor(
-                None,
-                lambda c=chunk_content, v=voice_id, s=speed: tts_engine.generate_speech(
-                    c, v, s
-                ),
-            )
 
-            # Encode and save
-            output_filename = f"chapter_{chapter_num:02d}.{encoder_settings.format}"
-            output_path = os.path.join(job.output_dir, output_filename)
+            for part in parts:
+                audio, sample_rate = await loop.run_in_executor(
+                    None,
+                    lambda c=part.content, v=voice_id, s=speed: tts_engine.generate_speech(
+                        c, v, s
+                    ),
+                )
+
+                if chapter_sample_rate is None:
+                    chapter_sample_rate = sample_rate
+                elif chapter_sample_rate != sample_rate:
+                    raise RuntimeError("Inconsistent sample rates returned by TTS engine")
+
+                chapter_audio_parts.append(audio)
+
+            if not chapter_audio_parts or chapter_sample_rate is None:
+                raise RuntimeError(f"No audio generated for chapter {chapter_num}")
+
+            chapter_audio = (
+                chapter_audio_parts[0]
+                if len(chapter_audio_parts) == 1
+                else np.concatenate(chapter_audio_parts)
+            )
+            chapter_duration_seconds = len(chapter_audio) / float(chapter_sample_rate)
+
+            segment_filename = f"segment_{chapter_num:03d}.m4a"
+            segment_path = os.path.join(segment_dir, segment_filename)
 
             await loop.run_in_executor(
                 None,
-                lambda a=audio, sr=sample_rate, op=output_path, es=encoder_settings: (
+                lambda a=chapter_audio, sr=chapter_sample_rate, op=segment_path, es=encoder_settings: (
                     encode_audio(a, sr, op, es)
                 ),
             )
+            segment_paths.append(segment_path)
 
-            # Save chapter text
-            text_filename = f"chapter_{chapter_num:02d}.txt"
-            text_path = os.path.join(job.output_dir, text_filename)
-            with open(text_path, "w", encoding="utf-8") as tf:
-                tf.write(chunk.content)
+            section_text = f"{chapter_title}\n\n{chapter_text.strip()}"
+            if transcript_sections:
+                transcript_cursor += 2
+            transcript_start = transcript_cursor
+            transcript_sections.append(section_text)
+            transcript_cursor += len(section_text)
+            transcript_end = transcript_cursor
+
+            chapter_start = cumulative_seconds
+            chapter_end = cumulative_seconds + chapter_duration_seconds
+            cumulative_seconds = chapter_end
+
+            chapter_list.append(
+                {
+                    "number": chapter_num,
+                    "title": chapter_title,
+                    "duration": format_duration(chapter_duration_seconds),
+                    "start_seconds": round(chapter_start, 3),
+                    "end_seconds": round(chapter_end, 3),
+                    "transcript_start": transcript_start,
+                    "transcript_end": transcript_end,
+                    "completed": True,
+                }
+            )
 
             job_manager._add_activity(
-                job, f"Chapter {chapter_num} complete: {chunk.title}", "success"
+                job, f"Chapter {chapter_num} complete: {chapter_title}", "success"
             )
 
             # Small delay to prevent overwhelming the system
@@ -192,22 +250,36 @@ async def process_book(job: Job, config: Dict[str, Any]) -> None:
         # Phase 5: Finalize
         job_manager._add_activity(job, "Finalizing audiobook...")
 
-        # Build chapter metadata
-        chapter_list = []
-        for i, chunk in enumerate(chunks):
-            chapter_num = i + 1
-            chapter_list.append(
-                {
-                    "number": chapter_num,
-                    "title": chunk.title,
-                    "duration": format_duration(chunk.estimated_duration)
-                    if hasattr(chunk, "estimated_duration")
-                    else None,
-                    "audio_path": f"chapter_{chapter_num:02d}.{encoder_settings.format}",
-                    "text_path": f"chapter_{chapter_num:02d}.txt",
-                    "completed": True,
-                }
-            )
+        book_base_name = _sanitize_book_filename(document.title, job.id)
+        book_filename = f"{book_base_name}.m4a"
+        book_output_path = os.path.join(job.output_dir, book_filename)
+
+        cover_path = None
+        if cover_filename:
+            cover_path = os.path.join(job.output_dir, cover_filename)
+
+        await asyncio.get_running_loop().run_in_executor(
+            None,
+            lambda: mux_m4b_from_segments(
+                segment_paths=segment_paths,
+                output_path=book_output_path,
+                title=document.title,
+                author=document.author,
+                chapters=chapter_list,
+                cover_path=cover_path,
+                bitrate=encoder_settings.bitrate,
+            ),
+        )
+
+        transcript_content = "\n\n".join(transcript_sections)
+        transcript_filename = "transcript.txt"
+        transcript_path = os.path.join(job.output_dir, transcript_filename)
+        with open(transcript_path, "w", encoding="utf-8") as tf:
+            tf.write(transcript_content)
+
+        shutil.rmtree(segment_dir, ignore_errors=True)
+
+        total_duration = format_duration(cumulative_seconds)
 
         # Save metadata file with full library format
         metadata = {
@@ -218,11 +290,13 @@ async def process_book(job: Job, config: Dict[str, Any]) -> None:
             "source_file": os.path.basename(job.file_path),
             "original_filename": job.filename,
             "voice": voice_id,
-            "total_chapters": len(chunks),
+            "total_chapters": len(chapter_list),
             "total_duration": total_duration,
             "created_at": datetime.now().isoformat(),
-            "format": encoder_settings.format,
+            "format": "m4a",
             "quality": config.get("quality", "sd"),
+            "book_file": book_filename,
+            "transcript_path": transcript_filename,
             "chapters": chapter_list,
         }
 
@@ -232,7 +306,9 @@ async def process_book(job: Job, config: Dict[str, Any]) -> None:
 
         job.progress = 100.0
         job_manager._add_activity(
-            job, f"Audiobook complete! {len(chunks)} chapters generated.", "success"
+            job,
+            f"Audiobook complete! {len(chapter_list)} chapters embedded in {book_filename}.",
+            "success",
         )
 
     except Exception as e:

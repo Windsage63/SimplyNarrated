@@ -38,9 +38,9 @@ class TestAudioQualityEnum:
 
 class TestAudioFormatEnum:
     def test_values(self):
-        assert AudioFormat.MP3.value == "mp3"
+        assert AudioFormat.M4A.value == "m4a"
 
-    def test_only_mp3(self):
+    def test_only_m4a(self):
         assert len(AudioFormat) == 1
 
 
@@ -63,7 +63,7 @@ class TestGenerateRequest:
         assert req.dialogue_voice is None
         assert req.speed == 1.0
         assert req.quality == AudioQuality.SD
-        assert req.format == AudioFormat.MP3
+        assert req.format == AudioFormat.M4A
 
     def test_speed_minimum(self):
         with pytest.raises(ValidationError):
@@ -85,11 +85,11 @@ class TestGenerateRequest:
             narrator_voice="bm_lewis",
             speed=1.5,
             quality=AudioQuality.ULTRA,
-            format=AudioFormat.MP3,
+            format=AudioFormat.M4A,
         )
         assert req.narrator_voice == "bm_lewis"
         assert req.quality == AudioQuality.ULTRA
-        assert req.format == AudioFormat.MP3
+        assert req.format == AudioFormat.M4A
 
 
 # ---------------------------------------------------------------------------
@@ -119,14 +119,16 @@ class TestUploadResponse:
 class TestBookInfo:
     def test_with_chapters(self):
         chapters = [
-            ChapterInfo(number=1, title="Intro", completed=True),
-            ChapterInfo(number=2, title="Body", duration="5:00"),
+            ChapterInfo(number=1, title="Intro", completed=True, start_seconds=0, end_seconds=12),
+            ChapterInfo(number=2, title="Body", duration="5:00", start_seconds=12, end_seconds=42),
         ]
         book = BookInfo(
             id="b1",
             title="My Book",
             total_chapters=2,
             created_at=datetime.now(),
+            book_file="My Book.m4a",
+            transcript_path="transcript.txt",
             chapters=chapters,
         )
         assert book.total_chapters == 2

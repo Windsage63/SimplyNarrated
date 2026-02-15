@@ -19,9 +19,11 @@ limitations under the License.
 
 import os
 import re
+import json
 import uuid
 import asyncio
 import math
+import logging
 import aiofiles
 from fastapi import APIRouter, UploadFile, File, HTTPException, BackgroundTasks
 from fastapi.responses import FileResponse
@@ -40,9 +42,11 @@ from src.models.schemas import (
 from src.core.job_manager import get_job_manager
 from src.core.library import get_library_manager
 from src.core.tts_engine import PRESET_VOICES
+from src.core.encoder import update_m4b_metadata
 
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 # Supported file extensions
 SUPPORTED_EXTENSIONS = {".txt", ".md", ".pdf", ".zip"}
@@ -74,6 +78,29 @@ def _validate_book_id_or_400(book_id: str) -> None:
     """Validate UUID-like book IDs to prevent path traversal."""
     if not BOOK_ID_PATTERN.match(book_id):
         raise HTTPException(status_code=400, detail="Invalid book ID format")
+
+
+def _sanitize_book_filename(title: str, fallback: str) -> str:
+    candidate = re.sub(r"[\\/:*?\"<>|]+", " ", title or "")
+    candidate = re.sub(r"\s+", " ", candidate).strip().strip(".")
+    return candidate or fallback
+
+
+def _load_book_metadata(book_dir: str) -> dict:
+    metadata_path = os.path.join(book_dir, "metadata.json")
+    if not os.path.exists(metadata_path):
+        raise HTTPException(status_code=404, detail="Book not found")
+
+    with open(metadata_path, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+
+def _find_cover_path(book_dir: str) -> str | None:
+    for candidate in ("cover.jpg", "cover.png"):
+        path = os.path.join(book_dir, candidate)
+        if os.path.exists(path):
+            return path
+    return None
 
 
 def _estimate_chapters(file_ext: str, content: bytes, file_size: int) -> int:
@@ -352,70 +379,81 @@ async def get_book(book_id: str):
     return book
 
 
-@router.get("/audio/{book_id}/{chapter}")
-async def stream_audio(book_id: str, chapter: int):
+@router.get("/audio/{book_id}")
+async def stream_audio(book_id: str):
     """
-    Stream or download a chapter's audio file.
-    Supports both .mp3 and .wav formats.
+    Stream the completed audiobook file.
+    """
+    _validate_book_id_or_400(book_id)
+    library = get_library_manager()
+    book_dir = library.get_book_dir(book_id)
+    metadata = _load_book_metadata(book_dir)
+    book_file = metadata.get("book_file")
+    if not book_file:
+        raise HTTPException(status_code=404, detail="Audiobook file not found")
+
+    audio_path = os.path.join(book_dir, book_file)
+    if not os.path.exists(audio_path) or os.path.getsize(audio_path) == 0:
+        raise HTTPException(status_code=404, detail="Audiobook file not found")
+
+    return FileResponse(
+        audio_path,
+        media_type="audio/mp4",
+        filename=os.path.basename(audio_path),
+    )
+
+
+@router.get("/book/{book_id}/download")
+async def download_book(book_id: str):
+    """
+    Download the completed audiobook file.
     """
     _validate_book_id_or_400(book_id)
 
-    if chapter < 1:
-        raise HTTPException(status_code=400, detail="Chapter number must be >= 1")
-
-    job_manager = get_job_manager()
     library = get_library_manager()
-
-    # MP3 only
-    extensions = [(".mp3", "audio/mpeg")]
-
-    # 1. Check if this is an active job
-    job = job_manager.get_job(book_id)
-    if job and job.output_dir:
-        for ext, media_type in extensions:
-            audio_path = os.path.join(job.output_dir, f"chapter_{chapter:02d}{ext}")
-            if os.path.exists(audio_path) and os.path.getsize(audio_path) > 0:
-                return FileResponse(
-                    audio_path,
-                    media_type=media_type,
-                    filename=f"chapter_{chapter:02d}{ext}",
-                )
-
-    # 2. Check library path
     book_dir = library.get_book_dir(book_id)
-    for ext, media_type in extensions:
-        audio_path = os.path.join(book_dir, f"chapter_{chapter:02d}{ext}")
-        if os.path.exists(audio_path) and os.path.getsize(audio_path) > 0:
-            return FileResponse(
-                audio_path,
-                media_type=media_type,
-                filename=f"chapter_{chapter:02d}{ext}",
-            )
+    metadata = _load_book_metadata(book_dir)
+    book_file = metadata.get("book_file")
+    if not book_file:
+        raise HTTPException(status_code=404, detail="Audiobook file not found")
 
-    raise HTTPException(status_code=404, detail="Audio file not found")
+    audio_path = os.path.join(book_dir, book_file)
+    if not os.path.exists(audio_path) or os.path.getsize(audio_path) == 0:
+        raise HTTPException(status_code=404, detail="Audiobook file not found")
+
+    download_name = f"{_sanitize_book_filename(metadata.get('title', ''), book_id)}.m4a"
+
+    return FileResponse(
+        audio_path,
+        media_type="audio/mp4",
+        filename=download_name,
+    )
 
 
-@router.get("/text/{book_id}/{chapter}")
-async def get_chapter_text(book_id: str, chapter: int):
+@router.get("/transcript/{book_id}")
+async def get_transcript(book_id: str):
     """
-    Get the text content for a specific chapter.
+    Get full transcript text content and chapter anchors.
     """
     _validate_book_id_or_400(book_id)
 
-    if chapter < 1:
-        raise HTTPException(status_code=400, detail="Chapter number must be >= 1")
-
     library = get_library_manager()
     book_dir = library.get_book_dir(book_id)
-    text_path = os.path.join(book_dir, f"chapter_{chapter:02d}.txt")
+    metadata = _load_book_metadata(book_dir)
+    transcript_name = metadata.get("transcript_path") or "transcript.txt"
+    text_path = os.path.join(book_dir, transcript_name)
 
     if not os.path.exists(text_path):
-        raise HTTPException(status_code=404, detail="Chapter text not found")
+        raise HTTPException(status_code=404, detail="Transcript not found")
 
     async with aiofiles.open(text_path, "r", encoding="utf-8") as f:
         content = await f.read()
 
-    return {"book_id": book_id, "chapter": chapter, "content": content}
+    return {
+        "book_id": book_id,
+        "content": content,
+        "chapters": metadata.get("chapters", []),
+    }
 
 
 @router.post("/bookmark")
@@ -471,12 +509,40 @@ async def update_book_metadata(book_id: str, request: UpdateMetadataRequest):
         raise HTTPException(status_code=400, detail="No fields to update")
 
     library = get_library_manager()
+    book_dir = library.get_book_dir(book_id)
+    metadata = _load_book_metadata(book_dir)
+
     success = library.update_book_metadata(book_id, updates)
 
     if not success:
         raise HTTPException(status_code=404, detail="Book not found")
 
-    return {"status": "updated", "book_id": book_id, **updates}
+    updated_metadata = _load_book_metadata(book_dir)
+
+    warnings = []
+
+    book_file = updated_metadata.get("book_file")
+    if book_file:
+        book_file_path = os.path.join(book_dir, book_file)
+        if os.path.exists(book_file_path):
+            try:
+                update_m4b_metadata(
+                    file_path=book_file_path,
+                    title=updated_metadata.get("title"),
+                    author=updated_metadata.get("author"),
+                    chapters=updated_metadata.get("chapters", []),
+                    cover_path=_find_cover_path(book_dir),
+                )
+            except Exception as e:
+                logger.info("Skipped embedded metadata update for %s: %s", book_id, e)
+                warnings.append(
+                    "Embedded audio metadata update deferred because the file is currently in use."
+                )
+
+    response = {"status": "updated", "book_id": book_id, **updates}
+    if warnings:
+        response["warnings"] = warnings
+    return response
 
 
 MAX_COVER_SIZE = 5 * 1024 * 1024  # 5 MB
@@ -537,6 +603,22 @@ async def upload_cover(book_id: str, file: UploadFile = File(...)):
     # Update metadata
     cover_url = f"/api/book/{book_id}/cover"
     library.update_book_metadata(book_id, {"cover_url": cover_url})
+
+    metadata = _load_book_metadata(book_dir)
+    book_file = metadata.get("book_file")
+    if book_file:
+        book_file_path = os.path.join(book_dir, book_file)
+        if os.path.exists(book_file_path):
+            try:
+                update_m4b_metadata(
+                    file_path=book_file_path,
+                    title=metadata.get("title"),
+                    author=metadata.get("author"),
+                    chapters=metadata.get("chapters", []),
+                    cover_path=cover_path,
+                )
+            except Exception as e:
+                logger.info("Skipped embedded cover update for %s: %s", book_id, e)
 
     return {"status": "uploaded", "cover_url": cover_url}
 

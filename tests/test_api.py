@@ -27,7 +27,7 @@ def _make_upload_file(content: bytes, filename: str):
 
 
 def _populate_book(library_dir: str, book_id: str = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"):
-    """Create a book in the library dir with metadata and a tiny MP3 chapter."""
+    """Create a book in the library dir with metadata and a tiny M4A file."""
     from pydub import AudioSegment
     from datetime import datetime
 
@@ -41,14 +41,19 @@ def _populate_book(library_dir: str, book_id: str = "aaaaaaaa-bbbb-cccc-dddd-eee
         "total_chapters": 1,
         "total_duration": "0m",
         "created_at": datetime.now().isoformat(),
-        "format": "mp3",
+        "format": "m4a",
         "quality": "sd",
+        "book_file": "API Test Book.m4a",
+        "transcript_path": "transcript.txt",
         "chapters": [
             {
                 "number": 1,
                 "title": "Chapter 1",
                 "duration": "0:02",
-                "audio_path": "chapter_01.mp3",
+                "start_seconds": 0.0,
+                "end_seconds": 0.5,
+                "transcript_start": 0,
+                "transcript_end": 31,
                 "completed": True,
             }
         ],
@@ -66,9 +71,14 @@ def _populate_book(library_dir: str, book_id: str = "aaaaaaaa-bbbb-cccc-dddd-eee
         sample_width=2,
         channels=1,
     )
-    segment.export(os.path.join(book_dir, "chapter_01.mp3"), format="mp3", bitrate="128k")
+    segment.export(
+        os.path.join(book_dir, "API Test Book.m4a"),
+        format="ipod",
+        codec="aac",
+        bitrate="128k",
+    )
 
-    with open(os.path.join(book_dir, "chapter_01.txt"), "w", encoding="utf-8") as f:
+    with open(os.path.join(book_dir, "transcript.txt"), "w", encoding="utf-8") as f:
         f.write("This is chapter one text content.")
 
     return book_id
@@ -224,7 +234,7 @@ class TestGenerateEndpoint:
                 "narrator_voice": "af_heart",
                 "speed": 1.0,
                 "quality": "sd",
-                "format": "mp3",
+                "format": "m4a",
             },
         )
         assert gen_resp.status_code == 200
@@ -239,15 +249,12 @@ class TestGenerateEndpoint:
 
         assert status == "completed", f"Job ended with status: {status}"
 
-        # Verify output directory has audio files
+        # Verify output directory has final audiobook file
         library_dir = str(tmp_data_dir / "library")
         output_dir = os.path.join(library_dir, job_id)
         assert os.path.exists(output_dir)
         assert os.path.exists(os.path.join(output_dir, "metadata.json"))
-
-        # Should have at least one chapter audio file
-        audio_files = [f for f in os.listdir(output_dir) if f.startswith("chapter_")]
-        assert len(audio_files) >= 1
+        assert any(f.endswith(".m4a") for f in os.listdir(output_dir))
 
 
 @pytest.mark.slow
@@ -264,7 +271,7 @@ class TestCancelEndpoint:
 
         await app_client.post(
             "/api/generate",
-            json={"job_id": job_id, "quality": "sd", "format": "mp3"},
+            json={"job_id": job_id, "quality": "sd", "format": "m4a"},
         )
 
         # Give it a moment to start, then cancel
@@ -329,21 +336,29 @@ class TestBookEndpoint:
 
 
 class TestAudioEndpoint:
-    async def test_stream_mp3(self, app_client, tmp_library_dir):
+    async def test_stream_m4a(self, app_client, tmp_library_dir):
         book_id = _populate_book(str(tmp_library_dir))
-        resp = await app_client.get(f"/api/audio/{book_id}/1")
+        resp = await app_client.get(f"/api/audio/{book_id}")
         assert resp.status_code == 200
-        assert resp.headers["content-type"] == "audio/mpeg"
+        assert resp.headers["content-type"].startswith("audio/mp4")
         assert len(resp.content) > 0
 
     async def test_audio_not_found(self, app_client, tmp_library_dir):
         book_id = _populate_book(str(tmp_library_dir))
-        resp = await app_client.get(f"/api/audio/{book_id}/99")
+        os.remove(os.path.join(str(tmp_library_dir), book_id, "API Test Book.m4a"))
+        resp = await app_client.get(f"/api/audio/{book_id}")
         assert resp.status_code == 404
 
     async def test_invalid_book_id(self, app_client):
-        resp = await app_client.get("/api/audio/not-a-valid-uuid/1")
+        resp = await app_client.get("/api/audio/not-a-valid-uuid")
         assert resp.status_code == 400
+
+    async def test_download_book(self, app_client, tmp_library_dir):
+        book_id = _populate_book(str(tmp_library_dir))
+        resp = await app_client.get(f"/api/book/{book_id}/download")
+        assert resp.status_code == 200
+        assert resp.headers["content-type"].startswith("audio/mp4")
+        assert "attachment" in resp.headers.get("content-disposition", "")
 
 
 # ===========================================================================
@@ -387,17 +402,16 @@ class TestBookmarkEndpoints:
 
 
 class TestTextEndpoint:
-    async def test_get_chapter_text(self, app_client, tmp_library_dir):
+    async def test_get_transcript(self, app_client, tmp_library_dir):
         book_id = _populate_book(str(tmp_library_dir))
-        resp = await app_client.get(f"/api/text/{book_id}/1")
+        resp = await app_client.get(f"/api/transcript/{book_id}")
         assert resp.status_code == 200
         data = resp.json()
         assert data["book_id"] == book_id
-        assert data["chapter"] == 1
         assert "chapter one text" in data["content"].lower()
 
-    async def test_get_chapter_text_invalid_book_id(self, app_client):
-        resp = await app_client.get("/api/text/not-a-valid-uuid/1")
+    async def test_get_transcript_invalid_book_id(self, app_client):
+        resp = await app_client.get("/api/transcript/not-a-valid-uuid")
         assert resp.status_code == 400
 
 

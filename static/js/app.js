@@ -30,7 +30,7 @@ const state = {
   audioSettings: {
     speed: 1.0,
     quality: "sd",
-    format: "mp3",
+    format: "m4a",
     removeSquareBracketNumbers: false,
     removeParenNumbers: false,
   },
@@ -171,6 +171,10 @@ const api = {
       throw new Error(error.detail || "Failed to upload cover");
     }
     return response.json();
+  },
+
+  downloadBookUrl(bookId) {
+    return `${this.baseUrl}/book/${bookId}/download`;
   },
 };
 

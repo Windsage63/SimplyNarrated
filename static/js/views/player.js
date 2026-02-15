@@ -108,10 +108,10 @@ function renderPlayerView(bookId) {
                     </button>
                     
                     <!-- View Text -->
-                    <button onclick="viewChapterText()" class="flex items-center gap-2 px-3 py-2 rounded-lg 
+                    <button onclick="viewTranscript()" class="flex items-center gap-2 px-3 py-2 rounded-lg 
                                                                bg-dark-600 hover:bg-dark-700 transition">
                         <span class="material-symbols-outlined text-lg">article</span>
-                        <span>View Text</span>
+                      <span>View Transcript</span>
                     </button>
 
 
@@ -148,7 +148,7 @@ function renderPlayerView(bookId) {
             <div class="relative z-10 w-full max-w-4xl mx-auto mt-8 md:mt-12 px-4 h-[calc(100vh-6rem)]">
                 <div class="glass rounded-2xl flex flex-col overflow-hidden h-full">
                     <div class="flex items-center justify-between p-4 border-b border-white/10">
-                        <h3 id="text-modal-title" class="font-bold text-lg">Chapter Text</h3>
+                        <h3 id="text-modal-title" class="font-bold text-lg">Transcript</h3>
                         <button onclick="closeTextModal()" class="p-2 rounded-lg hover:bg-dark-700 transition">
                             <span class="material-symbols-outlined">close</span>
                         </button>
@@ -226,6 +226,7 @@ const playerState = {
   speed: 1.0,
   audioElement: null,
   bookmarkSaveTimeout: null,
+  pendingSeekTime: 0,
 };
 
 /**
@@ -288,8 +289,10 @@ async function initPlayerView(bookId) {
     // Load saved bookmark
     await loadBookmark(bookId);
 
-    // Load first chapter (or bookmarked position)
-    loadChapter(playerState.currentChapter);
+    // Load single audiobook source
+    playerState.audioElement.src = `/api/audio/${bookId}`;
+    playerState.audioElement.playbackRate = playerState.speed;
+    updateOverallProgress();
   } catch (error) {
     console.error("Failed to initialize player:", error);
     document.getElementById("book-title").textContent = "Error loading book";
@@ -352,17 +355,17 @@ function setupAudioListeners() {
       audio.duration,
     );
     document.getElementById("progress-slider").max = audio.duration;
+
+    if (playerState.pendingSeekTime > 0) {
+      audio.currentTime = Math.min(playerState.pendingSeekTime, audio.duration || playerState.pendingSeekTime);
+      playerState.pendingSeekTime = 0;
+      updateOverallProgress();
+    }
   });
 
   audio.addEventListener("ended", () => {
-    // Auto-advance to next chapter
-    if (playerState.currentChapter < playerState.book.total_chapters) {
-      loadChapter(playerState.currentChapter + 1);
-      playerState.audioElement.play();
-    } else {
-      playerState.isPlaying = false;
-      updatePlayButton();
-    }
+    playerState.isPlaying = false;
+    updatePlayButton();
   });
 
   audio.addEventListener("play", () => {
@@ -385,10 +388,10 @@ function loadChapter(chapterNum) {
 
   playerState.currentChapter = chapterNum;
   const audio = playerState.audioElement;
-
-  // Update audio source
-  audio.src = `/api/audio/${playerState.book.id}/${chapterNum}`;
-  audio.playbackRate = playerState.speed;
+  const chapter = playerState.book.chapters.find((ch) => ch.number === chapterNum);
+  if (chapter && typeof chapter.start_seconds === "number") {
+    audio.currentTime = chapter.start_seconds;
+  }
 
   // If was playing, continue playing
   if (playerState.isPlaying) {
@@ -478,17 +481,25 @@ function updateProgressUI() {
     audio.currentTime,
   );
   document.getElementById("progress-slider").value = audio.currentTime;
+  updateOverallProgress();
 }
 
 /**
  * Update overall book progress
  */
 function updateOverallProgress() {
-  if (!playerState.book) return;
+  if (!playerState.book || !playerState.audioElement) return;
 
-  const progress = Math.round(
-    (playerState.currentChapter / playerState.book.total_chapters) * 100,
-  );
+  const audio = playerState.audioElement;
+  const duration = audio.duration || 0;
+  const progress = duration > 0 ? Math.round((audio.currentTime / duration) * 100) : 0;
+
+  const activeChapter = getCurrentChapter();
+  if (activeChapter && activeChapter.number !== playerState.currentChapter) {
+    playerState.currentChapter = activeChapter.number;
+    renderChapterList();
+  }
+
   document.getElementById("overall-progress").textContent = `${progress}%`;
   document.getElementById("overall-progress-bar").style.width = `${progress}%`;
 }
@@ -516,19 +527,11 @@ async function loadBookmark(bookId) {
       const bookmark = await response.json();
       playerState.currentChapter = bookmark.chapter || 1;
 
-      // Wait for audio to load, then seek to position
-      if (bookmark.position > 0) {
-        playerState.audioElement.addEventListener(
-          "loadedmetadata",
-          function seekOnce() {
-            playerState.audioElement.currentTime = bookmark.position;
-            playerState.audioElement.removeEventListener(
-              "loadedmetadata",
-              seekOnce,
-            );
-          },
-        );
-      }
+      const chapter = playerState.book?.chapters?.find(
+        (ch) => ch.number === playerState.currentChapter,
+      );
+      const chapterStart = chapter?.start_seconds || 0;
+      playerState.pendingSeekTime = chapterStart + (bookmark.position || 0);
     }
   } catch (error) {
     console.error("Failed to load bookmark:", error);
@@ -557,8 +560,14 @@ async function saveBookmarkToServer() {
   if (!playerState.book) return;
 
   try {
+    const currentChapter = getCurrentChapter() || { number: 1, start_seconds: 0 };
+    const relativePosition = Math.max(
+      0,
+      playerState.audioElement.currentTime - (currentChapter.start_seconds || 0),
+    );
+
     await fetch(
-      `/api/bookmark?book_id=${playerState.book.id}&chapter=${playerState.currentChapter}&position=${playerState.audioElement.currentTime}`,
+      `/api/bookmark?book_id=${playerState.book.id}&chapter=${currentChapter.number}&position=${relativePosition}`,
       {
         method: "POST",
       },
@@ -581,9 +590,9 @@ function formatTime(seconds) {
 }
 
 /**
- * Fetch and display the text for the current chapter in a modal
+ * Fetch and display the full transcript in a modal, anchored to current location.
  */
-async function viewChapterText() {
+async function viewTranscript() {
   if (!playerState.book) return;
 
   const modal = document.getElementById("text-modal");
@@ -593,23 +602,33 @@ async function viewChapterText() {
   // Show modal with loading state
   modal.classList.remove("hidden");
   contentArea.textContent = "Loading...";
-
-  const chapter = playerState.book.chapters.find(
-    (ch) => ch.number === playerState.currentChapter,
-  );
-  titleEl.textContent = chapter
-    ? chapter.title
-    : `Chapter ${playerState.currentChapter}`;
+  titleEl.textContent = `${playerState.book.title} — Transcript`;
 
   try {
-    const response = await fetch(
-      `/api/text/${playerState.book.id}/${playerState.currentChapter}`,
-    );
-    if (!response.ok) throw new Error("Text not available");
+    const response = await fetch(`/api/transcript/${playerState.book.id}`);
+    if (!response.ok) throw new Error("Transcript not available");
     const data = await response.json();
-    contentArea.textContent = data.content;
+
+    const anchorIndex = computeTranscriptAnchor(data);
+    const safeText = escapeHtml(data.content || "");
+
+    if (anchorIndex >= 0 && anchorIndex < safeText.length) {
+      const before = safeText.slice(0, anchorIndex);
+      const at = safeText.slice(anchorIndex, anchorIndex + 1);
+      const after = safeText.slice(anchorIndex + 1);
+      contentArea.innerHTML = `${before}<span id="transcript-anchor" class="bg-primary/40 rounded px-0.5">${at || " "}</span>${after}`;
+
+      requestAnimationFrame(() => {
+        const anchor = document.getElementById("transcript-anchor");
+        if (anchor) {
+          anchor.scrollIntoView({ behavior: "smooth", block: "center" });
+        }
+      });
+    } else {
+      contentArea.textContent = data.content || "";
+    }
   } catch (e) {
-    contentArea.textContent = "Chapter text is not available for this book.";
+    contentArea.textContent = "Transcript is not available for this book.";
   }
 }
 
@@ -618,6 +637,47 @@ async function viewChapterText() {
  */
 function closeTextModal() {
   document.getElementById("text-modal").classList.add("hidden");
+}
+
+function getCurrentChapter() {
+  if (!playerState.book?.chapters?.length) return null;
+  const current = playerState.audioElement?.currentTime || 0;
+
+  return (
+    playerState.book.chapters.find((chapter) => {
+      const start = chapter.start_seconds ?? 0;
+      const end = chapter.end_seconds ?? Number.POSITIVE_INFINITY;
+      return current >= start && current < end;
+    }) || playerState.book.chapters[playerState.book.chapters.length - 1]
+  );
+}
+
+function computeTranscriptAnchor(transcriptData) {
+  const chapter = getCurrentChapter();
+  if (!chapter) return -1;
+
+  const start = chapter.start_seconds ?? 0;
+  const end = chapter.end_seconds ?? start;
+  const chapterDuration = Math.max(0.001, end - start);
+  const rel = Math.min(
+    1,
+    Math.max(0, (playerState.audioElement.currentTime - start) / chapterDuration),
+  );
+
+  const textStart = chapter.transcript_start ?? 0;
+  const textEnd = chapter.transcript_end ?? textStart;
+  const textLength = Math.max(1, textEnd - textStart);
+
+  return Math.round(textStart + rel * textLength);
+}
+
+function escapeHtml(value) {
+  return String(value)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
 }
 
 /**

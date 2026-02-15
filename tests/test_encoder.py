@@ -49,12 +49,16 @@ class TestGetEncoderSettings:
         assert s.bitrate == "128k"
 
     def test_format_override(self):
-        s = get_encoder_settings(quality="sd", format="mp3")
-        assert s.format == "mp3"
+        s = get_encoder_settings(quality="sd", format="m4a")
+        assert s.format == "m4a"
 
     def test_unknown_quality_falls_back(self):
         s = get_encoder_settings(quality="invalid")
         assert s.bitrate == "128k"  # falls back to sd
+
+    def test_default_format_is_m4a(self):
+        s = get_encoder_settings()
+        assert s.format == "m4a"
 
 
 # ---------------------------------------------------------------------------

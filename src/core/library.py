@@ -41,6 +41,8 @@ class BookMetadata:
     voice: Optional[str] = None
     total_chapters: int = 0
     total_duration: Optional[str] = None
+    book_file: Optional[str] = None
+    transcript_path: Optional[str] = None
     created_at: str = field(default_factory=lambda: datetime.now().isoformat())
     chapters: List[Dict[str, Any]] = field(default_factory=list)
 
@@ -107,8 +109,10 @@ class LibraryManager:
                         number=ch.get("number", 0),
                         title=ch.get("title", f"Chapter {ch.get('number', 0)}"),
                         duration=ch.get("duration"),
-                        audio_path=ch.get("audio_path"),
-                        text_path=ch.get("text_path"),
+                        start_seconds=ch.get("start_seconds"),
+                        end_seconds=ch.get("end_seconds"),
+                        transcript_start=ch.get("transcript_start"),
+                        transcript_end=ch.get("transcript_end"),
                         completed=ch.get("completed", False),
                     )
                 )
@@ -124,6 +128,8 @@ class LibraryManager:
                 created_at=datetime.fromisoformat(
                     data.get("created_at", datetime.now().isoformat())
                 ),
+                book_file=data.get("book_file"),
+                transcript_path=data.get("transcript_path"),
                 chapters=chapters,
             )
         except Exception as e:

@@ -17,7 +17,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from typing import Optional, List
 from enum import Enum
 from datetime import datetime
@@ -34,7 +34,7 @@ class AudioQuality(str, Enum):
 class AudioFormat(str, Enum):
     """Audio output format options."""
 
-    MP3 = "mp3"
+    M4A = "m4a"
 
 
 class JobStatus(str, Enum):
@@ -60,13 +60,20 @@ class GenerateRequest(BaseModel):
     )
     speed: float = Field(default=1.0, ge=0.5, le=2.0, description="Playback speed")
     quality: AudioQuality = Field(default=AudioQuality.SD)
-    format: AudioFormat = Field(default=AudioFormat.MP3)
+    format: AudioFormat = Field(default=AudioFormat.M4A)
     remove_square_bracket_numbers: bool = Field(
         default=False, description="Remove [N] footnote references from text"
     )
     remove_paren_numbers: bool = Field(
         default=False, description="Remove (N) footnote references from text"
     )
+
+    @field_validator("format", mode="before")
+    @classmethod
+    def coerce_legacy_format(cls, value):
+        if isinstance(value, str) and value.lower() in {"mp3", "m4b"}:
+            return AudioFormat.M4A
+        return value
 
 
 class UpdateMetadataRequest(BaseModel):
@@ -133,8 +140,10 @@ class ChapterInfo(BaseModel):
     number: int
     title: str
     duration: Optional[str] = None
-    audio_path: Optional[str] = None
-    text_path: Optional[str] = None
+    start_seconds: Optional[float] = None
+    end_seconds: Optional[float] = None
+    transcript_start: Optional[int] = None
+    transcript_end: Optional[int] = None
     completed: bool = False
 
 
@@ -149,6 +158,8 @@ class BookInfo(BaseModel):
     total_duration: Optional[str] = None
     created_at: datetime
     original_filename: Optional[str] = None
+    book_file: Optional[str] = None
+    transcript_path: Optional[str] = None
     chapters: List[ChapterInfo] = []
 
 
