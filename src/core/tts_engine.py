@@ -156,10 +156,6 @@ class TTSEngine:
         """Check if at least one pipeline is loaded."""
         return self._initialized
 
-    def get_available_voices(self) -> List[VoiceConfig]:
-        """Get list of available voices."""
-        return PRESET_VOICES
-
     def generate_speech(
         self,
         text: str,
@@ -210,30 +206,6 @@ class TTSEngine:
             logger.exception("Speech generation failed")
             raise RuntimeError(f"Speech generation failed: {e}")
 
-    def generate_sample(self, voice_id: str) -> Tuple[np.ndarray, int]:
-        """Generate a sample for voice preview."""
-        sample_text = (
-            "Hello! This is a sample of my voice. I hope you like how I sound."
-        )
-        return self.generate_speech(sample_text, voice_id)
-
-    def cleanup(self) -> None:
-        """Release model resources."""
-        if self._pipelines:
-            for key in list(self._pipelines):
-                del self._pipelines[key]
-            self._pipelines.clear()
-            self._shared_model = None
-            self._initialized = False
-
-            # Clear CUDA cache if available
-            try:
-                import torch
-
-                if torch.cuda.is_available():
-                    torch.cuda.empty_cache()
-            except ImportError:
-                pass
 
 
 # Global TTS engine instance
@@ -245,11 +217,4 @@ def get_tts_engine() -> TTSEngine:
     global _tts_engine
     if _tts_engine is None:
         _tts_engine = TTSEngine()
-    return _tts_engine
-
-
-def init_tts_engine(device: Optional[str] = None) -> TTSEngine:
-    """Initialize the global TTS engine."""
-    global _tts_engine
-    _tts_engine = TTSEngine(device)
     return _tts_engine

@@ -21,31 +21,13 @@ import os
 import json
 import logging
 from datetime import datetime
-from typing import List, Optional, Dict, Any
+from typing import List, Optional
 from dataclasses import dataclass, field, asdict
 
 from src.models.schemas import BookInfo, ChapterInfo
-from src.core.encoder import read_m4a_metadata, update_m4a_metadata
+from src.core.encoder import read_m4a_metadata
 
 logger = logging.getLogger(__name__)
-
-
-@dataclass
-class BookMetadata:
-    """Book metadata used when embedding metadata into M4A."""
-
-    id: str
-    title: str
-    author: Optional[str] = None
-    source_file: Optional[str] = None
-    original_filename: Optional[str] = None
-    voice: Optional[str] = None
-    total_chapters: int = 0
-    total_duration: Optional[str] = None
-    book_file: Optional[str] = None
-    transcript_path: Optional[str] = None
-    created_at: str = field(default_factory=lambda: datetime.now().isoformat())
-    chapters: List[Dict[str, Any]] = field(default_factory=list)
 
 
 @dataclass
@@ -74,13 +56,18 @@ class LibraryManager:
         if not os.path.isdir(book_dir):
             return None
 
-        candidates = [
-            name for name in os.listdir(book_dir) if name.lower().endswith(".m4a")
-        ]
+        candidates = []
+        for name in os.listdir(book_dir):
+            lower = name.lower()
+            if not lower.endswith(".m4a"):
+                continue
+            if ".metadata." in lower or ".tmp." in lower or lower.endswith(".tmp.m4a"):
+                continue
+            candidates.append(name)
         if not candidates:
             return None
 
-        candidates.sort()
+        candidates.sort(key=lambda name: os.path.getmtime(os.path.join(book_dir, name)), reverse=True)
         return os.path.join(book_dir, candidates[0])
 
     def scan_library(self) -> List[BookInfo]:
@@ -161,77 +148,6 @@ class LibraryManager:
         except Exception as e:
             logger.warning("Error reading embedded metadata for %s: %s", book_id, e)
             return None
-
-    def save_book(self, book_id: str, metadata: BookMetadata) -> bool:
-        """Embed provided metadata into an existing M4A file."""
-        book_dir = self.get_book_dir(book_id)
-        os.makedirs(book_dir, exist_ok=True)
-        audio_path = self.get_book_audio_path(book_id)
-        if not audio_path:
-            return False
-
-        cover_path = None
-        for candidate in ("cover.jpg", "cover.png"):
-            candidate_path = os.path.join(book_dir, candidate)
-            if os.path.exists(candidate_path):
-                cover_path = candidate_path
-                break
-
-        try:
-            update_m4a_metadata(
-                file_path=audio_path,
-                title=metadata.title,
-                author=metadata.author,
-                chapters=metadata.chapters,
-                cover_path=cover_path,
-                custom_metadata={
-                    "SIMPLYNARRATED_ID": metadata.id,
-                    "SIMPLYNARRATED_CREATED_AT": metadata.created_at,
-                    "SIMPLYNARRATED_ORIGINAL_FILENAME": metadata.original_filename,
-                    "SIMPLYNARRATED_TRANSCRIPT_PATH": metadata.transcript_path,
-                    "SIMPLYNARRATED_VOICE": metadata.voice,
-                },
-            )
-            return True
-        except Exception as e:
-            logger.error("Error embedding metadata for %s: %s", book_id, e)
-            return False
-
-    def update_book_metadata(self, book_id: str, updates: Dict[str, Any]) -> bool:
-        """Update title/author metadata directly in the M4A file."""
-        book = self.get_book(book_id)
-        audio_path = self.get_book_audio_path(book_id)
-
-        if not book or not audio_path:
-            return False
-
-        try:
-            title = updates.get("title", book.title)
-            author = updates.get("author", book.author)
-            update_m4a_metadata(
-                file_path=audio_path,
-                title=title,
-                author=author,
-                chapters=[chapter.model_dump() for chapter in book.chapters],
-                cover_path=self._find_cover_path(self.get_book_dir(book_id)),
-                custom_metadata={
-                    "SIMPLYNARRATED_ID": book.id,
-                    "SIMPLYNARRATED_CREATED_AT": book.created_at.isoformat(),
-                    "SIMPLYNARRATED_ORIGINAL_FILENAME": book.original_filename,
-                    "SIMPLYNARRATED_TRANSCRIPT_PATH": book.transcript_path,
-                },
-            )
-            return True
-        except Exception as e:
-            logger.error("Error updating embedded metadata for %s: %s", book_id, e)
-            return False
-
-    def _find_cover_path(self, book_dir: str) -> Optional[str]:
-        for candidate in ("cover.jpg", "cover.png"):
-            path = os.path.join(book_dir, candidate)
-            if os.path.exists(path):
-                return path
-        return None
 
     def get_bookmark(self, book_id: str) -> Optional[Bookmark]:
         """Get the user's playback position for a book."""

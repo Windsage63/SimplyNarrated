@@ -9,7 +9,7 @@ The API supports upload, conversion job lifecycle, voice previews, playback/book
 ## Conventions
 
 - `book_id` must match UUID-like format (`xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx`) for all book routes.
-- Audio output is currently MP3 only.
+- Audio output is currently M4A only.
 - Common error codes: `400` validation, `404` not found, `413` file too large, `500` server/internal state.
 
 ## Endpoints
@@ -53,7 +53,7 @@ The API supports upload, conversion job lifecycle, voice previews, playback/book
     "dialogue_voice": null,
     "speed": 1.0,
     "quality": "sd",
-    "format": "mp3",
+    "format": "m4a",
     "remove_square_bracket_numbers": false,
     "remove_paren_numbers": false
   }
@@ -142,16 +142,16 @@ The API supports upload, conversion job lifecycle, voice previews, playback/book
 
 ### Playback and Bookmarks
 
-#### Stream Chapter Audio
+#### Stream Audiobook Audio
 
 - **Method**: `GET`
-- **Path**: `/audio/{book_id}/{chapter}`
-- **Response**: `audio/mpeg`
+- **Path**: `/audio/{book_id}`
+- **Response**: `audio/mp4`
 
-#### Get Chapter Text
+#### Get Full Transcript
 
 - **Method**: `GET`
-- **Path**: `/text/{book_id}/{chapter}`
+- **Path**: `/transcript/{book_id}`
 
 #### Save Bookmark
 

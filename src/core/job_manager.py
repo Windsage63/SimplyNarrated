@@ -193,6 +193,10 @@ class JobManager:
         job.activity_log.append(entry)
         self._persist_jobs()
 
+    def add_activity(self, job: Job, message: str, status: str = "info") -> None:
+        """Public wrapper for recording job activity."""
+        self._add_activity(job, message, status)
+
     def update_progress(
         self,
         job_id: str,

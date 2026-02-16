@@ -18,7 +18,7 @@ limitations under the License.
 """
 
 import re
-from typing import List, Tuple
+from typing import List
 from dataclasses import dataclass
 
 
@@ -133,88 +133,3 @@ def _find_break_point(text: str) -> str:
 
     # Fallback: return as-is
     return text
-
-
-def chunk_chapters(
-    chapters: List[Tuple[str, str]], max_words: int = MAX_WORDS_PER_CHUNK
-) -> List[TextChunk]:
-    """
-    Chunk a list of chapters, merging small ones together and splitting
-    large ones to respect max_words.
-    """
-    final_chunks = []
-    current_bucket_text = []
-    current_bucket_word_count = 0
-    current_bucket_titles = []
-    chunk_counter = 0
-
-    def flush_bucket():
-        nonlocal chunk_counter
-        if not current_bucket_text:
-            return 0
-
-        combined_text = "\n\n".join(current_bucket_text)
-        # Create a combined title for the merged chunk
-        if len(current_bucket_titles) > 1:
-            first = current_bucket_titles[0]
-            last = current_bucket_titles[-1]
-            bucket_title = f"{first} - {last}"
-        else:
-            bucket_title = current_bucket_titles[0]
-
-        # Use chunk_text to handle final padding/splitting if needed
-        bucket_chunks = chunk_text(combined_text, max_words, bucket_title)
-
-        for ch in bucket_chunks:
-            ch.index = chunk_counter
-            final_chunks.append(ch)
-            chunk_counter += 1
-
-        current_bucket_text.clear()
-        current_bucket_titles.clear()
-        return 0  # New count
-
-    for title, content in chapters:
-        words_in_chapter = count_words(content)
-
-        # If this chapter alone exceeds the limit, flush bucket and push through
-        if words_in_chapter > max_words:
-            current_bucket_word_count = flush_bucket()
-            chapter_chunks = chunk_text(content, max_words, title)
-            for ch in chapter_chunks:
-                ch.index = chunk_counter
-                final_chunks.append(ch)
-                chunk_counter += 1
-            continue
-
-        # If adding this chapter exceeds the limit, flush current bucket
-        if (
-            current_bucket_word_count + words_in_chapter > max_words
-            and current_bucket_text
-        ):
-            current_bucket_word_count = flush_bucket()
-
-        current_bucket_text.append(content)
-        current_bucket_titles.append(title)
-        current_bucket_word_count += words_in_chapter
-
-    # Final flush
-    flush_bucket()
-
-    return final_chunks
-
-
-def get_total_duration(chunks: List[TextChunk]) -> str:
-    """Get total estimated duration as a formatted string."""
-    total_seconds = sum(chunk.estimated_duration for chunk in chunks)
-    hours = int(total_seconds // 3600)
-    minutes = int((total_seconds % 3600) // 60)
-
-    if hours > 0:
-        return f"{hours}h {minutes}m"
-    return f"{minutes}m"
-
-
-def get_total_words(chunks: List[TextChunk]) -> int:
-    """Get total word count across all chunks."""
-    return sum(chunk.word_count for chunk in chunks)

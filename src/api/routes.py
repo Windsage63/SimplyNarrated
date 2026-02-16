@@ -24,8 +24,8 @@ import asyncio
 import math
 import logging
 import aiofiles
-from fastapi import APIRouter, UploadFile, File, HTTPException, BackgroundTasks
-from fastapi.responses import FileResponse
+from fastapi import APIRouter, UploadFile, File, HTTPException, Request
+from fastapi.responses import FileResponse, StreamingResponse
 
 from src.models.schemas import (
     UploadResponse,
@@ -46,6 +46,7 @@ from src.core.encoder import read_m4a_metadata, update_m4a_metadata
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
+_stream_abort_events: dict[str, asyncio.Event] = {}
 
 # Supported file extensions
 SUPPORTED_EXTENSIONS = {".txt", ".md", ".pdf", ".zip"}
@@ -86,14 +87,23 @@ def _sanitize_book_filename(title: str, fallback: str) -> str:
 
 
 def _load_book_metadata(book_dir: str) -> dict:
-    m4a_files = sorted(
-        name for name in os.listdir(book_dir) if name.lower().endswith(".m4a")
-    ) if os.path.isdir(book_dir) else []
+    m4a_files = []
+    if os.path.isdir(book_dir):
+        for name in os.listdir(book_dir):
+            lower = name.lower()
+            if not lower.endswith(".m4a"):
+                continue
+            if ".metadata." in lower or ".tmp." in lower or lower.endswith(".tmp.m4a"):
+                continue
+            path = os.path.join(book_dir, name)
+            m4a_files.append((name, os.path.getmtime(path), path))
+
+    m4a_files.sort(key=lambda item: (item[1], item[0].lower()), reverse=True)
     if not m4a_files:
         raise HTTPException(status_code=404, detail="Book not found")
 
-    book_file = m4a_files[0]
-    book_path = os.path.join(book_dir, book_file)
+    book_file = m4a_files[0][0]
+    book_path = m4a_files[0][2]
     metadata = read_m4a_metadata(book_path)
     metadata["book_file"] = book_file
     metadata["transcript_path"] = metadata.get("transcript_path") or "transcript.txt"
@@ -117,7 +127,8 @@ def _estimate_chapters(file_ext: str, content: bytes, file_size: int) -> int:
             return max(1, math.ceil(words / 4000))
         if file_ext == ".zip":
             # ZIP with HTML: estimate from uncompressed HTML size
-            import zipfile, io
+            import io
+            import zipfile
             try:
                 with zipfile.ZipFile(io.BytesIO(content)) as zf:
                     html_sizes = [
@@ -136,6 +147,14 @@ def _estimate_chapters(file_ext: str, content: bytes, file_size: int) -> int:
 
     # Conservative fallback when content is binary (e.g., PDF): ~20KB per chapter.
     return max(1, math.ceil(file_size / (20 * 1024)))
+
+
+def _get_stream_abort_event(book_id: str) -> asyncio.Event:
+    event = _stream_abort_events.get(book_id)
+    if event is None:
+        event = asyncio.Event()
+        _stream_abort_events[book_id] = event
+    return event
 
 
 @router.post("/upload", response_model=UploadResponse)
@@ -189,7 +208,7 @@ async def upload_file(file: UploadFile = File(...)):
 
 
 @router.post("/generate")
-async def start_generation(request: GenerateRequest, background_tasks: BackgroundTasks):
+async def start_generation(request: GenerateRequest):
     """
     Start audiobook generation for an uploaded file.
     """
@@ -385,7 +404,7 @@ async def get_book(book_id: str):
 
 
 @router.get("/audio/{book_id}")
-async def stream_audio(book_id: str):
+async def stream_audio(book_id: str, request: Request):
     """
     Stream the completed audiobook file.
     """
@@ -401,10 +420,58 @@ async def stream_audio(book_id: str):
     if not os.path.exists(audio_path) or os.path.getsize(audio_path) == 0:
         raise HTTPException(status_code=404, detail="Audiobook file not found")
 
-    return FileResponse(
-        audio_path,
+    file_size = os.path.getsize(audio_path)
+    range_header = request.headers.get("range")
+    start = 0
+    end = file_size - 1
+    status_code = 200
+    headers = {"Accept-Ranges": "bytes"}
+
+    if range_header:
+        try:
+            units, range_spec = range_header.strip().split("=", 1)
+            if units.lower() != "bytes":
+                raise ValueError("Unsupported range unit")
+
+            start_raw, end_raw = range_spec.split("-", 1)
+            start = int(start_raw) if start_raw else 0
+            end = int(end_raw) if end_raw else end
+
+            if start < 0 or end < start or start >= file_size:
+                raise ValueError("Invalid range")
+
+            end = min(end, file_size - 1)
+            status_code = 206
+            headers["Content-Range"] = f"bytes {start}-{end}/{file_size}"
+        except Exception:
+            raise HTTPException(status_code=416, detail="Invalid range")
+
+    content_length = end - start + 1
+    headers["Content-Length"] = str(content_length)
+
+    abort_event = _get_stream_abort_event(book_id)
+
+    async def iter_file():
+        chunk_size = 64 * 1024
+        remaining = content_length
+        with open(audio_path, "rb") as fh:
+            fh.seek(start)
+            while remaining > 0:
+                if abort_event.is_set():
+                    break
+                to_read = min(chunk_size, remaining)
+                data = fh.read(to_read)
+                if not data:
+                    break
+                remaining -= len(data)
+                yield data
+                await asyncio.sleep(0)
+
+    return StreamingResponse(
+        iter_file(),
         media_type="audio/mp4",
-        filename=os.path.basename(audio_path),
+        status_code=status_code,
+        headers=headers,
     )
 
 
@@ -524,6 +591,10 @@ async def update_book_metadata(book_id: str, request: UpdateMetadataRequest):
     new_author = updates.get("author", book.author)
 
     try:
+        abort_event = _get_stream_abort_event(book_id)
+        abort_event.set()
+        await asyncio.sleep(0.2)
+
         update_m4a_metadata(
             file_path=book_file_path,
             title=new_title,
@@ -536,14 +607,16 @@ async def update_book_metadata(book_id: str, request: UpdateMetadataRequest):
                 "SIMPLYNARRATED_ORIGINAL_FILENAME": book.original_filename,
                 "SIMPLYNARRATED_TRANSCRIPT_PATH": book.transcript_path,
             },
-            replace_retries=8,
+            replace_retries=40,
             retry_delay_seconds=0.25,
         )
-    except PermissionError as e:
+    except (PermissionError, OSError) as e:
         raise HTTPException(
             status_code=423,
-            detail="The audiobook file is in use. Please stop playback and try again.",
+            detail=f"Failed to save metadata: {e}",
         ) from e
+    finally:
+        _get_stream_abort_event(book_id).clear()
 
     response = {"status": "updated", "book_id": book_id, "title": new_title, "author": new_author}
     return response
@@ -609,6 +682,10 @@ async def upload_cover(book_id: str, file: UploadFile = File(...)):
     cover_url = f"/api/book/{book_id}/cover"
 
     try:
+        abort_event = _get_stream_abort_event(book_id)
+        abort_event.set()
+        await asyncio.sleep(0.2)
+
         update_m4a_metadata(
             file_path=book_file_path,
             title=book.title,
@@ -621,14 +698,16 @@ async def upload_cover(book_id: str, file: UploadFile = File(...)):
                 "SIMPLYNARRATED_ORIGINAL_FILENAME": book.original_filename,
                 "SIMPLYNARRATED_TRANSCRIPT_PATH": book.transcript_path,
             },
-            replace_retries=8,
+            replace_retries=40,
             retry_delay_seconds=0.25,
         )
-    except PermissionError as e:
+    except (PermissionError, OSError) as e:
         raise HTTPException(
             status_code=423,
-            detail="The audiobook file is in use. Please stop playback and try again.",
+            detail=f"Failed to save metadata: {e}",
         ) from e
+    finally:
+        _get_stream_abort_event(book_id).clear()
 
     return {"status": "uploaded", "cover_url": cover_url}
 

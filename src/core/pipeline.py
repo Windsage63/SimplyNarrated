@@ -69,18 +69,18 @@ async def process_book(job: Job, config: Dict[str, Any]) -> None:
         try:
             shutil.move(job.file_path, new_source_path)
             job.file_path = new_source_path
-            job_manager._add_activity(job, "Source file moved to library", "info")
+            job_manager.add_activity(job, "Source file moved to library", "info")
         except Exception as e:
-            job_manager._add_activity(
+            job_manager.add_activity(
                 job, f"Note: Source file already in place or move failed: {e}", "info"
             )
 
         # Phase 1: Parse the file
-        job_manager._add_activity(job, "Extracting text from file...")
+        job_manager.add_activity(job, "Extracting text from file...")
         await asyncio.sleep(0.1)  # Yield to event loop
 
         document = parse_file(job.file_path)
-        job_manager._add_activity(
+        job_manager.add_activity(
             job,
             f"Found {len(document.chapters)} chapters in '{document.title}'",
             "success",
@@ -89,7 +89,7 @@ async def process_book(job: Job, config: Dict[str, Any]) -> None:
         # Phase 1a: Attempt to extract cover image
         cover_filename = extract_cover_image(job.file_path, job.output_dir)
         if cover_filename:
-            job_manager._add_activity(job, "Cover image extracted from source file", "success")
+            job_manager.add_activity(job, "Cover image extracted from source file", "success")
 
         # Phase 1b: Remove footnote/number references if requested
         strip_square = config.get("remove_square_bracket_numbers", False)
@@ -108,26 +108,26 @@ async def process_book(job: Job, config: Dict[str, Any]) -> None:
                 removed.append("[N]")
             if strip_paren:
                 removed.append("(N)")
-            job_manager._add_activity(
+            job_manager.add_activity(
                 job,
                 f"Removed {' and '.join(removed)} footnote references from text",
                 "success",
             )
 
         # Phase 2: Prepare natural chapters for audio generation
-        job_manager._add_activity(job, "Preparing chapters for audio generation...")
+        job_manager.add_activity(job, "Preparing chapters for audio generation...")
         await asyncio.sleep(0.1)
 
         natural_chapters = document.chapters
         job.total_chapters = len(natural_chapters)
-        job_manager._add_activity(
+        job_manager.add_activity(
             job,
             f"Prepared {len(natural_chapters)} natural chapters",
             "success",
         )
 
         # Phase 3: Initialize TTS engine
-        job_manager._add_activity(job, "Loading TTS model...")
+        job_manager.add_activity(job, "Loading TTS model...")
         await asyncio.sleep(0.1)
 
         tts_engine = get_tts_engine()
@@ -136,7 +136,7 @@ async def process_book(job: Job, config: Dict[str, Any]) -> None:
             loop = asyncio.get_running_loop()
             await loop.run_in_executor(None, tts_engine.initialize)
 
-        job_manager._add_activity(job, "TTS model ready", "success")
+        job_manager.add_activity(job, "TTS model ready", "success")
 
         # Phase 4: Generate audio for each chunk
         encoder_settings = get_encoder_settings(
@@ -239,7 +239,7 @@ async def process_book(job: Job, config: Dict[str, Any]) -> None:
                 }
             )
 
-            job_manager._add_activity(
+            job_manager.add_activity(
                 job, f"Chapter {chapter_num} complete: {chapter_title}", "success"
             )
 
@@ -247,7 +247,7 @@ async def process_book(job: Job, config: Dict[str, Any]) -> None:
             await asyncio.sleep(0.1)
 
         # Phase 5: Finalize
-        job_manager._add_activity(job, "Finalizing audiobook...")
+        job_manager.add_activity(job, "Finalizing audiobook...")
 
         book_base_name = _sanitize_book_filename(document.title, job.id)
         book_filename = f"{book_base_name}.m4a"
@@ -286,12 +286,8 @@ async def process_book(job: Job, config: Dict[str, Any]) -> None:
         with open(transcript_path, "w", encoding="utf-8") as tf:
             tf.write(transcript_content)
 
-        shutil.rmtree(segment_dir, ignore_errors=True)
-
-        total_duration = format_duration(cumulative_seconds)
-
         job.progress = 100.0
-        job_manager._add_activity(
+        job_manager.add_activity(
             job,
             f"Audiobook complete! {len(chapter_list)} chapters embedded in {book_filename}.",
             "success",
@@ -299,5 +295,8 @@ async def process_book(job: Job, config: Dict[str, Any]) -> None:
 
     except Exception as e:
         logger.exception("Pipeline error for job %s", job.id)
-        job_manager._add_activity(job, f"Error: {str(e)}", "error")
+        job_manager.add_activity(job, f"Error: {str(e)}", "error")
         raise
+    finally:
+        if 'segment_dir' in locals():
+            shutil.rmtree(segment_dir, ignore_errors=True)

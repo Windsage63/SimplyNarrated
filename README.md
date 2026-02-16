@@ -2,7 +2,7 @@
 
 ![SimplyNarrated](docs/img/Landing-page.png)
 
-A local web application that converts books and text documents (`.txt`, `.md`, `.pdf`, `.zip`) into audiobooks saved as MP3 chapter files. Designed for non-technical users, it provides a polished multi-page interface with a landing page, file upload/configuration screen, conversion progress tracker, audiobook player, and user dashboard.
+A local web application that converts books and text documents (`.txt`, `.md`, `.pdf`, `.zip`) into audiobooks saved as M4A files with embedded chapters and metadata. Designed for non-technical users, it provides a polished multi-page interface with a landing page, file upload/configuration screen, conversion progress tracker, audiobook player, and user dashboard.
 
 The system uses the **Kokoro-82M** model running locally on GPU for high-quality, expressive speech synthesis.
 
@@ -28,7 +28,7 @@ The system uses the **Kokoro-82M** model running locally on GPU for high-quality
 
 ## 📌 Current Product Scope
 
-- Output format is currently **MP3-only**.
+- Output format is currently **M4A-only**.
 - Voice generation is currently **single-narrator voice** during conversion.
 - For best Gutenberg imports, use **HTML ZIP** downloads; **TXT** downloads are also supported.
 - ZIP cover auto-detection currently uses image filenames containing **"cover"**.

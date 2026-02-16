@@ -26,8 +26,8 @@ from datetime import datetime
 class AudioQuality(str, Enum):
     """Audio output quality options."""
 
-    SD = "sd"  # Standard (128 kbps)
-    HD = "hd"  # High Definition (192 kbps)
+    SD = "sd"  # Standard (96 kbps)
+    HD = "hd"  # High Definition (128 kbps)
     ULTRA = "ultra"  # Ultra (320 kbps)
 
 
