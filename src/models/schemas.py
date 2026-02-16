@@ -47,6 +47,13 @@ class JobStatus(str, Enum):
     CANCELLED = "cancelled"
 
 
+class CleanupDecision(str, Enum):
+    """User decision for a cleanup candidate."""
+
+    DELETE = "delete"
+    KEEP = "keep"
+
+
 # --- Request Schemas ---
 
 
@@ -81,6 +88,13 @@ class UpdateMetadataRequest(BaseModel):
 
     title: Optional[str] = Field(default=None, min_length=1, max_length=500)
     author: Optional[str] = Field(default=None, max_length=500)
+
+
+class CleanupDecisionRequest(BaseModel):
+    """Request to apply a cleanup decision for a pending item."""
+
+    item_id: str
+    decision: CleanupDecision
 
 
 # --- Response Schemas ---
@@ -169,3 +183,20 @@ class LibraryResponse(BaseModel):
     books: List[BookInfo]
     total: int
     in_progress: int = 0
+
+
+class CleanupItem(BaseModel):
+    """A pending cleanup candidate surfaced at startup."""
+
+    item_id: str
+    item_type: str
+    title: str
+    details: str
+    recommendation: CleanupDecision
+
+
+class CleanupPendingResponse(BaseModel):
+    """Pending cleanup items requiring user decision."""
+
+    items: List[CleanupItem]
+    total: int

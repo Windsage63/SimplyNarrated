@@ -26,6 +26,7 @@ import os
 from src.api.routes import router as api_router
 from src.core.job_manager import init_job_manager
 from src.core.library import init_library_manager
+from src.core.cleanup_manager import init_cleanup_manager
 
 # Ensure static-ffmpeg binaries are on PATH for pydub/subprocess
 try:
@@ -53,6 +54,7 @@ async def lifespan(app: FastAPI):
     # Initialize managers
     init_job_manager(DATA_DIR)
     init_library_manager(LIBRARY_DIR)
+    init_cleanup_manager(DATA_DIR)
 
     yield
 

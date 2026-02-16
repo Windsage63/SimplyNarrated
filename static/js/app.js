@@ -111,6 +111,26 @@ const api = {
     return response.json();
   },
 
+  async getCleanupPending() {
+    const response = await fetch(`${this.baseUrl}/cleanup/pending`);
+    if (!response.ok) {
+      throw new Error("Failed to load cleanup candidates");
+    }
+    return response.json();
+  },
+
+  async submitCleanupDecision(itemId, decision) {
+    const response = await fetch(`${this.baseUrl}/cleanup/decision`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ item_id: itemId, decision }),
+    });
+    if (!response.ok) {
+      throw new Error("Failed to apply cleanup decision");
+    }
+    return response.json();
+  },
+
   async getBook(bookId) {
     const response = await fetch(`${this.baseUrl}/book/${bookId}`);
     if (!response.ok) {
@@ -244,10 +264,32 @@ function showPlayer(bookId) {
   showView("player");
 }
 
+async function runStartupCleanupPrompts() {
+  try {
+    const data = await api.getCleanupPending();
+    if (!data?.items?.length) return;
+
+    for (const item of data.items) {
+      const recommendation =
+        item.recommendation === "delete"
+          ? "Recommended: Delete"
+          : "Recommended: Keep";
+      const shouldDelete = confirm(
+        `${recommendation}\n\n${item.title}\n\n${item.details}\n\nDelete this item now?\nChoose Cancel to keep it for now. If kept, you may be asked again next time the app starts.`,
+      );
+      const decision = shouldDelete ? "delete" : "keep";
+      await api.submitCleanupDecision(item.item_id, decision);
+    }
+  } catch (error) {
+    console.error("Startup cleanup prompt failed:", error);
+  }
+}
+
 // ============================================
 // Initialize App
 // ============================================
 
 document.addEventListener("DOMContentLoaded", () => {
   showView("landing");
+  runStartupCleanupPrompts();
 });

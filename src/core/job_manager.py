@@ -183,6 +183,18 @@ class JobManager:
         """Get a job by ID."""
         return self._jobs.get(job_id)
 
+    def list_jobs(self) -> list[Job]:
+        """Get all jobs currently tracked in the ledger."""
+        return list(self._jobs.values())
+
+    def remove_job(self, job_id: str) -> bool:
+        """Remove a job from the ledger."""
+        if job_id not in self._jobs:
+            return False
+        del self._jobs[job_id]
+        self._persist_jobs()
+        return True
+
     def _add_activity(self, job: Job, message: str, status: str = "info") -> None:
         """Add an activity log entry to a job."""
         entry = ActivityLogEntry(

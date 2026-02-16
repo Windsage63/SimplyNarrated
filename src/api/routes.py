@@ -37,8 +37,12 @@ from src.models.schemas import (
     BookInfo,
     JobStatus,
     UpdateMetadataRequest,
+    CleanupPendingResponse,
+    CleanupDecisionRequest,
+    CleanupItem,
 )
 from src.core.job_manager import get_job_manager
+from src.core.cleanup_manager import get_cleanup_manager
 from src.core.library import get_library_manager
 from src.core.tts_engine import PRESET_VOICES
 from src.core.encoder import read_m4a_metadata, update_m4a_metadata
@@ -385,6 +389,33 @@ async def get_library():
         total=len(books),
         in_progress=in_progress,
     )
+
+
+@router.get("/cleanup/pending", response_model=CleanupPendingResponse)
+async def get_cleanup_pending_items():
+    """List incomplete artifacts that may be cleaned up."""
+    cleanup_manager = get_cleanup_manager()
+    items = cleanup_manager.get_pending_items()
+    return CleanupPendingResponse(
+        items=[
+            CleanupItem(
+                item_id=item.item_id,
+                item_type=item.item_type,
+                title=item.title,
+                details=item.details,
+                recommendation=item.recommendation,
+            )
+            for item in items
+        ],
+        total=len(items),
+    )
+
+
+@router.post("/cleanup/decision")
+async def apply_cleanup_decision(request: CleanupDecisionRequest):
+    """Apply a user decision for a pending cleanup item."""
+    cleanup_manager = get_cleanup_manager()
+    return cleanup_manager.apply_decision(request.item_id, request.decision)
 
 
 @router.get("/book/{book_id}", response_model=BookInfo)
