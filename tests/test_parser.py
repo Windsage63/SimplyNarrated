@@ -114,7 +114,9 @@ class TestMarkdownToText:
 
 class TestSplitIntoChapters:
     def test_with_chapter_headings(self):
-        text = "\n\nChapter 1\nFirst content.\n\nChapter 2\nSecond content."
+        long_one = "alpha " * 520
+        long_two = "beta " * 520
+        text = f"\n\nChapter 1\n{long_one}\n\nChapter 2\n{long_two}"
         chapters = _split_into_chapters(text)
         assert len(chapters) >= 2
         assert "Chapter 1" in chapters[0][0]
@@ -126,11 +128,16 @@ class TestSplitIntoChapters:
         assert chapters[0][0] == "Chapter 1"
 
     def test_preamble_captured_before_chapter_headings(self):
-        text = "This is introductory text.\n\nMore intro.\n\nChapter 1\nFirst chapter.\n\nChapter 2\nSecond chapter."
+        long_one = "gamma " * 520
+        long_two = "delta " * 520
+        text = (
+            "This is introductory text.\n\nMore intro.\n\n"
+            f"Chapter 1\n{long_one}\n\nChapter 2\n{long_two}"
+        )
         chapters = _split_into_chapters(text)
-        assert chapters[0][0] == "Preamble"
+        assert chapters[0][0] == "Chapter 1"
         assert "introductory text" in chapters[0][1]
-        assert len(chapters) >= 3
+        assert len(chapters) >= 2
 
     def test_no_preamble_when_chapter_at_start(self):
         text = "Chapter 1\nContent here.\n\nChapter 2\nMore content."
@@ -147,16 +154,25 @@ class TestSplitIntoChapters:
         assert chapters[0][0] == "Chapter 1"
 
     def test_numbered_pattern_used_when_near_start(self):
-        text = "\n\n1. Introduction\nFirst content.\n\n2. Background\nSecond content."
+        long_one = "intro " * 520
+        long_two = "background " * 520
+        text = f"\n\n1. Introduction\n{long_one}\n\n2. Background\n{long_two}"
         chapters = _split_into_chapters(text)
         assert len(chapters) >= 2
         assert "Introduction" in chapters[0][0] or "Introduction" in chapters[0][1]
 
+    def test_near_start_numbered_small_sections_are_merged(self):
+        text = "\n\n1. Passage\nshort section\n\n2. Passage\nanother short section"
+        chapters = _split_into_chapters(text)
+        assert len(chapters) == 1
+
     def test_allcaps_section_headers(self):
+        long_one = "essay " * 520
+        long_two = "reflection " * 520
         text = (
             "Some preamble text.\n\n\n\n"
-            "COMPENSATION\n\nFirst essay content here.\n\n\n\n"
-            "SELF-RELIANCE\n\nSecond essay content here."
+            f"COMPENSATION\n\n{long_one}\n\n\n\n"
+            f"SELF-RELIANCE\n\n{long_two}"
         )
         chapters = _split_into_chapters(text)
         titles = [t for t, _ in chapters]
@@ -164,13 +180,15 @@ class TestSplitIntoChapters:
         assert "SELF-RELIANCE" in titles
 
     def test_allcaps_headers_capture_preamble(self):
+        long_one = "essay " * 520
+        long_two = "thought " * 520
         text = (
             "Introduction and preamble.\n\n\n\n"
-            "THE AMERICAN SCHOLAR\n\nEssay one.\n\n\n\n"
-            "FRIENDSHIP\n\nEssay two."
+            f"THE AMERICAN SCHOLAR\n\n{long_one}\n\n\n\n"
+            f"FRIENDSHIP\n\n{long_two}"
         )
         chapters = _split_into_chapters(text)
-        assert chapters[0][0] == "Preamble"
+        assert chapters[0][0] == "THE AMERICAN SCHOLAR"
         assert "Introduction" in chapters[0][1]
 
 
@@ -188,7 +206,9 @@ class TestParseTxt:
         assert doc.raw_text  # Non-empty
 
     def test_chapter_detection(self, tmp_path):
-        content = "Book Title\n\nChapter 1\nFirst chapter text.\n\nChapter 2\nSecond chapter text."
+        long_one = "chapterone " * 520
+        long_two = "chaptertwo " * 520
+        content = f"Book Title\n\nChapter 1\n{long_one}\n\nChapter 2\n{long_two}"
         path = tmp_path / "book.txt"
         path.write_text(content, encoding="utf-8")
         doc = parse_txt(str(path))
@@ -229,7 +249,19 @@ class TestParseMarkdown:
         assert "*" not in doc.raw_text or doc.raw_text.count("*") == 0
 
     def test_chapter_split(self, sample_md_file):
-        doc = parse_markdown(sample_md_file)
+        long_one = "markdown " * 520
+        long_two = "content " * 520
+        md_content = (
+            "# My Markdown Book\n\n"
+            f"## Chapter One\n\n{long_one}\n\n"
+            f"## Chapter Two\n\n{long_two}\n"
+        )
+        path = os.path.dirname(sample_md_file)
+        large_md = os.path.join(path, "large_sample.md")
+        with open(large_md, "w", encoding="utf-8") as handle:
+            handle.write(md_content)
+
+        doc = parse_markdown(large_md)
         # Should split on ## headings
         assert len(doc.chapters) >= 2
 
@@ -279,7 +311,7 @@ class TestParseZip:
         doc = parse_zip(sample_zip_file)
         assert doc.format == "zip"
         assert doc.title == "The Test Book"
-        assert len(doc.chapters) >= 2
+        assert len(doc.chapters) >= 1
         assert doc.raw_text
 
     def test_gutenberg_title_cleaned(self, sample_zip_file):

@@ -28,6 +28,8 @@ from dataclasses import dataclass
 
 logger = logging.getLogger(__name__)
 
+MIN_CHAPTER_WORDS = 500
+
 
 @dataclass
 class ParsedDocument:
@@ -460,6 +462,45 @@ def _extract_cover_from_zip(file_path: str, output_dir: str) -> Optional[str]:
         return None
 
 
+def _count_words(text: str) -> int:
+    """Count words in text using simple token boundaries."""
+    return len(re.findall(r"\b\w+\b", text or ""))
+
+
+def _merge_short_chapters(
+    chapters: List[Tuple[str, str]],
+    min_words: int = MIN_CHAPTER_WORDS,
+) -> List[Tuple[str, str]]:
+    """Merge adjacent chapters until each chapter reaches the minimum size."""
+    if not chapters:
+        return chapters
+
+    merged: List[Tuple[str, str]] = []
+    current_title, current_content = chapters[0]
+    current_content = (current_content or "").strip()
+
+    for title, content in chapters[1:]:
+        content = (content or "").strip()
+        if _count_words(current_content) < min_words:
+            if current_title == "Preamble":
+                current_title = title
+            current_content = f"{current_content}\n\n{content}".strip()
+        else:
+            merged.append((current_title, current_content))
+            current_title, current_content = title, content
+
+    merged.append((current_title, current_content))
+
+    if len(merged) > 1 and _count_words(merged[-1][1]) < min_words:
+        prev_title, prev_content = merged[-2]
+        last_title, last_content = merged[-1]
+        combined = f"{prev_content}\n\n{last_title}\n\n{last_content}".strip()
+        merged[-2] = (prev_title, combined)
+        merged.pop()
+
+    return merged
+
+
 def _split_into_chapters(text: str) -> List[Tuple[str, str]]:
     """Split text into chapters based on common patterns."""
     # Common chapter patterns, tried in priority order
@@ -505,7 +546,7 @@ def _split_into_chapters(text: str) -> List[Tuple[str, str]]:
     if not chapters:
         chapters = [("Chapter 1", text)]
 
-    return chapters
+    return _merge_short_chapters(chapters)
 
 
 def _split_markdown_chapters(content: str) -> List[Tuple[str, str]]:
@@ -532,7 +573,7 @@ def _split_markdown_chapters(content: str) -> List[Tuple[str, str]]:
     else:
         chapters = [("Content", _markdown_to_text(content))]
 
-    return chapters
+    return _merge_short_chapters(chapters)
 
 
 def _normalize_line_breaks(text: str) -> str:
