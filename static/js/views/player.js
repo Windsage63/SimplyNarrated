@@ -761,6 +761,70 @@ function closeEditMetaModal() {
   document.getElementById("meta-modal").classList.add("hidden");
 }
 
+function waitForAudioEvent(audio, eventName, timeoutMs = 2000) {
+  return new Promise((resolve) => {
+    let done = false;
+    const onEvent = () => {
+      if (done) return;
+      done = true;
+      audio.removeEventListener(eventName, onEvent);
+      clearTimeout(timer);
+      resolve();
+    };
+
+    const timer = setTimeout(() => {
+      if (done) return;
+      done = true;
+      audio.removeEventListener(eventName, onEvent);
+      resolve();
+    }, timeoutMs);
+
+    audio.addEventListener(eventName, onEvent, { once: true });
+  });
+}
+
+async function withReleasedPlayerHandle(work) {
+  const audio = playerState.audioElement;
+  const bookId = playerState.book?.id;
+  if (!audio || !bookId) {
+    return work();
+  }
+
+  const wasPlaying = !audio.paused;
+  const savedTime = audio.currentTime || 0;
+  const savedRate = audio.playbackRate || 1.0;
+
+  try {
+    audio.pause();
+    audio.removeAttribute("src");
+    audio.load();
+    await new Promise((resolve) => setTimeout(resolve, 120));
+
+    return await work();
+  } finally {
+    audio.src = `/api/audio/${bookId}?v=${Date.now()}`;
+    audio.playbackRate = savedRate;
+    await waitForAudioEvent(audio, "loadedmetadata", 2500);
+
+    if (!isNaN(audio.duration) && audio.duration > 0) {
+      audio.currentTime = Math.min(savedTime, audio.duration);
+    } else {
+      audio.currentTime = savedTime;
+    }
+
+    if (wasPlaying) {
+      try {
+        await audio.play();
+      } catch (error) {
+        console.warn(
+          "Failed to auto-resume playback after metadata update:",
+          error,
+        );
+      }
+    }
+  }
+}
+
 /**
  * Save updated metadata to the server and refresh the player header
  */
@@ -784,27 +848,31 @@ async function saveMetadata() {
   }
 
   try {
-    // Upload cover image if selected
-    if (hasCover) {
-      const coverResult = await api.uploadCover(playerState.book.id, coverFile);
-      playerState.book.cover_url = coverResult.cover_url;
-      updateBookCover();
-    }
-
-    // Update text metadata if changed
-    if (hasTextUpdates) {
-      await api.updateMetadata(playerState.book.id, updates);
-
-      if (updates.title) {
-        playerState.book.title = updates.title;
-        document.getElementById("book-title").textContent = updates.title;
+    await withReleasedPlayerHandle(async () => {
+      if (hasCover) {
+        const coverResult = await api.uploadCover(
+          playerState.book.id,
+          coverFile,
+        );
+        playerState.book.cover_url = coverResult.cover_url;
+        updateBookCover();
       }
-      if ("author" in updates) {
-        playerState.book.author = updates.author;
+
+      if (hasTextUpdates) {
+        const metadataResult = await api.updateMetadata(
+          playerState.book.id,
+          updates,
+        );
+
+        playerState.book.title = metadataResult.title || playerState.book.title;
+        playerState.book.author = metadataResult.author;
+
+        document.getElementById("book-title").textContent =
+          playerState.book.title;
         document.getElementById("book-author").textContent =
-          updates.author || "Unknown Author";
+          playerState.book.author || "Unknown Author";
       }
-    }
+    });
 
     closeEditMetaModal();
   } catch (error) {

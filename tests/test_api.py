@@ -6,7 +6,7 @@ Tests marked @pytest.mark.slow require the real Kokoro TTS model.
 
 import os
 import io
-import json
+import base64
 import asyncio
 import pytest
 import numpy as np
@@ -14,6 +14,7 @@ import numpy as np
 import src.core.job_manager as jm_module
 import src.core.library as lib_module
 import src.core.tts_engine as tts_module
+from src.core.encoder import update_m4a_metadata
 
 
 # ---------------------------------------------------------------------------
@@ -27,39 +28,12 @@ def _make_upload_file(content: bytes, filename: str):
 
 
 def _populate_book(library_dir: str, book_id: str = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"):
-    """Create a book in the library dir with metadata and a tiny M4A file."""
+    """Create a book in the library dir with embedded metadata and a tiny M4A file."""
     from pydub import AudioSegment
     from datetime import datetime
 
     book_dir = os.path.join(library_dir, book_id)
     os.makedirs(book_dir, exist_ok=True)
-
-    metadata = {
-        "id": book_id,
-        "title": "API Test Book",
-        "author": "Tester",
-        "total_chapters": 1,
-        "total_duration": "0m",
-        "created_at": datetime.now().isoformat(),
-        "format": "m4a",
-        "quality": "sd",
-        "book_file": "API Test Book.m4a",
-        "transcript_path": "transcript.txt",
-        "chapters": [
-            {
-                "number": 1,
-                "title": "Chapter 1",
-                "duration": "0:02",
-                "start_seconds": 0.0,
-                "end_seconds": 0.5,
-                "transcript_start": 0,
-                "transcript_end": 31,
-                "completed": True,
-            }
-        ],
-    }
-    with open(os.path.join(book_dir, "metadata.json"), "w") as f:
-        json.dump(metadata, f)
 
     # Generate a short sine tone and export as MP3
     sr = 24000
@@ -76,6 +50,31 @@ def _populate_book(library_dir: str, book_id: str = "aaaaaaaa-bbbb-cccc-dddd-eee
         format="ipod",
         codec="aac",
         bitrate="128k",
+    )
+
+    update_m4a_metadata(
+        file_path=os.path.join(book_dir, "API Test Book.m4a"),
+        title="API Test Book",
+        author="Tester",
+        chapters=[
+            {
+                "number": 1,
+                "title": "Chapter 1",
+                "duration": "0:02",
+                "start_seconds": 0.0,
+                "end_seconds": 0.5,
+                "transcript_start": 0,
+                "transcript_end": 31,
+                "completed": True,
+            }
+        ],
+        custom_metadata={
+            "SIMPLYNARRATED_ID": book_id,
+            "SIMPLYNARRATED_CREATED_AT": datetime.now().isoformat(),
+            "SIMPLYNARRATED_ORIGINAL_FILENAME": "api_test.txt",
+            "SIMPLYNARRATED_TRANSCRIPT_PATH": "transcript.txt",
+            "SIMPLYNARRATED_QUALITY": "sd",
+        },
     )
 
     with open(os.path.join(book_dir, "transcript.txt"), "w", encoding="utf-8") as f:
@@ -253,7 +252,6 @@ class TestGenerateEndpoint:
         library_dir = str(tmp_data_dir / "library")
         output_dir = os.path.join(library_dir, job_id)
         assert os.path.exists(output_dir)
-        assert os.path.exists(os.path.join(output_dir, "metadata.json"))
         assert any(f.endswith(".m4a") for f in os.listdir(output_dir))
 
 
@@ -328,6 +326,21 @@ class TestBookEndpoint:
     async def test_book_invalid_id(self, app_client):
         resp = await app_client.get("/api/book/not-a-valid-uuid")
         assert resp.status_code == 400
+
+    async def test_update_metadata_persists_to_embedded_tags(self, app_client, tmp_library_dir):
+        book_id = _populate_book(str(tmp_library_dir))
+
+        update_resp = await app_client.patch(
+            f"/api/book/{book_id}",
+            json={"title": "Updated Book", "author": "Updated Author"},
+        )
+        assert update_resp.status_code == 200
+
+        book_resp = await app_client.get(f"/api/book/{book_id}")
+        assert book_resp.status_code == 200
+        data = book_resp.json()
+        assert data["title"] == "Updated Book"
+        assert data["author"] == "Updated Author"
 
 
 # ===========================================================================
@@ -427,6 +440,28 @@ class TestCoverEndpoints:
             files={"file": ("cover.png", io.BytesIO(png_header), "image/png")},
         )
         assert resp.status_code == 400
+
+    async def test_upload_cover_updates_book_metadata(self, app_client, tmp_library_dir):
+        book_id = _populate_book(str(tmp_library_dir))
+
+        png_data = base64.b64decode(
+            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO2FfN8AAAAASUVORK5CYII="
+        )
+
+        upload_resp = await app_client.post(
+            f"/api/book/{book_id}/cover",
+            files={"file": ("cover.png", io.BytesIO(png_data), "image/png")},
+        )
+        assert upload_resp.status_code == 200
+        assert upload_resp.json()["cover_url"] == f"/api/book/{book_id}/cover"
+
+        cover_resp = await app_client.get(f"/api/book/{book_id}/cover")
+        assert cover_resp.status_code == 200
+        assert cover_resp.headers["content-type"].startswith("image/")
+
+        book_resp = await app_client.get(f"/api/book/{book_id}")
+        assert book_resp.status_code == 200
+        assert book_resp.json()["cover_url"] == f"/api/book/{book_id}/cover"
 
 
 # ===========================================================================

@@ -13,6 +13,9 @@ from src.core.encoder import (
     get_encoder_settings,
     encode_audio,
     format_duration,
+    mux_m4a_from_segments,
+    read_m4a_metadata,
+    update_m4a_metadata,
 )
 
 
@@ -144,3 +147,111 @@ class TestEncodeAudioMp3:
 
         segment = AudioSegment.from_mp3(out)
         assert len(segment) > 0  # duration in ms
+
+
+class TestEmbeddedM4aMetadata:
+    @staticmethod
+    def _ffmpeg_available() -> bool:
+        return shutil.which("ffmpeg") is not None and shutil.which("ffprobe") is not None
+
+    @pytest.fixture(autouse=True)
+    def _skip_if_no_ffmpeg(self):
+        if not self._ffmpeg_available():
+            pytest.skip("ffmpeg/ffprobe not available")
+
+    def test_mux_and_read_embedded_metadata(self, tmp_path):
+        from pydub import AudioSegment
+
+        sr = 24000
+        tone = (_sine_wave(duration=0.6, sample_rate=sr) * 32767).astype(np.int16)
+        segment = AudioSegment(
+            tone.tobytes(),
+            frame_rate=sr,
+            sample_width=2,
+            channels=1,
+        )
+        seg_path = str(tmp_path / "seg_001.m4a")
+        segment.export(seg_path, format="ipod", codec="aac", bitrate="128k")
+
+        out_path = str(tmp_path / "book.m4a")
+        chapters = [
+            {
+                "number": 1,
+                "title": "Chapter One",
+                "start_seconds": 0.0,
+                "end_seconds": 0.6,
+                "transcript_start": 0,
+                "transcript_end": 12,
+                "completed": True,
+            }
+        ]
+
+        mux_m4a_from_segments(
+            segment_paths=[seg_path],
+            output_path=out_path,
+            title="Book Title",
+            author="Book Author",
+            chapters=chapters,
+            custom_metadata={
+                "SIMPLYNARRATED_ID": "book-1",
+                "SIMPLYNARRATED_TRANSCRIPT_PATH": "transcript.txt",
+            },
+        )
+
+        metadata = read_m4a_metadata(out_path)
+        assert metadata["title"] == "Book Title"
+        assert metadata["album"] == "Book Title"
+        assert metadata["author"] == "Book Author"
+        assert metadata["id"] == "book-1"
+        assert metadata["transcript_path"] == "transcript.txt"
+        assert len(metadata["chapters"]) == 1
+
+    def test_update_embedded_metadata(self, tmp_path):
+        from pydub import AudioSegment
+
+        sr = 24000
+        tone = (_sine_wave(duration=0.5, sample_rate=sr) * 32767).astype(np.int16)
+        segment = AudioSegment(
+            tone.tobytes(),
+            frame_rate=sr,
+            sample_width=2,
+            channels=1,
+        )
+        out_path = str(tmp_path / "book.m4a")
+        segment.export(out_path, format="ipod", codec="aac", bitrate="128k")
+
+        update_m4a_metadata(
+            file_path=out_path,
+            title="Original",
+            author="Original Author",
+            chapters=[
+                {
+                    "number": 1,
+                    "title": "Chapter 1",
+                    "start_seconds": 0.0,
+                    "end_seconds": 0.5,
+                    "transcript_start": 0,
+                    "transcript_end": 10,
+                }
+            ],
+        )
+        update_m4a_metadata(
+            file_path=out_path,
+            title="Updated",
+            author="Updated Author",
+            chapters=[
+                {
+                    "number": 1,
+                    "title": "Updated Chapter",
+                    "start_seconds": 0.0,
+                    "end_seconds": 0.5,
+                    "transcript_start": 1,
+                    "transcript_end": 11,
+                }
+            ],
+        )
+
+        metadata = read_m4a_metadata(out_path)
+        assert metadata["title"] == "Updated"
+        assert metadata["author"] == "Updated Author"
+        assert metadata["chapters"][0]["title"].endswith("Updated Chapter")

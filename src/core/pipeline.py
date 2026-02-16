@@ -19,7 +19,6 @@ limitations under the License.
 
 import os
 import re
-import json
 import shutil
 import asyncio
 import logging
@@ -35,7 +34,7 @@ from src.core.encoder import (
     encode_audio,
     get_encoder_settings,
     format_duration,
-    mux_m4b_from_segments,
+    mux_m4a_from_segments,
 )
 from src.core.job_manager import Job, JobStatus
 
@@ -258,9 +257,11 @@ async def process_book(job: Job, config: Dict[str, Any]) -> None:
         if cover_filename:
             cover_path = os.path.join(job.output_dir, cover_filename)
 
+        created_at = datetime.now().isoformat()
+
         await asyncio.get_running_loop().run_in_executor(
             None,
-            lambda: mux_m4b_from_segments(
+            lambda: mux_m4a_from_segments(
                 segment_paths=segment_paths,
                 output_path=book_output_path,
                 title=document.title,
@@ -268,6 +269,14 @@ async def process_book(job: Job, config: Dict[str, Any]) -> None:
                 chapters=chapter_list,
                 cover_path=cover_path,
                 bitrate=encoder_settings.bitrate,
+                custom_metadata={
+                    "SIMPLYNARRATED_ID": job.id,
+                    "SIMPLYNARRATED_CREATED_AT": created_at,
+                    "SIMPLYNARRATED_ORIGINAL_FILENAME": job.filename,
+                    "SIMPLYNARRATED_TRANSCRIPT_PATH": "transcript.txt",
+                    "SIMPLYNARRATED_VOICE": voice_id,
+                    "SIMPLYNARRATED_QUALITY": config.get("quality", "sd"),
+                },
             ),
         )
 
@@ -280,29 +289,6 @@ async def process_book(job: Job, config: Dict[str, Any]) -> None:
         shutil.rmtree(segment_dir, ignore_errors=True)
 
         total_duration = format_duration(cumulative_seconds)
-
-        # Save metadata file with full library format
-        metadata = {
-            "id": job.id,
-            "title": document.title,
-            "author": document.author,
-            "cover_url": f"/api/book/{job.id}/cover" if cover_filename else None,
-            "source_file": os.path.basename(job.file_path),
-            "original_filename": job.filename,
-            "voice": voice_id,
-            "total_chapters": len(chapter_list),
-            "total_duration": total_duration,
-            "created_at": datetime.now().isoformat(),
-            "format": "m4a",
-            "quality": config.get("quality", "sd"),
-            "book_file": book_filename,
-            "transcript_path": transcript_filename,
-            "chapters": chapter_list,
-        }
-
-        metadata_path = os.path.join(job.output_dir, "metadata.json")
-        with open(metadata_path, "w") as f:
-            json.dump(metadata, f, indent=2)
 
         job.progress = 100.0
         job_manager._add_activity(

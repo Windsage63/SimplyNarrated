@@ -19,7 +19,6 @@ limitations under the License.
 
 import os
 import re
-import json
 import uuid
 import asyncio
 import math
@@ -42,7 +41,7 @@ from src.models.schemas import (
 from src.core.job_manager import get_job_manager
 from src.core.library import get_library_manager
 from src.core.tts_engine import PRESET_VOICES
-from src.core.encoder import update_m4b_metadata
+from src.core.encoder import read_m4a_metadata, update_m4a_metadata
 
 
 router = APIRouter()
@@ -87,12 +86,18 @@ def _sanitize_book_filename(title: str, fallback: str) -> str:
 
 
 def _load_book_metadata(book_dir: str) -> dict:
-    metadata_path = os.path.join(book_dir, "metadata.json")
-    if not os.path.exists(metadata_path):
+    m4a_files = sorted(
+        name for name in os.listdir(book_dir) if name.lower().endswith(".m4a")
+    ) if os.path.isdir(book_dir) else []
+    if not m4a_files:
         raise HTTPException(status_code=404, detail="Book not found")
 
-    with open(metadata_path, "r", encoding="utf-8") as f:
-        return json.load(f)
+    book_file = m4a_files[0]
+    book_path = os.path.join(book_dir, book_file)
+    metadata = read_m4a_metadata(book_path)
+    metadata["book_file"] = book_file
+    metadata["transcript_path"] = metadata.get("transcript_path") or "transcript.txt"
+    return metadata
 
 
 def _find_cover_path(book_dir: str) -> str | None:
@@ -510,38 +515,37 @@ async def update_book_metadata(book_id: str, request: UpdateMetadataRequest):
 
     library = get_library_manager()
     book_dir = library.get_book_dir(book_id)
-    metadata = _load_book_metadata(book_dir)
-
-    success = library.update_book_metadata(book_id, updates)
-
-    if not success:
+    book = library.get_book(book_id)
+    book_file_path = library.get_book_audio_path(book_id)
+    if not book or not book_file_path:
         raise HTTPException(status_code=404, detail="Book not found")
 
-    updated_metadata = _load_book_metadata(book_dir)
+    new_title = updates.get("title", book.title)
+    new_author = updates.get("author", book.author)
 
-    warnings = []
+    try:
+        update_m4a_metadata(
+            file_path=book_file_path,
+            title=new_title,
+            author=new_author,
+            chapters=[chapter.model_dump() for chapter in book.chapters],
+            cover_path=_find_cover_path(book_dir),
+            custom_metadata={
+                "SIMPLYNARRATED_ID": book.id,
+                "SIMPLYNARRATED_CREATED_AT": book.created_at.isoformat(),
+                "SIMPLYNARRATED_ORIGINAL_FILENAME": book.original_filename,
+                "SIMPLYNARRATED_TRANSCRIPT_PATH": book.transcript_path,
+            },
+            replace_retries=8,
+            retry_delay_seconds=0.25,
+        )
+    except PermissionError as e:
+        raise HTTPException(
+            status_code=423,
+            detail="The audiobook file is in use. Please stop playback and try again.",
+        ) from e
 
-    book_file = updated_metadata.get("book_file")
-    if book_file:
-        book_file_path = os.path.join(book_dir, book_file)
-        if os.path.exists(book_file_path):
-            try:
-                update_m4b_metadata(
-                    file_path=book_file_path,
-                    title=updated_metadata.get("title"),
-                    author=updated_metadata.get("author"),
-                    chapters=updated_metadata.get("chapters", []),
-                    cover_path=_find_cover_path(book_dir),
-                )
-            except Exception as e:
-                logger.info("Skipped embedded metadata update for %s: %s", book_id, e)
-                warnings.append(
-                    "Embedded audio metadata update deferred because the file is currently in use."
-                )
-
-    response = {"status": "updated", "book_id": book_id, **updates}
-    if warnings:
-        response["warnings"] = warnings
+    response = {"status": "updated", "book_id": book_id, "title": new_title, "author": new_author}
     return response
 
 
@@ -583,7 +587,9 @@ async def upload_cover(book_id: str, file: UploadFile = File(...)):
 
     library = get_library_manager()
     book_dir = library.get_book_dir(book_id)
-    if not os.path.exists(os.path.join(book_dir, "metadata.json")):
+    book = library.get_book(book_id)
+    book_file_path = library.get_book_audio_path(book_id)
+    if not book or not book_file_path:
         raise HTTPException(status_code=404, detail="Book not found")
 
     # Remove any existing cover files
@@ -600,25 +606,29 @@ async def upload_cover(book_id: str, file: UploadFile = File(...)):
     async with aiofiles.open(cover_path, "wb") as f:
         await f.write(content)
 
-    # Update metadata
     cover_url = f"/api/book/{book_id}/cover"
-    library.update_book_metadata(book_id, {"cover_url": cover_url})
 
-    metadata = _load_book_metadata(book_dir)
-    book_file = metadata.get("book_file")
-    if book_file:
-        book_file_path = os.path.join(book_dir, book_file)
-        if os.path.exists(book_file_path):
-            try:
-                update_m4b_metadata(
-                    file_path=book_file_path,
-                    title=metadata.get("title"),
-                    author=metadata.get("author"),
-                    chapters=metadata.get("chapters", []),
-                    cover_path=cover_path,
-                )
-            except Exception as e:
-                logger.info("Skipped embedded cover update for %s: %s", book_id, e)
+    try:
+        update_m4a_metadata(
+            file_path=book_file_path,
+            title=book.title,
+            author=book.author,
+            chapters=[chapter.model_dump() for chapter in book.chapters],
+            cover_path=cover_path,
+            custom_metadata={
+                "SIMPLYNARRATED_ID": book.id,
+                "SIMPLYNARRATED_CREATED_AT": book.created_at.isoformat(),
+                "SIMPLYNARRATED_ORIGINAL_FILENAME": book.original_filename,
+                "SIMPLYNARRATED_TRANSCRIPT_PATH": book.transcript_path,
+            },
+            replace_retries=8,
+            retry_delay_seconds=0.25,
+        )
+    except PermissionError as e:
+        raise HTTPException(
+            status_code=423,
+            detail="The audiobook file is in use. Please stop playback and try again.",
+        ) from e
 
     return {"status": "uploaded", "cover_url": cover_url}
 

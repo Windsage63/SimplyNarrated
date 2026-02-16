@@ -2,7 +2,6 @@
 Shared test fixtures for SimplyNarrated test suite.
 """
 
-import json
 import zipfile
 import pytest
 import numpy as np
@@ -11,6 +10,7 @@ from datetime import datetime
 import src.core.job_manager as jm_module
 import src.core.library as lib_module
 import src.core.tts_engine as tts_module
+from src.core.encoder import update_m4a_metadata
 
 
 # ---------------------------------------------------------------------------
@@ -184,47 +184,53 @@ def sample_zip_no_cover(tmp_uploads_dir):
 @pytest.fixture
 def sample_library_book(tmp_library_dir):
     """
-    Pre-populate a book in the library with metadata and a tiny valid WAV file.
+    Pre-populate a book in the library with embedded metadata and a tiny valid M4A file.
     Returns (book_id, book_dir_path).
     """
     book_id = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
     book_dir = tmp_library_dir / book_id
     book_dir.mkdir()
 
-    metadata = {
-        "id": book_id,
-        "title": "Test Book",
-        "author": "Test Author",
-        "source_file": "source.txt",
-        "original_filename": "my_book.txt",
-        "voice": "af_heart",
-        "total_chapters": 1,
-        "total_duration": "0m",
-        "created_at": datetime.now().isoformat(),
-        "format": "wav",
-        "quality": "sd",
-        "chapters": [
-            {
-                "number": 1,
-                "title": "Chapter 1",
-                "duration": "0:02",
-                "audio_path": "chapter_01.wav",
-                "completed": True,
-            }
-        ],
-    }
-
-    with open(book_dir / "metadata.json", "w") as f:
-        json.dump(metadata, f)
-
-    # Write a tiny valid WAV via scipy
-    from scipy.io import wavfile
+    from pydub import AudioSegment
 
     sr = 24000
     duration = 0.5  # half a second
     t = np.linspace(0, duration, int(sr * duration), endpoint=False)
     tone = (np.sin(2 * np.pi * 440 * t) * 32767).astype(np.int16)
-    wavfile.write(str(book_dir / "chapter_01.wav"), sr, tone)
+
+    segment = AudioSegment(
+        tone.tobytes(),
+        frame_rate=sr,
+        sample_width=2,
+        channels=1,
+    )
+    audio_path = book_dir / "Test Book.m4a"
+    segment.export(str(audio_path), format="ipod", codec="aac", bitrate="128k")
+
+    update_m4a_metadata(
+        file_path=str(audio_path),
+        title="Test Book",
+        author="Test Author",
+        chapters=[
+            {
+                "number": 1,
+                "title": "Chapter 1",
+                "duration": "0:02",
+                "start_seconds": 0.0,
+                "end_seconds": 0.5,
+                "transcript_start": 0,
+                "transcript_end": 10,
+                "completed": True,
+            }
+        ],
+        custom_metadata={
+            "SIMPLYNARRATED_ID": book_id,
+            "SIMPLYNARRATED_CREATED_AT": datetime.now().isoformat(),
+            "SIMPLYNARRATED_ORIGINAL_FILENAME": "my_book.txt",
+            "SIMPLYNARRATED_TRANSCRIPT_PATH": "transcript.txt",
+            "SIMPLYNARRATED_QUALITY": "sd",
+        },
+    )
 
     return book_id, str(book_dir)
 
