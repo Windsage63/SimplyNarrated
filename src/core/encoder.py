@@ -22,11 +22,15 @@ import json
 import time
 import stat
 import ctypes
+import logging
 import subprocess
 import tempfile
 import numpy as np
 from typing import Optional, List, Dict, Any
 from dataclasses import dataclass
+from mutagen.mp4 import MP4, MP4Cover
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -470,6 +474,62 @@ def read_m4a_metadata(file_path: str) -> Dict[str, Any]:
         "quality": custom_tags.get("simplynarrated_quality"),
         "chapters": chapters,
     }
+
+
+def update_m4a_metadata_fast(
+    file_path: str,
+    title: Optional[str] = None,
+    author: Optional[str] = None,
+    cover_path: Optional[str] = None,
+    custom_metadata: Optional[Dict[str, Any]] = None,
+) -> str:
+    """
+    Update M4A metadata in-place using Mutagen.
+
+    This modifies only the moov atom — audio data is never read or written.
+    For a 2 GB file, this takes < 0.2s instead of 1-5 minutes.
+
+    Limitations: Cannot modify chapter structure.  Use update_m4a_metadata()
+    (the ffmpeg path) if chapters need to change.
+    """
+    if not os.path.exists(file_path):
+        raise FileNotFoundError(file_path)
+
+    audio = MP4(file_path)
+    if audio.tags is None:
+        audio.add_tags()
+
+    if title is not None:
+        audio.tags["\xa9nam"] = [title]
+        audio.tags["\xa9alb"] = [title]
+
+    if author is not None:
+        audio.tags["\xa9ART"] = [author]
+        audio.tags["aART"] = [author]
+
+    if custom_metadata is not None:
+        payload = {
+            str(k): v for k, v in custom_metadata.items() if v is not None
+        }
+        audio.tags["\xa9cmt"] = [
+            "SNMETA:" + json.dumps(payload, separators=(",", ":"))
+        ]
+
+    if cover_path and os.path.exists(cover_path):
+        with open(cover_path, "rb") as f:
+            cover_data = f.read()
+
+        ext = os.path.splitext(cover_path)[1].lower()
+        image_format = (
+            MP4Cover.FORMAT_JPEG
+            if ext in (".jpg", ".jpeg")
+            else MP4Cover.FORMAT_PNG
+        )
+        audio.tags["covr"] = [MP4Cover(cover_data, imageformat=image_format)]
+
+    audio.save()
+    logger.info("Fast metadata update completed for %s", file_path)
+    return file_path
 
 
 def mux_m4a_from_segments(

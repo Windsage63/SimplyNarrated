@@ -50,7 +50,11 @@ from src.core.book_files import (
     find_cover_path,
 )
 from src.core.tts_engine import PRESET_VOICES
-from src.core.encoder import read_m4a_metadata, update_m4a_metadata
+from src.core.encoder import (
+    read_m4a_metadata,
+    update_m4a_metadata,
+    update_m4a_metadata_fast,
+)
 
 
 router = APIRouter()
@@ -112,6 +116,7 @@ def _estimate_chapters(file_ext: str, content: bytes, file_size: int) -> int:
             # ZIP with HTML: estimate from uncompressed HTML size
             import io
             import zipfile
+
             try:
                 with zipfile.ZipFile(io.BytesIO(content)) as zf:
                     html_sizes = [
@@ -598,36 +603,59 @@ async def update_book_metadata(book_id: str, request: UpdateMetadataRequest):
     new_title = updates.get("title", book.title)
     new_author = updates.get("author", book.author)
 
-    try:
-        abort_event = _get_stream_abort_event(book_id)
-        abort_event.set()
-        await asyncio.sleep(0.2)
+    custom_metadata = {
+        "SIMPLYNARRATED_ID": book.id,
+        "SIMPLYNARRATED_CREATED_AT": book.created_at.isoformat(),
+        "SIMPLYNARRATED_ORIGINAL_FILENAME": book.original_filename,
+        "SIMPLYNARRATED_TRANSCRIPT_PATH": book.transcript_path,
+    }
 
-        update_m4a_metadata(
+    used_fast_path = False
+    try:
+        # Fast path: in-place tag rewrite via Mutagen (< 0.2s)
+        update_m4a_metadata_fast(
             file_path=book_file_path,
             title=new_title,
             author=new_author,
-            chapters=[chapter.model_dump() for chapter in book.chapters],
             cover_path=find_cover_path(book_dir),
-            custom_metadata={
-                "SIMPLYNARRATED_ID": book.id,
-                "SIMPLYNARRATED_CREATED_AT": book.created_at.isoformat(),
-                "SIMPLYNARRATED_ORIGINAL_FILENAME": book.original_filename,
-                "SIMPLYNARRATED_TRANSCRIPT_PATH": book.transcript_path,
-            },
-            replace_retries=40,
-            retry_delay_seconds=0.25,
+            custom_metadata=custom_metadata,
         )
-    except (PermissionError, OSError) as e:
-        raise HTTPException(
-            status_code=423,
-            detail=f"Failed to save metadata: {e}",
-        ) from e
-    finally:
-        _get_stream_abort_event(book_id).clear()
+        used_fast_path = True
+    except Exception as fast_err:
+        # Fallback: full ffmpeg rewrite (slow but handles all edge cases)
+        logger.warning(
+            "Fast metadata path failed (%s), falling back to ffmpeg", fast_err
+        )
+        try:
+            abort_event = _get_stream_abort_event(book_id)
+            abort_event.set()
+            await asyncio.sleep(0.2)
 
-    response = {"status": "updated", "book_id": book_id, "title": new_title, "author": new_author}
-    return response
+            update_m4a_metadata(
+                file_path=book_file_path,
+                title=new_title,
+                author=new_author,
+                chapters=[chapter.model_dump() for chapter in book.chapters],
+                cover_path=find_cover_path(book_dir),
+                custom_metadata=custom_metadata,
+                replace_retries=40,
+                retry_delay_seconds=0.25,
+            )
+        except (PermissionError, OSError) as e:
+            raise HTTPException(
+                status_code=423,
+                detail=f"Failed to save metadata: {e}",
+            ) from e
+        finally:
+            _get_stream_abort_event(book_id).clear()
+
+    return {
+        "status": "updated",
+        "book_id": book_id,
+        "title": new_title,
+        "author": new_author,
+        "method": "fast" if used_fast_path else "full_rewrite",
+    }
 
 
 MAX_COVER_SIZE = 5 * 1024 * 1024  # 5 MB
@@ -689,35 +717,56 @@ async def upload_cover(book_id: str, file: UploadFile = File(...)):
 
     cover_url = f"/api/book/{book_id}/cover"
 
-    try:
-        abort_event = _get_stream_abort_event(book_id)
-        abort_event.set()
-        await asyncio.sleep(0.2)
+    custom_metadata = {
+        "SIMPLYNARRATED_ID": book.id,
+        "SIMPLYNARRATED_CREATED_AT": book.created_at.isoformat(),
+        "SIMPLYNARRATED_ORIGINAL_FILENAME": book.original_filename,
+        "SIMPLYNARRATED_TRANSCRIPT_PATH": book.transcript_path,
+    }
 
-        update_m4a_metadata(
+    used_fast_path = False
+    try:
+        # Fast path: in-place cover + tag rewrite via Mutagen
+        update_m4a_metadata_fast(
             file_path=book_file_path,
             title=book.title,
             author=book.author,
-            chapters=[chapter.model_dump() for chapter in book.chapters],
             cover_path=cover_path,
-            custom_metadata={
-                "SIMPLYNARRATED_ID": book.id,
-                "SIMPLYNARRATED_CREATED_AT": book.created_at.isoformat(),
-                "SIMPLYNARRATED_ORIGINAL_FILENAME": book.original_filename,
-                "SIMPLYNARRATED_TRANSCRIPT_PATH": book.transcript_path,
-            },
-            replace_retries=40,
-            retry_delay_seconds=0.25,
+            custom_metadata=custom_metadata,
         )
-    except (PermissionError, OSError) as e:
-        raise HTTPException(
-            status_code=423,
-            detail=f"Failed to save metadata: {e}",
-        ) from e
-    finally:
-        _get_stream_abort_event(book_id).clear()
+        used_fast_path = True
+    except Exception as fast_err:
+        logger.warning(
+            "Fast cover update failed (%s), falling back to ffmpeg", fast_err
+        )
+        try:
+            abort_event = _get_stream_abort_event(book_id)
+            abort_event.set()
+            await asyncio.sleep(0.2)
 
-    return {"status": "uploaded", "cover_url": cover_url}
+            update_m4a_metadata(
+                file_path=book_file_path,
+                title=book.title,
+                author=book.author,
+                chapters=[chapter.model_dump() for chapter in book.chapters],
+                cover_path=cover_path,
+                custom_metadata=custom_metadata,
+                replace_retries=40,
+                retry_delay_seconds=0.25,
+            )
+        except (PermissionError, OSError) as e:
+            raise HTTPException(
+                status_code=423,
+                detail=f"Failed to save metadata: {e}",
+            ) from e
+        finally:
+            _get_stream_abort_event(book_id).clear()
+
+    return {
+        "status": "uploaded",
+        "cover_url": cover_url,
+        "method": "fast" if used_fast_path else "full_rewrite",
+    }
 
 
 @router.get("/book/{book_id}/cover")

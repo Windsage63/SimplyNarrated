@@ -164,7 +164,17 @@ function renderPlayerView(bookId) {
         <div id="meta-modal" class="fixed inset-0 z-50 hidden">
             <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" onclick="closeEditMetaModal()"></div>
             <div class="relative z-10 w-full max-w-md mx-auto mt-24 px-4">
-                <div class="glass rounded-2xl overflow-hidden">
+                <div class="glass rounded-2xl overflow-hidden relative">
+                    <div id="meta-save-overlay" class="hidden absolute inset-0 bg-dark-900/80
+                         backdrop-blur-sm rounded-2xl flex flex-col items-center justify-center gap-3 z-10">
+                      <span id="meta-save-icon"
+                            class="material-symbols-outlined text-4xl text-primary animate-spin">
+                        progress_activity
+                      </span>
+                      <p id="meta-save-message" class="text-sm text-gray-300 text-center px-6">
+                        Saving...
+                      </p>
+                    </div>
                     <div class="flex items-center justify-between p-4 border-b border-white/10">
                         <h3 class="font-bold text-lg">Edit Metadata</h3>
                         <button onclick="closeEditMetaModal()" class="p-2 rounded-lg hover:bg-dark-700 transition">
@@ -834,7 +844,9 @@ async function withReleasedPlayerHandle(work) {
 }
 
 /**
- * Save updated metadata to the server and refresh the player header
+ * Save updated metadata to the server and refresh the player header.
+ * Uses fast in-place Mutagen path when possible; shows a waiting
+ * notification if the backend falls back to the slow ffmpeg rewrite.
  */
 async function saveMetadata() {
   if (!playerState.book) return;
@@ -855,36 +867,86 @@ async function saveMetadata() {
     return;
   }
 
+  const overlay = document.getElementById("meta-save-overlay");
+  const saveMsg = document.getElementById("meta-save-message");
+  const saveIcon = document.getElementById("meta-save-icon");
+
+  // Show brief "Saving..." spinner
+  overlay.classList.remove("hidden");
+  saveMsg.textContent = "Saving...";
+  saveIcon.textContent = "progress_activity";
+  saveIcon.classList.add("animate-spin");
+
   try {
-    await withReleasedPlayerHandle(async () => {
-      if (hasCover) {
-        const coverResult = await api.uploadCover(
-          playerState.book.id,
-          coverFile,
-        );
-        playerState.book.cover_url = coverResult.cover_url;
-        updateBookCover();
+    let needsHandleRelease = false;
+
+    // --- Cover upload ---
+    if (hasCover) {
+      const coverResult = await api.uploadCover(
+        playerState.book.id,
+        coverFile,
+      );
+      playerState.book.cover_url = coverResult.cover_url;
+      updateBookCover();
+      if (coverResult.method === "full_rewrite") {
+        needsHandleRelease = true;
       }
+    }
 
-      if (hasTextUpdates) {
-        const metadataResult = await api.updateMetadata(
-          playerState.book.id,
-          updates,
-        );
+    // --- Text metadata ---
+    if (hasTextUpdates) {
+      const metadataResult = await api.updateMetadata(
+        playerState.book.id,
+        updates,
+      );
 
-        playerState.book.title = metadataResult.title || playerState.book.title;
-        playerState.book.author = metadataResult.author;
+      playerState.book.title = metadataResult.title || playerState.book.title;
+      playerState.book.author = metadataResult.author;
 
-        document.getElementById("book-title").textContent =
-          playerState.book.title;
-        document.getElementById("book-author").textContent =
-          playerState.book.author || "Unknown Author";
+      document.getElementById("book-title").textContent =
+        playerState.book.title;
+      document.getElementById("book-author").textContent =
+        playerState.book.author || "Unknown Author";
+
+      if (metadataResult.method === "full_rewrite") {
+        needsHandleRelease = true;
       }
-    });
+    }
+
+    // If the backend had to do a full file rewrite, reload the audio source
+    if (needsHandleRelease) {
+      saveMsg.textContent =
+        "Rebuilding audiobook file \u2014 this may take a few minutes for large books...";
+      saveIcon.textContent = "build";
+      saveIcon.classList.remove("animate-spin");
+
+      const audio = playerState.audioElement;
+      if (audio) {
+        const savedTime = audio.currentTime || 0;
+        const savedRate = audio.playbackRate || 1.0;
+        const wasPlaying = !audio.paused;
+
+        audio.pause();
+        audio.src = `/api/audio/${playerState.book.id}?v=${Date.now()}`;
+        audio.playbackRate = savedRate;
+        await waitForAudioEvent(audio, "loadedmetadata", 5000);
+        audio.currentTime = Math.min(savedTime, audio.duration || savedTime);
+
+        if (wasPlaying) {
+          try { await audio.play(); } catch (_) { /* user gesture required */ }
+        }
+      }
+    }
 
     closeEditMetaModal();
   } catch (error) {
     console.error("Failed to save metadata:", error);
-    alert("Failed to save metadata: " + error.message);
+    saveMsg.textContent = "Save failed: " + error.message;
+    saveIcon.textContent = "error";
+    saveIcon.classList.remove("animate-spin");
+    // Leave overlay visible for 2s so user can read error, then hide
+    await new Promise((r) => setTimeout(r, 2000));
+  } finally {
+    overlay.classList.add("hidden");
   }
 }
