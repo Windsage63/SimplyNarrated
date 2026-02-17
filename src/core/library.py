@@ -26,6 +26,7 @@ from dataclasses import dataclass, field, asdict
 
 from src.models.schemas import BookInfo, ChapterInfo
 from src.core.encoder import read_m4a_metadata
+from src.core.book_files import find_primary_m4a_path, find_cover_path
 
 logger = logging.getLogger(__name__)
 
@@ -53,22 +54,7 @@ class LibraryManager:
     def get_book_audio_path(self, book_id: str) -> Optional[str]:
         """Return the primary M4A file path for a book."""
         book_dir = self.get_book_dir(book_id)
-        if not os.path.isdir(book_dir):
-            return None
-
-        candidates = []
-        for name in os.listdir(book_dir):
-            lower = name.lower()
-            if not lower.endswith(".m4a"):
-                continue
-            if ".metadata." in lower or ".tmp." in lower or lower.endswith(".tmp.m4a"):
-                continue
-            candidates.append(name)
-        if not candidates:
-            return None
-
-        candidates.sort(key=lambda name: os.path.getmtime(os.path.join(book_dir, name)), reverse=True)
-        return os.path.join(book_dir, candidates[0])
+        return find_primary_m4a_path(book_dir)
 
     def scan_library(self) -> List[BookInfo]:
         """Scan library directory and return all books with embedded metadata."""
@@ -118,12 +104,8 @@ class LibraryManager:
                     )
                 )
 
-            cover_path = None
-            for candidate in ("cover.jpg", "cover.png"):
-                candidate_path = os.path.join(book_dir, candidate)
-                if os.path.exists(candidate_path) and os.path.getsize(candidate_path) > 0:
-                    cover_path = candidate
-                    break
+            cover_path = find_cover_path(book_dir)
+            cover_name = os.path.basename(cover_path) if cover_path else None
 
             created_at_str = data.get("created_at")
             created_at = (
@@ -136,7 +118,7 @@ class LibraryManager:
                 id=book_id,
                 title=data.get("title", "Unknown Title"),
                 author=data.get("author"),
-                cover_url=f"/api/book/{book_id}/cover" if cover_path else None,
+                cover_url=f"/api/book/{book_id}/cover" if cover_name else None,
                 original_filename=data.get("original_filename"),
                 total_chapters=len(chapters),
                 total_duration=data.get("total_duration"),

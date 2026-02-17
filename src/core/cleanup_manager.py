@@ -23,6 +23,7 @@ import logging
 from dataclasses import dataclass
 
 from src.core.job_manager import get_job_manager
+from src.core.book_files import find_primary_m4a_path
 from src.models.schemas import CleanupDecision
 
 logger = logging.getLogger(__name__)
@@ -46,18 +47,7 @@ class CleanupManager:
 
     @staticmethod
     def _has_primary_m4a(folder_path: str) -> bool:
-        if not os.path.isdir(folder_path):
-            return False
-        for name in os.listdir(folder_path):
-            lower = name.lower()
-            if not lower.endswith(".m4a"):
-                continue
-            if ".metadata." in lower or ".tmp." in lower or lower.endswith(".tmp.m4a"):
-                continue
-            full_path = os.path.join(folder_path, name)
-            if os.path.isfile(full_path) and os.path.getsize(full_path) > 0:
-                return True
-        return False
+        return find_primary_m4a_path(folder_path) is not None
 
     @staticmethod
     def _safe_rmtree(path: str) -> bool:

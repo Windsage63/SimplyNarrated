@@ -44,6 +44,11 @@ from src.models.schemas import (
 from src.core.job_manager import get_job_manager
 from src.core.cleanup_manager import get_cleanup_manager
 from src.core.library import get_library_manager
+from src.core.book_files import (
+    sanitize_book_filename,
+    find_primary_m4a_path,
+    find_cover_path,
+)
 from src.core.tts_engine import PRESET_VOICES
 from src.core.encoder import read_m4a_metadata, update_m4a_metadata
 
@@ -84,42 +89,16 @@ def _validate_book_id_or_400(book_id: str) -> None:
         raise HTTPException(status_code=400, detail="Invalid book ID format")
 
 
-def _sanitize_book_filename(title: str, fallback: str) -> str:
-    candidate = re.sub(r"[\\/:*?\"<>|]+", " ", title or "")
-    candidate = re.sub(r"\s+", " ", candidate).strip().strip(".")
-    return candidate or fallback
-
-
 def _load_book_metadata(book_dir: str) -> dict:
-    m4a_files = []
-    if os.path.isdir(book_dir):
-        for name in os.listdir(book_dir):
-            lower = name.lower()
-            if not lower.endswith(".m4a"):
-                continue
-            if ".metadata." in lower or ".tmp." in lower or lower.endswith(".tmp.m4a"):
-                continue
-            path = os.path.join(book_dir, name)
-            m4a_files.append((name, os.path.getmtime(path), path))
-
-    m4a_files.sort(key=lambda item: (item[1], item[0].lower()), reverse=True)
-    if not m4a_files:
+    book_path = find_primary_m4a_path(book_dir)
+    if not book_path:
         raise HTTPException(status_code=404, detail="Book not found")
 
-    book_file = m4a_files[0][0]
-    book_path = m4a_files[0][2]
+    book_file = os.path.basename(book_path)
     metadata = read_m4a_metadata(book_path)
     metadata["book_file"] = book_file
     metadata["transcript_path"] = metadata.get("transcript_path") or "transcript.txt"
     return metadata
-
-
-def _find_cover_path(book_dir: str) -> str | None:
-    for candidate in ("cover.jpg", "cover.png"):
-        path = os.path.join(book_dir, candidate)
-        if os.path.exists(path):
-            return path
-    return None
 
 
 def _estimate_chapters(file_ext: str, content: bytes, file_size: int) -> int:
@@ -231,10 +210,8 @@ async def start_generation(request: GenerateRequest):
     # Convert request to config dict
     config = {
         "narrator_voice": request.narrator_voice,
-        "dialogue_voice": request.dialogue_voice,
         "speed": request.speed,
         "quality": request.quality.value,
-        "format": request.format.value,
         "remove_square_bracket_numbers": request.remove_square_bracket_numbers,
         "remove_paren_numbers": request.remove_paren_numbers,
     }
@@ -524,7 +501,7 @@ async def download_book(book_id: str):
     if not os.path.exists(audio_path) or os.path.getsize(audio_path) == 0:
         raise HTTPException(status_code=404, detail="Audiobook file not found")
 
-    download_name = f"{_sanitize_book_filename(metadata.get('title', ''), book_id)}.m4a"
+    download_name = f"{sanitize_book_filename(metadata.get('title', ''), book_id)}.m4a"
 
     return FileResponse(
         audio_path,
@@ -631,7 +608,7 @@ async def update_book_metadata(book_id: str, request: UpdateMetadataRequest):
             title=new_title,
             author=new_author,
             chapters=[chapter.model_dump() for chapter in book.chapters],
-            cover_path=_find_cover_path(book_dir),
+            cover_path=find_cover_path(book_dir),
             custom_metadata={
                 "SIMPLYNARRATED_ID": book.id,
                 "SIMPLYNARRATED_CREATED_AT": book.created_at.isoformat(),
@@ -754,14 +731,15 @@ async def get_cover(book_id: str):
     book_dir = library.get_book_dir(book_id)
 
     # Check for cover files
-    for filename, media_type in [("cover.jpg", "image/jpeg"), ("cover.png", "image/png")]:
-        cover_path = os.path.join(book_dir, filename)
-        if os.path.exists(cover_path) and os.path.getsize(cover_path) > 0:
-            return FileResponse(
-                cover_path,
-                media_type=media_type,
-                filename=filename,
-            )
+    cover_path = find_cover_path(book_dir)
+    if cover_path:
+        filename = os.path.basename(cover_path)
+        media_type = "image/jpeg" if filename.endswith(".jpg") else "image/png"
+        return FileResponse(
+            cover_path,
+            media_type=media_type,
+            filename=filename,
+        )
 
     raise HTTPException(status_code=404, detail="Cover image not found")
 

@@ -30,7 +30,7 @@ function renderLandingView() {
                 <h2 class="text-3xl md:text-4xl font-bold mb-3">Turn Documents Into Audiobooks, Locally</h2>
                 <p class="text-gray-300 max-w-2xl mx-auto mb-6">
                     Upload TXT, Markdown, PDF, or Project Gutenberg HTML ZIP files and generate
-                    chapter-based MP3 audiobooks with natural AI voices — directly on your machine.
+                    single file M4A audiobooks with natural AI voices — directly on your machine.
                 </p>
                 <div class="flex flex-col sm:flex-row justify-center gap-3">
                     <button onclick="showView('upload')" class="px-6 py-3 rounded-xl bg-primary hover:bg-primary-hover font-semibold transition shadow-lg shadow-primary/20">

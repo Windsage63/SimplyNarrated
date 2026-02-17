@@ -101,7 +101,7 @@ function renderPlayerView(bookId) {
                     </button>
                     
                     <!-- Save Bookmark -->
-                    <button onclick="saveCurrentBookmark()" class="flex items-center gap-2 px-3 py-2 rounded-lg 
+                    <button onclick="saveCurrentBookmark(event)" class="flex items-center gap-2 px-3 py-2 rounded-lg 
                                                                     bg-dark-600 hover:bg-dark-700 transition">
                         <span class="material-symbols-outlined text-lg">bookmark_add</span>
                         <span>Bookmark</span>
@@ -263,11 +263,7 @@ function teardownPlayerView() {
 async function initPlayerView(bookId) {
   try {
     // Fetch book details
-    const response = await fetch(`/api/book/${bookId}`);
-    if (!response.ok) {
-      throw new Error("Failed to load book");
-    }
-    playerState.book = await response.json();
+    playerState.book = await api.getBook(bookId);
 
     // Update UI with book info
     document.getElementById("book-title").textContent = playerState.book.title;
@@ -329,7 +325,7 @@ function renderChapterList() {
             </div>
             <div class="flex-1 text-left">
                 <p class="text-sm font-medium ${chapter.number === playerState.currentChapter ? "text-white" : "text-gray-300"}">
-                    ${chapter.title || `Chapter ${chapter.number}`}
+                    ${escapeHtml(chapter.title || `Chapter ${chapter.number}`)}
                 </p>
                 <p class="text-xs text-gray-500">${chapter.duration || "--"}</p>
             </div>
@@ -398,10 +394,8 @@ function loadChapter(chapterNum) {
     audio.currentTime = chapter.start_seconds;
   }
 
-  // If was playing, continue playing
-  if (playerState.isPlaying) {
-    audio.play();
-  }
+  // Playback continues automatically after currentTime change;
+  // no explicit audio.play() needed here.
 
   // Update UI
   renderChapterList();
@@ -486,7 +480,7 @@ function updateProgressUI() {
     audio.currentTime,
   );
   document.getElementById("progress-slider").value = audio.currentTime;
-  updateOverallProgress();
+  throttledUpdateOverallProgress();
 }
 
 /**
@@ -511,6 +505,19 @@ function updateOverallProgress() {
 }
 
 /**
+ * Throttled wrapper for updateOverallProgress.
+ * Limits DOM updates to at most every 500ms during continuous playback.
+ * Direct calls to updateOverallProgress() bypass the throttle for seek events.
+ */
+let _lastOverallProgressUpdate = 0;
+function throttledUpdateOverallProgress() {
+  const now = Date.now();
+  if (now - _lastOverallProgressUpdate < 500) return;
+  _lastOverallProgressUpdate = now;
+  updateOverallProgress();
+}
+
+/**
  * Auto-save bookmark every 30 seconds of playback
  */
 function autoSaveBookmark() {
@@ -528,17 +535,14 @@ function autoSaveBookmark() {
  */
 async function loadBookmark(bookId) {
   try {
-    const response = await fetch(`/api/bookmark/${bookId}`);
-    if (response.ok) {
-      const bookmark = await response.json();
-      playerState.currentChapter = bookmark.chapter || 1;
+    const bookmark = await api.getBookmark(bookId);
+    playerState.currentChapter = bookmark.chapter || 1;
 
-      const chapter = playerState.book?.chapters?.find(
-        (ch) => ch.number === playerState.currentChapter,
-      );
-      const chapterStart = chapter?.start_seconds || 0;
-      playerState.pendingSeekTime = chapterStart + (bookmark.position || 0);
-    }
+    const chapter = playerState.book?.chapters?.find(
+      (ch) => ch.number === playerState.currentChapter,
+    );
+    const chapterStart = chapter?.start_seconds || 0;
+    playerState.pendingSeekTime = chapterStart + (bookmark.position || 0);
   } catch (error) {
     console.error("Failed to load bookmark:", error);
   }
@@ -547,7 +551,7 @@ async function loadBookmark(bookId) {
 /**
  * Save current position as bookmark
  */
-async function saveCurrentBookmark() {
+async function saveCurrentBookmark(event) {
   await saveBookmarkToServer();
   // Visual feedback
   const btn = event.target.closest("button");
@@ -576,11 +580,10 @@ async function saveBookmarkToServer() {
         (currentChapter.start_seconds || 0),
     );
 
-    await fetch(
-      `/api/bookmark?book_id=${playerState.book.id}&chapter=${currentChapter.number}&position=${relativePosition}`,
-      {
-        method: "POST",
-      },
+    await api.saveBookmark(
+      playerState.book.id,
+      currentChapter.number,
+      relativePosition,
     );
   } catch (error) {
     console.error("Failed to save bookmark:", error);
@@ -588,14 +591,19 @@ async function saveBookmarkToServer() {
 }
 
 /**
- * Format seconds to mm:ss
+ * Format seconds to mm:ss or H:MM:SS for durations >= 1 hour
  * @param {number} seconds
  * @returns {string}
  */
 function formatTime(seconds) {
   if (!seconds || isNaN(seconds)) return "0:00";
+  const hrs = Math.floor(seconds / 3600);
   const mins = Math.floor(seconds / 60);
   const secs = Math.floor(seconds % 60);
+  if (hrs > 0) {
+    const remainMins = mins % 60;
+    return `${hrs}:${remainMins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
+  }
   return `${mins}:${secs.toString().padStart(2, "0")}`;
 }
 

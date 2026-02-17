@@ -173,7 +173,7 @@ async function renderActivityCards() {
       <div class="glass rounded-xl p-4">
         <div class="flex justify-between items-start mb-3">
           <div>
-            <h4 class="font-semibold text-sm">${state.currentJob.filename || "Current conversion"}</h4>
+            <h4 class="font-semibold text-sm">${escapeHtml(state.currentJob.filename || "Current conversion")}</h4>
             <p class="text-xs text-gray-400 mt-0.5">${status.status} • Chapter ${status.current_chapter}/${status.total_chapters || "?"}</p>
           </div>
           <span class="text-primary text-sm font-bold">${pct}%</span>
@@ -207,7 +207,7 @@ function renderLibraryGrid(books) {
           </button>
 
             <!-- Delete Button -->
-            <button onclick="deleteBook(event, '${book.id}', '${book.title.replace(/'/g, "\\'")}')"
+            <button onclick="deleteBook(event, '${book.id}', '${escapeHtml(book.title).replace(/'/g, "\\'")}')"
                     class="absolute top-2 right-2 z-10 w-8 h-8 rounded-full bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white 
                            flex items-center justify-center opacity-0 group-hover/card:opacity-100 transition duration-200"
                     title="Delete audiobook">
@@ -228,7 +228,7 @@ function renderLibraryGrid(books) {
                     </div>
                 </div>
             </div>
-            <h4 class="font-medium truncate">${book.title}</h4>
+            <h4 class="font-medium truncate">${escapeHtml(book.title)}</h4>
             <p class="text-sm text-gray-400">${book.total_chapters} chapters • ${book.total_duration || "--"}</p>
         </div>
     `,
@@ -251,13 +251,6 @@ async function deleteBook(event, bookId, title) {
     // This prevents stale browser file handles after leaving the player view.
     if (typeof teardownPlayerView === "function") {
       teardownPlayerView();
-    } else if (typeof playerState !== "undefined" && playerState.audioElement) {
-      playerState.audioElement.pause();
-      playerState.audioElement.removeAttribute("src");
-      playerState.audioElement.load();
-      playerState.isPlaying = false;
-      playerState.book = null;
-      playerState.audioElement = null;
     }
 
     try {

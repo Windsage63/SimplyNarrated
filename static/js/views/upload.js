@@ -146,41 +146,50 @@ function initUploadView() {
 let currentPreviewAudio = null;
 let currentPreviewVoiceId = null;
 
+/**
+ * Render the voice grid from cached state.voices data.
+ * Separated from loadVoices so selectVoice can re-render without re-fetching.
+ */
+function renderVoiceGrid() {
+  const grid = document.getElementById("voice-grid");
+  if (!grid || !state.voices.length) return;
+
+  grid.innerHTML = state.voices
+    .map(
+      (voice) => `
+          <div class="voice-card glass rounded-lg p-3 cursor-pointer ${voice.id === state.selectedVoice ? "selected" : ""}"
+              onclick="selectVoice('${voice.id}')">
+              <div class="flex items-center gap-2">
+                  <div class="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0">
+                      <span class="material-symbols-outlined text-primary text-sm">
+                          ${voice.gender === "female" ? "face_3" : voice.gender === "male" ? "face" : "person"}
+                      </span>
+                  </div>
+                  <div class="min-w-0 flex-1">
+                      <h4 class="font-medium text-sm truncate">${voice.name}</h4>
+                  </div>
+                  <button class="preview-btn w-7 h-7 rounded-full bg-dark-600 hover:bg-dark-700 flex items-center justify-center flex-shrink-0 transition"
+                      onclick="event.stopPropagation(); playVoicePreview('${voice.id}', this)"
+                      title="Preview voice">
+                      <span class="material-symbols-outlined text-sm">play_arrow</span>
+                  </button>
+              </div>
+          </div>
+      `,
+    )
+    .join("");
+
+  // Parse emojis for cross-browser flag support (Windows Chrome)
+  if (typeof twemoji !== "undefined") {
+    twemoji.parse(grid, { folder: "svg", ext: ".svg" });
+  }
+}
+
 async function loadVoices() {
   try {
     const data = await api.getVoices();
     state.voices = data.voices;
-
-    const grid = document.getElementById("voice-grid");
-    grid.innerHTML = state.voices
-      .map(
-        (voice) => `
-            <div class="voice-card glass rounded-lg p-3 cursor-pointer ${voice.id === state.selectedVoice ? "selected" : ""}"
-                onclick="selectVoice('${voice.id}')">
-                <div class="flex items-center gap-2">
-                    <div class="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0">
-                        <span class="material-symbols-outlined text-primary text-sm">
-                            ${voice.gender === "female" ? "face_3" : voice.gender === "male" ? "face" : "person"}
-                        </span>
-                    </div>
-                    <div class="min-w-0 flex-1">
-                        <h4 class="font-medium text-sm truncate">${voice.name}</h4>
-                    </div>
-                    <button class="preview-btn w-7 h-7 rounded-full bg-dark-600 hover:bg-dark-700 flex items-center justify-center flex-shrink-0 transition"
-                        onclick="event.stopPropagation(); playVoicePreview('${voice.id}', this)"
-                        title="Preview voice">
-                        <span class="material-symbols-outlined text-sm">play_arrow</span>
-                    </button>
-                </div>
-            </div>
-        `,
-      )
-      .join("");
-
-    // Parse emojis for cross-browser flag support (Windows Chrome)
-    if (typeof twemoji !== "undefined") {
-      twemoji.parse(grid, { folder: "svg", ext: ".svg" });
-    }
+    renderVoiceGrid();
   } catch (error) {
     console.error("Failed to load voices:", error);
   }
@@ -267,13 +276,7 @@ function stopVoicePreview() {
 
 function selectVoice(voiceId) {
   state.selectedVoice = voiceId;
-  document.querySelectorAll(".voice-card").forEach((card) => {
-    card.classList.toggle(
-      "selected",
-      card.onclick.toString().includes(voiceId),
-    );
-  });
-  loadVoices(); // Re-render to update selection
+  renderVoiceGrid();
 }
 
 function handleFileSelect(file) {

@@ -37,15 +37,9 @@ from src.core.encoder import (
     mux_m4a_from_segments,
 )
 from src.core.job_manager import Job, JobStatus
+from src.core.book_files import sanitize_book_filename
 
 logger = logging.getLogger(__name__)
-
-
-def _sanitize_book_filename(title: str, fallback: str) -> str:
-    candidate = re.sub(r"[\\/:*?\"<>|]+", " ", title or "")
-    candidate = re.sub(r"\s+", " ", candidate).strip().strip(".")
-    return candidate or fallback
-
 
 async def process_book(job: Job, config: Dict[str, Any]) -> None:
     """
@@ -249,7 +243,7 @@ async def process_book(job: Job, config: Dict[str, Any]) -> None:
         # Phase 5: Finalize
         job_manager.add_activity(job, "Finalizing audiobook...")
 
-        book_base_name = _sanitize_book_filename(document.title, job.id)
+        book_base_name = sanitize_book_filename(document.title, job.id)
         book_filename = f"{book_base_name}.m4a"
         book_output_path = os.path.join(job.output_dir, book_filename)
 

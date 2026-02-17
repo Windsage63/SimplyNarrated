@@ -17,7 +17,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field
 from typing import Optional, List
 from enum import Enum
 from datetime import datetime
@@ -29,12 +29,6 @@ class AudioQuality(str, Enum):
     SD = "sd"  # Standard (96 kbps)
     HD = "hd"  # High Definition (128 kbps)
     ULTRA = "ultra"  # Ultra (320 kbps)
-
-
-class AudioFormat(str, Enum):
-    """Audio output format options."""
-
-    M4A = "m4a"
 
 
 class JobStatus(str, Enum):
@@ -62,26 +56,14 @@ class GenerateRequest(BaseModel):
 
     job_id: str
     narrator_voice: str = Field(default="af_heart", description="Voice for narration")
-    dialogue_voice: Optional[str] = Field(
-        default=None, description="Voice for dialogue"
-    )
     speed: float = Field(default=1.0, ge=0.5, le=2.0, description="Playback speed")
     quality: AudioQuality = Field(default=AudioQuality.SD)
-    format: AudioFormat = Field(default=AudioFormat.M4A)
     remove_square_bracket_numbers: bool = Field(
         default=False, description="Remove [N] footnote references from text"
     )
     remove_paren_numbers: bool = Field(
         default=False, description="Remove (N) footnote references from text"
     )
-
-    @field_validator("format", mode="before")
-    @classmethod
-    def coerce_legacy_format(cls, value):
-        if isinstance(value, str) and value.lower() in {"mp3", "m4b"}:
-            return AudioFormat.M4A
-        return value
-
 
 class UpdateMetadataRequest(BaseModel):
     """Request to update book metadata."""

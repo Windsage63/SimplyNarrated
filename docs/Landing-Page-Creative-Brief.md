@@ -14,7 +14,7 @@ Secondary CTA: **Open Library**
 ## 2) Product Truth to Reflect (Do Not Overclaim)
 
 - Input formats: TXT, MD, PDF
-- Output: MP3 chapters
+- Output: Single file .M4A with chapters
 - Built-in features: progress tracking, bookmarks, library management, cover images
 - Local operation with FastAPI + Kokoro voices
 
@@ -74,7 +74,7 @@ This visual should read as a pipeline: **Document → AI Voice → Audiobook**.
 
 ### Hero subcopy
 
-"Upload TXT, Markdown, or PDF files and generate chapter-based MP3 audiobooks with natural AI voices—directly on your machine."
+"Upload TXT, Markdown, or PDF files and generate single file .M4A based audiobooks with natural AI voices—directly on your machine."
 
 ### Proof strip
 

@@ -30,7 +30,6 @@ const state = {
   audioSettings: {
     speed: 1.0,
     quality: "sd",
-    format: "m4a",
     removeSquareBracketNumbers: false,
     removeParenNumbers: false,
   },
@@ -71,7 +70,6 @@ const api = {
         narrator_voice: config.voice,
         speed: config.speed,
         quality: config.quality,
-        format: config.format,
         remove_square_bracket_numbers:
           config.removeSquareBracketNumbers || false,
         remove_paren_numbers: config.removeParenNumbers || false,
@@ -103,11 +101,17 @@ const api = {
 
   async getVoices() {
     const response = await fetch(`${this.baseUrl}/voices`);
+    if (!response.ok) {
+      throw new Error("Failed to load voices");
+    }
     return response.json();
   },
 
   async getLibrary() {
     const response = await fetch(`${this.baseUrl}/library`);
+    if (!response.ok) {
+      throw new Error("Failed to load library");
+    }
     return response.json();
   },
 
@@ -141,6 +145,9 @@ const api = {
 
   async getBookmark(bookId) {
     const response = await fetch(`${this.baseUrl}/bookmark/${bookId}`);
+    if (!response.ok) {
+      throw new Error("Failed to load bookmark");
+    }
     return response.json();
   },
 
@@ -151,6 +158,9 @@ const api = {
         method: "POST",
       },
     );
+    if (!response.ok) {
+      throw new Error("Failed to save bookmark");
+    }
     return response.json();
   },
 
@@ -203,6 +213,15 @@ const api = {
 // ============================================
 
 function showView(viewName) {
+  // Cleanup progress polling when navigating away from progress view
+  if (
+    state.currentView === "progress" &&
+    viewName !== "progress" &&
+    typeof teardownProgressView === "function"
+  ) {
+    teardownProgressView();
+  }
+
   // Cleanup player resources when navigating away from player view
   if (
     state.currentView === "player" &&

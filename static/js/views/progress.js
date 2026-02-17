@@ -78,6 +78,17 @@ function initProgressView() {
   progressInterval = setInterval(pollStatus, 2000);
 }
 
+/**
+ * Tear down the progress view by clearing the polling interval.
+ * Called by showView() when navigating away from the progress view.
+ */
+function teardownProgressView() {
+  if (progressInterval) {
+    clearInterval(progressInterval);
+    progressInterval = null;
+  }
+}
+
 async function pollStatus() {
   if (!state.currentJob) return;
 
