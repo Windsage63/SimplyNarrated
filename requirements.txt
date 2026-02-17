@@ -5,8 +5,10 @@
 # INSTALL ORDER MATTERS - PyTorch first
 # ============================================
 
-# Step 1: PyTorch with CUDA 13.0 (install separately)
-# Run: pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu130
+# Step 1: PyTorch with CUDA (install separately)
+# RTX 50 series: pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu128
+# RTX 30/40 series: pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu126
+# CPU only: pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
 
 # Step 2: Then install this file
 # Run: pip install -r requirements.txt

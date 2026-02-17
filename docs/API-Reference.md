@@ -4,13 +4,13 @@ Base URL: `/api`
 
 ## Overview
 
-The API supports upload, conversion job lifecycle, voice previews, playback/bookmarks, and library/book metadata management.
+The API supports upload, conversion job lifecycle, voice previews, playback/bookmarks, library/book metadata management, audiobook download, and artifact cleanup.
 
 ## Conventions
 
 - `book_id` must match UUID-like format (`xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx`) for all book routes.
 - Audio output is currently M4A only.
-- Common error codes: `400` validation, `404` not found, `413` file too large, `500` server/internal state.
+- Common error codes: `400` validation, `404` not found, `413` file too large, `416` invalid range, `423` metadata lock, `500` server/internal state.
 
 ## Endpoints
 
@@ -50,10 +50,8 @@ The API supports upload, conversion job lifecycle, voice previews, playback/book
   {
     "job_id": "uuid-string",
     "narrator_voice": "af_heart",
-    "dialogue_voice": null,
     "speed": 1.0,
     "quality": "sd",
-    "format": "m4a",
     "remove_square_bracket_numbers": false,
     "remove_paren_numbers": false
   }
@@ -140,12 +138,19 @@ The API supports upload, conversion job lifecycle, voice previews, playback/book
   }
   ```
 
+#### Download Book
+
+- **Method**: `GET`
+- **Path**: `/book/{book_id}/download`
+- **Response**: `audio/mp4` file download with `Content-Disposition` header.
+
 ### Playback and Bookmarks
 
 #### Stream Audiobook Audio
 
 - **Method**: `GET`
 - **Path**: `/audio/{book_id}`
+- **Supports**: HTTP Range requests for seeking.
 - **Response**: `audio/mp4`
 
 #### Get Full Transcript
@@ -164,6 +169,7 @@ The API supports upload, conversion job lifecycle, voice previews, playback/book
 - **Method**: `GET`
 - **Path**: `/bookmark/{book_id}`
 - **Response**: stored bookmark or default `{ "chapter": 1, "position": 0.0 }`
+- **Note**: When a bookmark exists, response also includes `updated_at` timestamp.
 
 ### Cover Images
 
@@ -187,3 +193,56 @@ The API supports upload, conversion job lifecycle, voice previews, playback/book
 - **Method**: `GET`
 - **Path**: `/book/{book_id}/cover`
 - **Response**: `image/jpeg` or `image/png`
+
+### Cleanup
+
+#### Get Pending Cleanup Items
+
+- **Method**: `GET`
+- **Path**: `/cleanup/pending`
+- **Response**: List of incomplete artifacts detected at startup that may be cleaned up.
+
+  ```json
+  {
+    "items": [
+      {
+        "item_id": "uuid-string",
+        "item_type": "incomplete_book",
+        "title": "Untitled Book",
+        "details": "Missing audio file",
+        "recommendation": "delete"
+      }
+    ],
+    "total": 1
+  }
+  ```
+
+#### Apply Cleanup Decision
+
+- **Method**: `POST`
+- **Path**: `/cleanup/decision`
+- **Body**:
+
+  ```json
+  {
+    "item_id": "uuid-string",
+    "decision": "delete"
+  }
+  ```
+
+- **Decision values**: `delete`, `keep`
+
+### Health
+
+#### Health Check
+
+- **Method**: `GET`
+- **Path**: `/health` (note: mounted at root, not under `/api`)
+- **Response**:
+
+  ```json
+  {
+    "status": "healthy",
+    "version": "0.1.0"
+  }
+  ```

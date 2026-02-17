@@ -13,12 +13,12 @@ Secondary CTA: **Open Library**
 
 ## 2) Product Truth to Reflect (Do Not Overclaim)
 
-- Input formats: TXT, MD, PDF
+- Input formats: TXT, MD, PDF, ZIP (Gutenberg HTML)
 - Output: Single file .M4A with chapters
 - Built-in features: progress tracking, bookmarks, library management, cover images
 - Local operation with FastAPI + Kokoro voices
 
-Avoid claims that are not currently shipped (for example WAV output or dialogue voice switching).
+Avoid claims that are not currently shipped (for example WAV output, MP3 output, or multi-voice dialogue switching).
 
 ## 3) Visual Direction
 
@@ -74,7 +74,7 @@ This visual should read as a pipeline: **Document → AI Voice → Audiobook**.
 
 ### Hero subcopy
 
-"Upload TXT, Markdown, or PDF files and generate single file .M4A based audiobooks with natural AI voices—directly on your machine."
+"Upload TXT, Markdown, PDF, or Project Gutenberg HTML ZIP files and generate single file .M4A based audiobooks with natural AI voices—directly on your machine."
 
 ### Proof strip
 
@@ -104,7 +104,7 @@ Use these prompts directly in your image generator.
 
 ### E) OpenGraph Social Card Prompt
 
-"Design a 1200x630 social preview image for SimplyNarrated. Dark premium background, blue accent, bold title 'Turn Documents Into Audiobooks, Locally', subtitle 'Private AI narration for TXT, MD, and PDF'. Include simplified pipeline motif: document → AI wave → audiobook player. Modern, high contrast, clean whitespace, no watermark, no external logos."
+"Design a 1200x630 social preview image for SimplyNarrated. Dark premium background, blue accent, bold title 'Turn Documents Into Audiobooks, Locally', subtitle 'Private AI narration for TXT, MD, PDF, and Gutenberg ZIP'. Include simplified pipeline motif: document → AI wave → audiobook player. Modern, high contrast, clean whitespace, no watermark, no external logos."
 
 ## 7) Screenshot-Guided Workflow (Recommended)
 

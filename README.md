@@ -24,6 +24,9 @@ The system uses the **Kokoro-82M** model running locally on GPU for high-quality
 - **Library Management**: Dashboard to manage your converted books.
 - **Cover Management**: Upload and serve JPG/PNG cover images per book.
 - **Reliable Jobs**: Persisted job ledger with restart recovery and bounded concurrent processing queue.
+- **Cleanup Manager**: Detects incomplete artifacts on startup and prompts for user cleanup decisions.
+- **Audiobook Download**: Download completed audiobooks as `.m4a` files directly from the library.
+- **Health Check**: `GET /health` endpoint for monitoring application status.
 - **Modern UI**: Polished interface with dark mode support.
 
 ## 📌 Current Product Scope
@@ -110,12 +113,10 @@ For advanced users who prefer to manage their own Python environment.
 - `static/`: Frontend assets
   - `voices/`: Local voice model tensors (`.pt`)
   - `voices/audio/`: Cached voice sample previews (`.mp3`)
-- `tests/`: Unit and integration tests
 
 ## 📄 Documentation
 
 - [API Reference](docs/API-Reference.md)
-- [Architecture Plan](plans/architect_plan.md)
 - [Landing Page Creative Brief](docs/Landing-Page-Creative-Brief.md)
 
 ## 📝 Acknowledgements
