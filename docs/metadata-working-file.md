@@ -25,7 +25,7 @@
 ### 1.1 Frontend: Opening the Edit Modal
 
 | Step | Code Location | What Happens |
-|------|--------------|--------------|
+| ---- | ------------ | ------------ |
 | **User clicks book cover** | `player.js` → `renderPlayerView()` line 37 | The cover `<div>` has `onclick="openEditMetaModal()"`. |
 | **`openEditMetaModal()`** | `player.js` lines 739–763 | Pre-fills `#meta-title` and `#meta-author` from `playerState.book`. Resets the cover file input. Shows current cover in `#meta-cover-preview`. Removes the `hidden` class from `#meta-modal`. |
 | **User edits fields** | HTML in `renderPlayerView()` lines 163–217 | Standard `<input>` fields for title, author, and a file picker for cover image (JPG/PNG, max 5 MB). |
@@ -33,7 +33,7 @@
 ### 1.2 Frontend: Saving (the "Save" button)
 
 | Step | Code Location | What Happens |
-|------|--------------|--------------|
+| ---- | ------------ | ------------ |
 | **`saveMetadata()`** | `player.js` lines 836–890 | Reads title, author, and cover file from the modal inputs. Builds an `updates` object containing only changed fields. If nothing changed, closes modal and returns early. |
 | **`withReleasedPlayerHandle(work)`** | `player.js` lines 794–834 | **Critical step.** Before sending the API request, this function: (1) pauses playback, (2) removes the `src` attribute from the `<audio>` element and calls `audio.load()` to release the browser's file handle, (3) waits 120 ms. This is necessary because **on Windows, the streaming response holds an open file handle** that would prevent the backend from replacing the file. After the `work()` callback completes, it re-sets the audio `src` with a cache-busting query param, waits for `loadedmetadata`, restores `currentTime`, and resumes playback if it was previously playing. |
 | **Cover upload** (if changed) | `app.js` → `api.uploadCover(bookId, file)` lines 191–204 | Sends a `POST /api/book/{bookId}/cover` with `FormData`. |
@@ -175,7 +175,7 @@ Additionally, on Windows:
 ### Cost Breakdown for a Typical 2 GB Audiobook
 
 | Phase | Time |
-|-------|------|
+| ----- | ------ |
 | Frontend: release audio handle + wait | ~0.3s |
 | Backend: abort stream + sleep | ~0.2s |
 | Backend: write ffmetadata file | ~0.001s |
@@ -227,7 +227,7 @@ structural metadata, not the audio.
 **Tag Mapping:**
 
 | SimplyNarrated Field | Current ffmetadata key | Mutagen MP4 key |
-|---------------------|----------------------|-----------------|
+| --------------------- | ---------------------- | ----------------- |
 | Title | `title` | `\xa9nam` |
 | Album | `album` | `\xa9alb` |
 | Artist | `artist` | `\xa9ART` |
@@ -336,7 +336,7 @@ slower* — not faster.
 ### What the User Experience Becomes
 
 | Scenario | Before | After |
-|----------|--------|-------|
+| -------- | ------ | ----- |
 | Change title | 1–5 minutes | < 0.2 seconds |
 | Change author | 1–5 minutes | < 0.2 seconds |
 | Change title + author | 1–5 minutes | < 0.2 seconds |
@@ -456,7 +456,7 @@ frontend flow:
 ### 5.6 Test plan
 
 | Test Case | Expected Result |
-|-----------|----------------|
+| --------- | --------------- |
 | Update title only | Title changes in < 0.5s, audio plays correctly |
 | Update author only | Author changes in < 0.5s, chapters preserved |
 | Update title + author | Both change, SNMETA comment preserved |
@@ -475,7 +475,7 @@ frontend flow:
 ### Risks
 
 | Risk | Likelihood | Mitigation |
-|------|-----------|------------|
+| ---- | --------- | ---------- |
 | Mutagen corrupts file | Very Low | Mutagen is battle-tested (15+ years). Keep ffmpeg path as fallback. Backup file before first save if paranoid. |
 | Comment field format mismatch | Low | ffprobe reads `\xa9cmt` as `comment` — verified compatible. |
 | Chapters lost during save | None | Mutagen does not touch chapter atoms when saving tag-only changes. |
@@ -498,7 +498,7 @@ fully compatible with ffprobe/ffmpeg.
 ## Appendix: File Locations Reference
 
 | Component | File | Key Functions |
-|-----------|------|---------------|
+| --------- | ---- | ------------- |
 | Edit Modal HTML | `static/js/views/player.js` | `renderPlayerView()` lines 163–217 |
 | Open Modal | `static/js/views/player.js` | `openEditMetaModal()` lines 739–763 |
 | Save Logic (frontend) | `static/js/views/player.js` | `saveMetadata()` lines 836–890 |
