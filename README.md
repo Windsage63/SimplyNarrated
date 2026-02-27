@@ -25,6 +25,7 @@ The system uses the **Kokoro-82M** model running locally on GPU for high-quality
 - **Cover Management**: Upload and serve JPG/PNG cover images per book.
 - **Reliable Jobs**: Persisted job ledger with restart recovery and bounded concurrent processing queue.
 - **Modern UI**: Polished interface with dark mode support.
+- **Offline Frontend Assets**: Main app UI dependencies (Tailwind + fonts) are served locally from `static/vendor`.
 
 ## 📌 Current Product Scope
 
@@ -56,6 +57,12 @@ After installation, use `run.bat` to start SimplyNarrated at any time:
 
 - Double-click `run.bat` — it launches the server and opens your browser automatically.
 - The app runs at `http://localhost:8010`.
+
+### Offline Use
+
+- After installation is complete, the main app page is self-contained for offline use when served locally at `http://localhost:8010`.
+- Keep using `run.bat` (or `uvicorn`) to serve the app; opening `static/index.html` directly via `file://` is not supported.
+- The `Get More Books` button intentionally opens Project Gutenberg and requires internet access.
 
 ---
 
