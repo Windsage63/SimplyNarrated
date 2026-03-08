@@ -2,14 +2,18 @@
 Tests for the audio encoder module.
 """
 
+import base64
 import os
 import shutil
 import pytest
 import numpy as np
+from mutagen.id3 import ID3
 
 from src.core.encoder import (
     EncoderSettings,
     QUALITY_PRESETS,
+    _configure_ffmpeg_paths,
+    embed_mp3_metadata,
     get_encoder_settings,
     encode_audio,
     format_duration,
@@ -86,8 +90,7 @@ class TestEncodeAudioMp3:
     def _ffmpeg_available() -> bool:
         """Check if ffmpeg is available."""
         try:
-            from pydub import AudioSegment
-            # Quick test to see if ffmpeg is reachable
+            _configure_ffmpeg_paths()
             return shutil.which("ffmpeg") is not None
         except ImportError:
             return False
@@ -140,3 +143,52 @@ class TestEncodeAudioMp3:
 
         segment = AudioSegment.from_mp3(out)
         assert len(segment) > 0  # duration in ms
+
+    def test_embed_mp3_metadata_without_cover(self, tmp_path):
+        audio = _sine_wave(duration=1.0)
+        out = str(tmp_path / "tagged.mp3")
+
+        encode_audio(audio, 24000, out, EncoderSettings(format="mp3", bitrate="128k"))
+        embed_mp3_metadata(
+            out,
+            title="Chapter 1",
+            album="Example Book",
+            artist="Example Author",
+            track_number=1,
+            total_tracks=3,
+        )
+
+        tags = ID3(out)
+        assert tags.get("TIT2").text == ["Chapter 1"]
+        assert tags.get("TALB").text == ["Example Book"]
+        assert tags.get("TPE1").text == ["Example Author"]
+        assert tags.get("TRCK").text == ["1/3"]
+        assert tags.getall("APIC") == []
+
+    def test_embed_mp3_metadata_with_cover(self, tmp_path):
+        audio = _sine_wave(duration=1.0)
+        out = str(tmp_path / "cover-tagged.mp3")
+        cover_path = tmp_path / "cover.png"
+
+        cover_path.write_bytes(
+            base64.b64decode(
+                "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wn4xWkAAAAASUVORK5CYII="
+            )
+        )
+
+        encode_audio(audio, 24000, out, EncoderSettings(format="mp3", bitrate="128k"))
+        embed_mp3_metadata(
+            out,
+            title="Chapter 2",
+            album="Example Book",
+            artist="Example Author",
+            track_number=2,
+            total_tracks=3,
+            cover_path=str(cover_path),
+        )
+
+        tags = ID3(out)
+        artwork = tags.getall("APIC")
+        assert len(artwork) == 1
+        assert artwork[0].mime == "image/png"
+        assert artwork[0].data == cover_path.read_bytes()

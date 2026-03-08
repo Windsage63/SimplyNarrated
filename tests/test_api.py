@@ -10,6 +10,7 @@ import json
 import asyncio
 import pytest
 import numpy as np
+from mutagen.id3 import ID3
 
 import src.core.job_manager as jm_module
 import src.core.library as lib_module
@@ -574,7 +575,7 @@ class TestChapterEditEndpoints:
         assert "job_id" in data
 
     async def test_reconvert_chapter_end_to_end(self, app_client, tmp_library_dir, monkeypatch):
-        book_id = _populate_book(str(tmp_library_dir))
+        book_id = _populate_book(str(tmp_library_dir), include_portability_assets=True)
         chapter = 1
 
         updated_text = " ".join(
@@ -627,6 +628,16 @@ class TestChapterEditEndpoints:
         book_resp = await app_client.get(f"/api/book/{book_id}")
         assert book_resp.status_code == 200
         chapter_meta = book_resp.json()["chapters"][0]
+
+        tags = ID3(original_audio)
+        assert tags.get("TIT2").text == [chapter_meta["title"]]
+        assert tags.get("TALB").text == ["API Test Book"]
+        assert tags.get("TPE1").text == ["Tester"]
+        assert tags.get("TRCK").text == ["1/1"]
+        artwork = tags.getall("APIC")
+        assert len(artwork) == 1
+        assert artwork[0].mime == "image/jpeg"
+        assert artwork[0].data == b"\xff\xd8\xff\xd9"
 
         new_size = os.path.getsize(original_audio)
         assert new_size != original_size

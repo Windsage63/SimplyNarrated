@@ -30,7 +30,12 @@ from src.core.parser import parse_file
 from src.core.parser import extract_cover_image
 from src.core.chunker import chunk_chapters, get_total_duration
 from src.core.tts_engine import get_tts_engine
-from src.core.encoder import encode_audio, get_encoder_settings, format_duration
+from src.core.encoder import (
+    embed_mp3_metadata,
+    encode_audio,
+    get_encoder_settings,
+    format_duration,
+)
 from src.core.job_manager import Job, JobStatus
 
 logger = logging.getLogger(__name__)
@@ -77,6 +82,7 @@ async def process_book(job: Job, config: Dict[str, Any]) -> None:
 
         # Phase 1a: Attempt to extract cover image
         cover_filename = extract_cover_image(job.file_path, job.output_dir)
+        cover_path = os.path.join(job.output_dir, cover_filename) if cover_filename else None
         if cover_filename:
             job_manager._add_activity(job, "Cover image extracted from source file", "success")
 
@@ -173,6 +179,20 @@ async def process_book(job: Job, config: Dict[str, Any]) -> None:
                 None,
                 lambda a=audio, sr=sample_rate, op=output_path, es=encoder_settings: (
                     encode_audio(a, sr, op, es)
+                ),
+            )
+
+            await loop.run_in_executor(
+                None,
+                lambda op=output_path, title=chunk.title, album=document.title, author=document.author,
+                chapter_num=chapter_num, total=len(chunks), cp=cover_path: embed_mp3_metadata(
+                    op,
+                    title=title,
+                    album=album,
+                    artist=author,
+                    track_number=chapter_num,
+                    total_tracks=total,
+                    cover_path=cp,
                 ),
             )
 

@@ -29,7 +29,12 @@ from pydub import AudioSegment
 
 from src.core.chunker import chunk_chapters
 from src.core.tts_engine import get_tts_engine
-from src.core.encoder import encode_audio, get_encoder_settings, format_duration
+from src.core.encoder import (
+    embed_mp3_metadata,
+    encode_audio,
+    get_encoder_settings,
+    format_duration,
+)
 from src.core.job_manager import Job
 
 logger = logging.getLogger(__name__)
@@ -186,6 +191,26 @@ async def process_chapter_reconvert_job(job: Job, config: Dict[str, Any]) -> Non
     await loop.run_in_executor(
         None,
         lambda: encode_audio(merged_audio, sample_rate, temp_audio_path, encoder_settings),
+    )
+
+    cover_path = None
+    for candidate in ("cover.jpg", "cover.jpeg", "cover.png"):
+        candidate_path = os.path.join(book_dir, candidate)
+        if os.path.exists(candidate_path):
+            cover_path = candidate_path
+            break
+
+    await loop.run_in_executor(
+        None,
+        lambda: embed_mp3_metadata(
+            temp_audio_path,
+            title=chapter_title,
+            album=metadata.get("title"),
+            artist=metadata.get("author"),
+            track_number=chapter_number,
+            total_tracks=len(metadata.get("chapters", [])) or None,
+            cover_path=cover_path,
+        ),
     )
 
     job_manager.update_progress(
