@@ -221,7 +221,8 @@ class JobManager:
             return False
 
         job.config = config
-        job.output_dir = os.path.join(self.library_dir, job_id)
+        output_dir_override = config.get("output_dir") if isinstance(config, dict) else None
+        job.output_dir = output_dir_override or os.path.join(self.library_dir, job_id)
         os.makedirs(job.output_dir, exist_ok=True)
 
         self._add_activity(job, "Job queued for conversion...", "info")

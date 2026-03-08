@@ -76,6 +76,21 @@ class UpdateMetadataRequest(BaseModel):
     author: Optional[str] = Field(default=None, max_length=500)
 
 
+class UpdateChapterTextRequest(BaseModel):
+    """Request to update generated chapter text content."""
+
+    content: str = Field(min_length=1, max_length=2_000_000)
+
+
+class ReconvertChapterRequest(BaseModel):
+    """Request to reconvert a specific chapter to audio."""
+
+    narrator_voice: Optional[str] = Field(default=None, max_length=100)
+    speed: Optional[float] = Field(default=None, ge=0.5, le=2.0)
+    quality: Optional[AudioQuality] = Field(default=None)
+    format: Optional[AudioFormat] = Field(default=None)
+
+
 # --- Response Schemas ---
 
 

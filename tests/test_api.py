@@ -74,6 +74,40 @@ def _populate_book(library_dir: str, book_id: str = "aaaaaaaa-bbbb-cccc-dddd-eee
     return book_id
 
 
+def _duration_to_seconds(value: str) -> float:
+    """Convert mm:ss or hh:mm:ss duration string into seconds."""
+    parts = [p.strip() for p in (value or "").split(":") if p.strip()]
+    if not parts:
+        return 0.0
+
+    if len(parts) == 2:
+        minutes, seconds = parts
+        return (int(minutes) * 60) + int(seconds)
+
+    if len(parts) == 3:
+        hours, minutes, seconds = parts
+        return (int(hours) * 3600) + (int(minutes) * 60) + int(seconds)
+
+    return 0.0
+
+
+async def _poll_status_until_done(app_client, job_id: str, timeout_seconds: int = 60):
+    """Poll /status until the job reaches a terminal state."""
+    start = asyncio.get_running_loop().time()
+    while True:
+        resp = await app_client.get(f"/api/status/{job_id}")
+        assert resp.status_code == 200
+        payload = resp.json()
+
+        if payload["status"] in {"completed", "failed", "cancelled"}:
+            return payload
+
+        if asyncio.get_running_loop().time() - start > timeout_seconds:
+            raise TimeoutError(f"Timed out waiting for job {job_id}")
+
+        await asyncio.sleep(0.25)
+
+
 # ===========================================================================
 # Health & static
 # ===========================================================================
@@ -399,6 +433,119 @@ class TestTextEndpoint:
     async def test_get_chapter_text_invalid_book_id(self, app_client):
         resp = await app_client.get("/api/text/not-a-valid-uuid/1")
         assert resp.status_code == 400
+
+
+class TestChapterEditEndpoints:
+    async def test_update_chapter_text(self, app_client, tmp_library_dir):
+        book_id = _populate_book(str(tmp_library_dir))
+
+        update_resp = await app_client.put(
+            f"/api/book/{book_id}/chapter/1/text",
+            json={"content": "Updated chapter text for correction."},
+        )
+        assert update_resp.status_code == 200
+        assert update_resp.json()["status"] == "updated"
+
+        text_resp = await app_client.get(f"/api/text/{book_id}/1")
+        assert text_resp.status_code == 200
+        assert "updated chapter text" in text_resp.json()["content"].lower()
+
+    async def test_update_chapter_text_rejects_empty(self, app_client, tmp_library_dir):
+        book_id = _populate_book(str(tmp_library_dir))
+
+        resp = await app_client.put(
+            f"/api/book/{book_id}/chapter/1/text",
+            json={"content": "   "},
+        )
+        assert resp.status_code == 400
+
+    async def test_reconvert_chapter_queues_job(self, app_client, tmp_library_dir, monkeypatch):
+        book_id = _populate_book(str(tmp_library_dir))
+
+        async def _fake_reconvert(job, config):
+            return None
+
+        import src.core.chapter_reconvert as chapter_reconvert_module
+
+        monkeypatch.setattr(
+            chapter_reconvert_module,
+            "process_chapter_reconvert_job",
+            _fake_reconvert,
+        )
+
+        resp = await app_client.post(
+            f"/api/book/{book_id}/chapter/1/reconvert",
+            json={},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["status"] == "queued"
+        assert "job_id" in data
+
+    async def test_reconvert_chapter_end_to_end(self, app_client, tmp_library_dir, monkeypatch):
+        book_id = _populate_book(str(tmp_library_dir))
+        chapter = 1
+
+        updated_text = " ".join(
+            ["Updated chapter text with extra words for longer regenerated audio."] * 8
+        )
+
+        # Speed up test and avoid real model load by monkeypatching the singleton engine.
+        engine = tts_module.get_tts_engine()
+        sample_rate = 24000
+
+        def _fake_generate_speech(text: str, voice_id: str = "af_heart", speed: float = 1.0):
+            seconds = max(0.5, min(6.0, len(text) / 55.0))
+            t = np.linspace(0, seconds, int(sample_rate * seconds), endpoint=False)
+            audio = (np.sin(2 * np.pi * 180 * t)).astype(np.float32)
+            return audio, sample_rate
+
+        monkeypatch.setattr(engine, "generate_speech", _fake_generate_speech)
+        monkeypatch.setattr(engine, "is_initialized", lambda: True)
+
+        # Simulate active playback position (used by UI resume clamp behavior).
+        resume_position = 0.8
+        bookmark_resp = await app_client.post(
+            f"/api/bookmark?book_id={book_id}&chapter={chapter}&position={resume_position}"
+        )
+        assert bookmark_resp.status_code == 200
+
+        original_audio = os.path.join(str(tmp_library_dir), book_id, "chapter_01.mp3")
+        original_size = os.path.getsize(original_audio)
+
+        update_resp = await app_client.put(
+            f"/api/book/{book_id}/chapter/{chapter}/text",
+            json={"content": updated_text},
+        )
+        assert update_resp.status_code == 200
+
+        reconvert_resp = await app_client.post(
+            f"/api/book/{book_id}/chapter/{chapter}/reconvert",
+            json={},
+        )
+        assert reconvert_resp.status_code == 200
+        job_id = reconvert_resp.json()["job_id"]
+
+        final_status = await _poll_status_until_done(app_client, job_id)
+        assert final_status["status"] == "completed"
+
+        text_resp = await app_client.get(f"/api/text/{book_id}/{chapter}")
+        assert text_resp.status_code == 200
+        assert text_resp.json()["content"] == updated_text
+
+        book_resp = await app_client.get(f"/api/book/{book_id}")
+        assert book_resp.status_code == 200
+        chapter_meta = book_resp.json()["chapters"][0]
+
+        new_size = os.path.getsize(original_audio)
+        assert new_size != original_size
+
+        new_duration_seconds = _duration_to_seconds(chapter_meta["duration"])
+        assert new_duration_seconds > 0
+
+        # Mirrors player-side resume clamp on chapter reload after reconvert.
+        resume_after_reload = min(resume_position, max(0.0, new_duration_seconds - 0.25))
+        assert 0.0 <= resume_after_reload <= new_duration_seconds
 
 
 class TestCoverEndpoints:

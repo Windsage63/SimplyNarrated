@@ -21,6 +21,7 @@ import os
 import re
 import uuid
 import asyncio
+import json
 import math
 import aiofiles
 from fastapi import APIRouter, UploadFile, File, HTTPException, BackgroundTasks
@@ -36,6 +37,8 @@ from src.models.schemas import (
     BookInfo,
     JobStatus,
     UpdateMetadataRequest,
+    UpdateChapterTextRequest,
+    ReconvertChapterRequest,
 )
 from src.core.job_manager import get_job_manager
 from src.core.library import get_library_manager
@@ -74,6 +77,29 @@ def _validate_book_id_or_400(book_id: str) -> None:
     """Validate UUID-like book IDs to prevent path traversal."""
     if not BOOK_ID_PATTERN.match(book_id):
         raise HTTPException(status_code=400, detail="Invalid book ID format")
+
+
+def _validate_chapter_or_400(chapter: int) -> None:
+    """Validate chapter numbers to prevent invalid file access."""
+    if chapter < 1:
+        raise HTTPException(status_code=400, detail="Chapter number must be >= 1")
+
+
+def _load_book_metadata_or_404(book_dir: str) -> dict:
+    """Load metadata for a book directory, raising 404 if unavailable."""
+    metadata_path = os.path.join(book_dir, "metadata.json")
+    if not os.path.exists(metadata_path):
+        raise HTTPException(status_code=404, detail="Book not found")
+
+    with open(metadata_path, "r", encoding="utf-8") as metadata_file:
+        return json.load(metadata_file)
+
+
+def _ensure_chapter_exists_or_404(metadata: dict, chapter: int) -> None:
+    """Ensure chapter index exists in metadata chapters list."""
+    exists = any(int(ch.get("number", 0)) == chapter for ch in metadata.get("chapters", []))
+    if not exists:
+        raise HTTPException(status_code=404, detail="Chapter not found")
 
 
 def _estimate_chapters(file_ext: str, content: bytes, file_size: int) -> int:
@@ -402,8 +428,7 @@ async def get_chapter_text(book_id: str, chapter: int):
     """
     _validate_book_id_or_400(book_id)
 
-    if chapter < 1:
-        raise HTTPException(status_code=400, detail="Chapter number must be >= 1")
+    _validate_chapter_or_400(chapter)
 
     library = get_library_manager()
     book_dir = library.get_book_dir(book_id)
@@ -416,6 +441,85 @@ async def get_chapter_text(book_id: str, chapter: int):
         content = await f.read()
 
     return {"book_id": book_id, "chapter": chapter, "content": content}
+
+
+@router.put("/book/{book_id}/chapter/{chapter}/text")
+async def update_chapter_text(book_id: str, chapter: int, request: UpdateChapterTextRequest):
+    """
+    Update generated text for a specific chapter.
+    """
+    _validate_book_id_or_400(book_id)
+    _validate_chapter_or_400(chapter)
+
+    cleaned_content = request.content.strip()
+    if not cleaned_content:
+        raise HTTPException(status_code=400, detail="Chapter content cannot be empty")
+
+    library = get_library_manager()
+    book_dir = library.get_book_dir(book_id)
+    metadata = _load_book_metadata_or_404(book_dir)
+    _ensure_chapter_exists_or_404(metadata, chapter)
+
+    text_path = os.path.join(book_dir, f"chapter_{chapter:02d}.txt")
+    async with aiofiles.open(text_path, "w", encoding="utf-8") as chapter_file:
+        await chapter_file.write(cleaned_content)
+
+    return {
+        "status": "updated",
+        "book_id": book_id,
+        "chapter": chapter,
+        "content_length": len(cleaned_content),
+    }
+
+
+@router.post("/book/{book_id}/chapter/{chapter}/reconvert")
+async def reconvert_chapter(book_id: str, chapter: int, request: ReconvertChapterRequest):
+    """
+    Queue reconversion for a single chapter using the current chapter text file.
+    """
+    _validate_book_id_or_400(book_id)
+    _validate_chapter_or_400(chapter)
+
+    library = get_library_manager()
+    book_dir = library.get_book_dir(book_id)
+    metadata = _load_book_metadata_or_404(book_dir)
+    _ensure_chapter_exists_or_404(metadata, chapter)
+
+    text_path = os.path.join(book_dir, f"chapter_{chapter:02d}.txt")
+    if not os.path.exists(text_path):
+        raise HTTPException(status_code=404, detail="Chapter text not found")
+
+    job_manager = get_job_manager()
+    chapter_job = job_manager.create_job(
+        filename=f"chapter_{chapter:02d}_reconvert",
+        file_path=text_path,
+    )
+
+    from src.core.chapter_reconvert import process_chapter_reconvert_job
+
+    config = {
+        "job_type": "chapter_reconvert",
+        "book_id": book_id,
+        "chapter_number": chapter,
+        "book_dir": book_dir,
+        "output_dir": book_dir,
+        "narrator_voice": request.narrator_voice,
+        "speed": request.speed,
+        "quality": request.quality.value if request.quality else None,
+        "format": request.format.value if request.format else None,
+    }
+
+    success = await job_manager.start_job(chapter_job.id, config, process_chapter_reconvert_job)
+
+    if not success:
+        raise HTTPException(status_code=500, detail="Failed to queue chapter reconversion")
+
+    return {
+        "status": "queued",
+        "job_id": chapter_job.id,
+        "book_id": book_id,
+        "chapter": chapter,
+    }
 
 
 @router.post("/bookmark")

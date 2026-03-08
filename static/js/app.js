@@ -172,6 +172,47 @@ const api = {
     }
     return response.json();
   },
+
+  async getChapterText(bookId, chapter) {
+    const response = await fetch(`${this.baseUrl}/text/${bookId}/${chapter}`);
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      throw new Error(error.detail || "Chapter text not available");
+    }
+    return response.json();
+  },
+
+  async saveChapterText(bookId, chapter, content) {
+    const response = await fetch(
+      `${this.baseUrl}/book/${bookId}/chapter/${chapter}/text`,
+      {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content }),
+      },
+    );
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      throw new Error(error.detail || "Failed to save chapter text");
+    }
+    return response.json();
+  },
+
+  async reconvertChapter(bookId, chapter, options = {}) {
+    const response = await fetch(
+      `${this.baseUrl}/book/${bookId}/chapter/${chapter}/reconvert`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(options),
+      },
+    );
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      throw new Error(error.detail || "Failed to reconvert chapter");
+    }
+    return response.json();
+  },
 };
 
 // ============================================

@@ -149,6 +149,18 @@ function renderPlayerView(bookId) {
                 <div class="glass rounded-2xl flex flex-col overflow-hidden h-full">
                     <div class="flex items-center justify-between p-4 border-b border-white/10">
                         <h3 id="text-modal-title" class="font-bold text-lg">Chapter Text</h3>
+                <div class="flex items-center gap-2">
+                  <span id="text-modal-status" class="text-xs text-gray-400"></span>
+                  <button id="text-edit-btn" onclick="toggleTextEditMode()" class="px-3 py-1.5 rounded-lg bg-dark-600 hover:bg-dark-700 transition text-sm">
+                    Edit
+                  </button>
+                  <button id="text-save-btn" onclick="saveChapterTextEdits()" class="hidden px-3 py-1.5 rounded-lg bg-primary hover:bg-primary/80 transition text-sm font-bold">
+                    Save
+                  </button>
+                  <button id="text-reconvert-btn" onclick="reconvertCurrentChapter()" class="hidden px-3 py-1.5 rounded-lg bg-dark-600 hover:bg-dark-700 transition text-sm">
+                    Save + Reconvert
+                  </button>
+                </div>
                         <button onclick="closeTextModal()" class="p-2 rounded-lg hover:bg-dark-700 transition">
                             <span class="material-symbols-outlined">close</span>
                         </button>
@@ -156,6 +168,10 @@ function renderPlayerView(bookId) {
                     <div id="text-modal-content" class="flex-1 overflow-y-auto p-6 text-gray-300 leading-relaxed whitespace-pre-wrap">
                         Loading...
                     </div>
+              <div class="hidden p-6 flex-1" id="text-modal-editor-wrap">
+                <textarea id="text-modal-editor"
+                      class="w-full h-full rounded-xl bg-dark-700 border border-white/10 p-4 text-gray-200 focus:outline-none focus:border-primary resize-none"></textarea>
+              </div>
                 </div>
             </div>
         </div>
@@ -226,6 +242,11 @@ const playerState = {
   speed: 1.0,
   audioElement: null,
   bookmarkSaveTimeout: null,
+  chapterTextCache: "",
+  textEditMode: false,
+  textModalBusy: false,
+  reconvertJobId: null,
+  reconvertResume: null,
 };
 
 /**
@@ -253,6 +274,11 @@ function teardownPlayerView() {
   playerState.currentChapter = 1;
   playerState.book = null;
   playerState.audioElement = null;
+  playerState.chapterTextCache = "";
+  playerState.textEditMode = false;
+  playerState.textModalBusy = false;
+  playerState.reconvertJobId = null;
+  playerState.reconvertResume = null;
 }
 
 /**
@@ -380,24 +406,68 @@ function setupAudioListeners() {
  * Load a specific chapter
  * @param {number} chapterNum - Chapter number to load
  */
-function loadChapter(chapterNum) {
+function loadChapter(chapterNum, options = {}) {
   if (!playerState.book) return;
 
   playerState.currentChapter = chapterNum;
   const audio = playerState.audioElement;
+  const shouldAutoPlay = options.autoPlay ?? playerState.isPlaying;
+  const cacheBust = options.cacheBust ? `?v=${Date.now()}` : "";
 
   // Update audio source
-  audio.src = `/api/audio/${playerState.book.id}/${chapterNum}`;
+  audio.src = `/api/audio/${playerState.book.id}/${chapterNum}${cacheBust}`;
   audio.playbackRate = playerState.speed;
 
-  // If was playing, continue playing
-  if (playerState.isPlaying) {
-    audio.play();
+  if (typeof options.resumeTime === "number") {
+    const resumeTime = Math.max(0, options.resumeTime);
+    audio.addEventListener(
+      "loadedmetadata",
+      function seekAndOptionallyPlay() {
+        const cappedTime = Number.isFinite(audio.duration)
+          ? Math.min(resumeTime, Math.max(0, audio.duration - 0.25))
+          : resumeTime;
+        audio.currentTime = cappedTime;
+        audio.removeEventListener("loadedmetadata", seekAndOptionallyPlay);
+        if (shouldAutoPlay) {
+          audio.play().catch(() => {});
+        }
+      },
+      { once: true },
+    );
+  } else if (shouldAutoPlay) {
+    audio.play().catch(() => {});
   }
 
   // Update UI
   renderChapterList();
   updateOverallProgress();
+}
+
+/**
+ * Release file lock for current audio by detaching source from the audio element.
+ * @returns {{chapter:number, position:number, wasPlaying:boolean}|null}
+ */
+function releaseCurrentAudioFileLock() {
+  const audio = playerState.audioElement;
+  if (!audio || !audio.src) return null;
+
+  const snapshot = {
+    chapter: playerState.currentChapter,
+    position: Number.isFinite(audio.currentTime) ? audio.currentTime : 0,
+    wasPlaying: playerState.isPlaying,
+  };
+
+  try {
+    audio.pause();
+    audio.removeAttribute("src");
+    audio.load();
+  } catch (error) {
+    console.warn("Unable to fully release current audio source:", error);
+  }
+
+  playerState.isPlaying = false;
+  updatePlayButton();
+  return snapshot;
 }
 
 /**
@@ -593,6 +663,9 @@ async function viewChapterText() {
   // Show modal with loading state
   modal.classList.remove("hidden");
   contentArea.textContent = "Loading...";
+  setTextModalStatus("");
+  playerState.chapterTextCache = "";
+  setTextModalEditMode(false);
 
   const chapter = playerState.book.chapters.find(
     (ch) => ch.number === playerState.currentChapter,
@@ -602,14 +675,175 @@ async function viewChapterText() {
     : `Chapter ${playerState.currentChapter}`;
 
   try {
-    const response = await fetch(
-      `/api/text/${playerState.book.id}/${playerState.currentChapter}`,
+    const data = await api.getChapterText(
+      playerState.book.id,
+      playerState.currentChapter,
     );
-    if (!response.ok) throw new Error("Text not available");
-    const data = await response.json();
+    playerState.chapterTextCache = data.content;
     contentArea.textContent = data.content;
+    const editor = document.getElementById("text-modal-editor");
+    editor.value = data.content;
   } catch (e) {
     contentArea.textContent = "Chapter text is not available for this book.";
+    setTextModalStatus("Text unavailable");
+  }
+}
+
+function setTextModalStatus(message) {
+  const status = document.getElementById("text-modal-status");
+  if (!status) return;
+  status.textContent = message || "";
+}
+
+function setTextModalBusy(isBusy) {
+  playerState.textModalBusy = isBusy;
+  const editBtn = document.getElementById("text-edit-btn");
+  const saveBtn = document.getElementById("text-save-btn");
+  const reconvertBtn = document.getElementById("text-reconvert-btn");
+
+  if (editBtn) editBtn.disabled = isBusy;
+  if (saveBtn) saveBtn.disabled = isBusy;
+  if (reconvertBtn) reconvertBtn.disabled = isBusy;
+}
+
+function setTextModalEditMode(isEditMode) {
+  playerState.textEditMode = isEditMode;
+
+  const content = document.getElementById("text-modal-content");
+  const editorWrap = document.getElementById("text-modal-editor-wrap");
+  const editBtn = document.getElementById("text-edit-btn");
+  const saveBtn = document.getElementById("text-save-btn");
+  const reconvertBtn = document.getElementById("text-reconvert-btn");
+
+  if (content) content.classList.toggle("hidden", isEditMode);
+  if (editorWrap) editorWrap.classList.toggle("hidden", !isEditMode);
+
+  if (editBtn) editBtn.classList.toggle("hidden", isEditMode);
+  if (saveBtn) saveBtn.classList.toggle("hidden", !isEditMode);
+  if (reconvertBtn) reconvertBtn.classList.toggle("hidden", !isEditMode);
+}
+
+function toggleTextEditMode() {
+  if (playerState.textModalBusy) return;
+  const editor = document.getElementById("text-modal-editor");
+  if (editor) {
+    editor.value = playerState.chapterTextCache || "";
+  }
+  setTextModalStatus("");
+  setTextModalEditMode(true);
+}
+
+async function saveChapterTextEdits() {
+  if (!playerState.book || playerState.textModalBusy) return;
+
+  const editor = document.getElementById("text-modal-editor");
+  const nextContent = editor.value.trim();
+  if (!nextContent) {
+    setTextModalStatus("Chapter text cannot be empty.");
+    return;
+  }
+
+  setTextModalBusy(true);
+  setTextModalStatus("Saving chapter text...");
+
+  try {
+    await api.saveChapterText(
+      playerState.book.id,
+      playerState.currentChapter,
+      nextContent,
+    );
+    playerState.chapterTextCache = nextContent;
+    document.getElementById("text-modal-content").textContent = nextContent;
+    setTextModalEditMode(false);
+    setTextModalStatus("Saved.");
+  } catch (error) {
+    setTextModalStatus(error.message || "Failed to save chapter text.");
+  } finally {
+    setTextModalBusy(false);
+  }
+}
+
+async function waitForJobCompletion(jobId, timeoutMs = 600000) {
+  const pollIntervalMs = 1500;
+  const startedAt = Date.now();
+
+  while (Date.now() - startedAt < timeoutMs) {
+    const status = await api.getStatus(jobId);
+    if (status.status === "completed") {
+      return status;
+    }
+    if (status.status === "failed" || status.status === "cancelled") {
+      throw new Error("Chapter reconversion did not complete.");
+    }
+    await new Promise((resolve) => setTimeout(resolve, pollIntervalMs));
+  }
+
+  throw new Error("Timed out waiting for chapter reconversion.");
+}
+
+async function reloadCurrentBookMetadata() {
+  if (!playerState.book) return;
+  const updatedBook = await api.getBook(playerState.book.id);
+  playerState.book = updatedBook;
+  renderChapterList();
+  updateOverallProgress();
+}
+
+async function reconvertCurrentChapter() {
+  if (!playerState.book || playerState.textModalBusy) return;
+
+  const editor = document.getElementById("text-modal-editor");
+  const nextContent = editor.value.trim();
+  if (!nextContent) {
+    setTextModalStatus("Chapter text cannot be empty.");
+    return;
+  }
+
+  setTextModalBusy(true);
+  try {
+    setTextModalStatus("Saving chapter text...");
+    await api.saveChapterText(
+      playerState.book.id,
+      playerState.currentChapter,
+      nextContent,
+    );
+    playerState.chapterTextCache = nextContent;
+    document.getElementById("text-modal-content").textContent = nextContent;
+
+    const resumeSnapshot = releaseCurrentAudioFileLock();
+    playerState.reconvertResume = resumeSnapshot;
+
+    setTextModalStatus("Queueing chapter reconversion...");
+    const reconvertResponse = await api.reconvertChapter(
+      playerState.book.id,
+      playerState.currentChapter,
+    );
+
+    playerState.reconvertJobId = reconvertResponse.job_id;
+    setTextModalStatus("Reconverting chapter audio...");
+    await waitForJobCompletion(playerState.reconvertJobId);
+
+    await reloadCurrentBookMetadata();
+    setTextModalEditMode(false);
+
+    if (
+      resumeSnapshot &&
+      resumeSnapshot.chapter === playerState.currentChapter
+    ) {
+      loadChapter(playerState.currentChapter, {
+        cacheBust: true,
+        autoPlay: resumeSnapshot.wasPlaying,
+        resumeTime: resumeSnapshot.position,
+      });
+    }
+
+    setTextModalStatus("Reconversion complete.");
+  } catch (error) {
+    setTextModalStatus(error.message || "Failed to reconvert chapter audio.");
+  } finally {
+    playerState.reconvertJobId = null;
+    playerState.reconvertResume = null;
+    setTextModalBusy(false);
   }
 }
 
@@ -617,6 +851,9 @@ async function viewChapterText() {
  * Close the chapter text modal
  */
 function closeTextModal() {
+  if (playerState.textModalBusy) return;
+  setTextModalStatus("");
+  setTextModalEditMode(false);
   document.getElementById("text-modal").classList.add("hidden");
 }
 
