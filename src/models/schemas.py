@@ -104,6 +104,16 @@ class UploadResponse(BaseModel):
     chapters_detected: int = 0
 
 
+class ImportResponse(BaseModel):
+    """Response from importing an audiobook archive."""
+
+    status: str
+    book_id: str
+    title: str
+    total_chapters: int = 0
+    id_remapped: bool = False
+
+
 class ActivityLogEntry(BaseModel):
     """Single entry in the activity log."""
 

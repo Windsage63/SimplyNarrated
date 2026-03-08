@@ -4,10 +4,12 @@ Tests for the LibraryManager (file-based persistence).
 
 import os
 import json
+import zipfile
 import pytest
 from datetime import datetime
 
 from src.core.library import LibraryManager, BookMetadata, Bookmark
+from src.core.portability import export_book_archive, import_book_archive
 
 
 # ---------------------------------------------------------------------------
@@ -127,3 +129,96 @@ class TestDeleteBook:
 
     def test_delete_nonexistent(self, library_manager):
         assert library_manager.delete_book("nope") is False
+
+
+class TestPortability:
+    def test_export_and_import_round_trip(self, library_manager, tmp_path):
+        book_id = "12345678-1234-1234-1234-123456789abc"
+        meta = BookMetadata(
+            id=book_id,
+            title="Portable Book",
+            author="Portable Author",
+            source_file="source.txt",
+            original_filename="portable.txt",
+            total_chapters=1,
+            chapters=[
+                {
+                    "number": 1,
+                    "title": "Ch 1",
+                    "audio_path": "chapter_01.mp3",
+                    "text_path": "chapter_01.txt",
+                    "completed": True,
+                }
+            ],
+        )
+        assert library_manager.save_book(book_id, meta) is True
+
+        book_dir = library_manager.get_book_dir(book_id)
+        with open(os.path.join(book_dir, "chapter_01.mp3"), "wb") as f:
+            f.write(b"fake-mp3-data")
+        with open(os.path.join(book_dir, "chapter_01.txt"), "w", encoding="utf-8") as f:
+            f.write("Portable chapter text")
+        with open(os.path.join(book_dir, "source.txt"), "w", encoding="utf-8") as f:
+            f.write("Portable source")
+        with open(os.path.join(book_dir, "bookmarks.json"), "w", encoding="utf-8") as f:
+            json.dump({"chapter": 1, "position": 42.0}, f)
+        with open(os.path.join(book_dir, "cover.png"), "wb") as f:
+            f.write(b"png")
+
+        archive_path, download_name = export_book_archive(library_manager, book_id)
+        assert download_name == "Portable Book.zip"
+        assert os.path.exists(archive_path)
+
+        with zipfile.ZipFile(archive_path) as archive:
+            names = set(archive.namelist())
+            assert any(name.endswith("/export_manifest.json") for name in names)
+            assert any(name.endswith("/chapter_01.mp3") for name in names)
+            assert any(name.endswith("/chapter_01.txt") for name in names)
+
+        library_manager.delete_book(book_id)
+
+        result = import_book_archive(library_manager, archive_path)
+        assert result["status"] == "imported"
+        imported_dir = library_manager.get_book_dir(result["book_id"])
+        assert os.path.exists(os.path.join(imported_dir, "chapter_01.mp3"))
+        assert os.path.exists(os.path.join(imported_dir, "chapter_01.txt"))
+        assert os.path.exists(os.path.join(imported_dir, "bookmarks.json"))
+
+    def test_import_remaps_conflicting_book_id(self, library_manager):
+        book_id = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
+        existing = BookMetadata(id=book_id, title="Existing")
+        library_manager.save_book(book_id, existing)
+
+        archive_root = os.path.join(library_manager.library_dir, "archive-source")
+        os.makedirs(archive_root, exist_ok=True)
+        archive_path = os.path.join(archive_root, "conflict.zip")
+        with zipfile.ZipFile(archive_path, "w") as archive:
+            archive.writestr(
+                "Portable/export_manifest.json",
+                json.dumps({"archive_type": "simplynarrated-audiobook", "schema_version": 1}),
+            )
+            archive.writestr(
+                "Portable/metadata.json",
+                json.dumps(
+                    {
+                        "id": book_id,
+                        "title": "Imported",
+                        "total_chapters": 1,
+                        "chapters": [
+                            {
+                                "number": 1,
+                                "title": "Chapter 1",
+                                "audio_path": "chapter_01.mp3",
+                                "text_path": "chapter_01.txt",
+                                "completed": True,
+                            }
+                        ],
+                    }
+                ),
+            )
+            archive.writestr("Portable/chapter_01.mp3", b"audio")
+            archive.writestr("Portable/chapter_01.txt", "text")
+
+        result = import_book_archive(library_manager, archive_path)
+        assert result["id_remapped"] is True
+        assert result["book_id"] != book_id

@@ -173,6 +173,43 @@ const api = {
     return response.json();
   },
 
+  async exportBook(bookId) {
+    const response = await fetch(`${this.baseUrl}/book/${bookId}/export`);
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      throw new Error(error.detail || "Failed to export audiobook");
+    }
+
+    const disposition = response.headers.get("content-disposition") || "";
+    const encodedMatch = disposition.match(/filename\*=UTF-8''([^;]+)/i);
+    const plainMatch = disposition.match(/filename="?([^";]+)"?/i);
+    const filename = encodedMatch
+      ? decodeURIComponent(encodedMatch[1])
+      : plainMatch?.[1] || `${bookId}.zip`;
+
+    return {
+      blob: await response.blob(),
+      filename,
+    };
+  },
+
+  async importAudiobook(file) {
+    const formData = new FormData();
+    formData.append("file", file);
+
+    const response = await fetch(`${this.baseUrl}/library/import`, {
+      method: "POST",
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      throw new Error(error.detail || "Failed to import audiobook");
+    }
+
+    return response.json();
+  },
+
   async getChapterText(bookId, chapter) {
     const response = await fetch(`${this.baseUrl}/text/${bookId}/${chapter}`);
     if (!response.ok) {

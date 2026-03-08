@@ -26,7 +26,11 @@ def _make_upload_file(content: bytes, filename: str):
     return {"file": (filename, io.BytesIO(content), "application/octet-stream")}
 
 
-def _populate_book(library_dir: str, book_id: str = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"):
+def _populate_book(
+    library_dir: str,
+    book_id: str = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+    include_portability_assets: bool = False,
+):
     """Create a book in the library dir with metadata and a tiny MP3 chapter."""
     from pydub import AudioSegment
     from datetime import datetime
@@ -70,6 +74,25 @@ def _populate_book(library_dir: str, book_id: str = "aaaaaaaa-bbbb-cccc-dddd-eee
 
     with open(os.path.join(book_dir, "chapter_01.txt"), "w", encoding="utf-8") as f:
         f.write("This is chapter one text content.")
+
+    metadata["chapters"][0]["text_path"] = "chapter_01.txt"
+
+    if include_portability_assets:
+        with open(os.path.join(book_dir, "bookmarks.json"), "w", encoding="utf-8") as f:
+            json.dump({"chapter": 1, "position": 12.5}, f)
+
+        with open(os.path.join(book_dir, "source.txt"), "w", encoding="utf-8") as f:
+            f.write("Original source content")
+
+        metadata["source_file"] = "source.txt"
+        metadata["original_filename"] = "api-test-book.txt"
+        metadata["cover_url"] = f"/api/book/{book_id}/cover"
+
+        with open(os.path.join(book_dir, "cover.jpg"), "wb") as f:
+            f.write(b"\xff\xd8\xff\xd9")
+
+    with open(os.path.join(book_dir, "metadata.json"), "w") as f:
+        json.dump(metadata, f)
 
     return book_id
 
@@ -200,6 +223,74 @@ class TestVoicesEndpoint:
         # Spot-check a voice
         ids = [v["id"] for v in data["voices"]]
         assert "af_heart" in ids
+
+
+class TestPortabilityEndpoints:
+    async def test_export_book_archive(self, app_client, tmp_library_dir):
+        book_id = _populate_book(str(tmp_library_dir), include_portability_assets=True)
+
+        resp = await app_client.get(f"/api/book/{book_id}/export")
+        assert resp.status_code == 200
+        assert resp.headers["content-type"] == "application/zip"
+        assert "API%20Test%20Book.zip" in resp.headers.get("content-disposition", "")
+
+        import zipfile
+
+        archive_bytes = io.BytesIO(resp.content)
+        with zipfile.ZipFile(archive_bytes) as archive:
+            names = set(archive.namelist())
+            root = next(name.split("/")[0] for name in names if "/" in name)
+            assert f"{root}/export_manifest.json" in names
+            assert f"{root}/metadata.json" in names
+            assert f"{root}/bookmarks.json" in names
+            assert f"{root}/chapter_01.mp3" in names
+            assert f"{root}/chapter_01.txt" in names
+            assert f"{root}/cover.jpg" in names
+            assert f"{root}/source.txt" in names
+
+    async def test_import_book_archive(self, app_client, tmp_library_dir):
+        book_id = _populate_book(str(tmp_library_dir), include_portability_assets=True)
+        export_resp = await app_client.get(f"/api/book/{book_id}/export")
+        assert export_resp.status_code == 200
+
+        delete_resp = await app_client.delete(f"/api/book/{book_id}")
+        assert delete_resp.status_code == 200
+
+        archive_bytes = io.BytesIO(export_resp.content)
+        import_resp = await app_client.post(
+            "/api/library/import",
+            files={"file": ("API Test Book.zip", archive_bytes, "application/zip")},
+        )
+        assert import_resp.status_code == 200
+        payload = import_resp.json()
+        assert payload["status"] == "imported"
+        assert payload["title"] == "API Test Book"
+        assert payload["total_chapters"] == 1
+        assert payload["id_remapped"] is False
+
+        book_resp = await app_client.get(f"/api/book/{payload['book_id']}")
+        assert book_resp.status_code == 200
+        book_payload = book_resp.json()
+        assert book_payload["title"] == "API Test Book"
+
+        bookmark_resp = await app_client.get(f"/api/bookmark/{payload['book_id']}")
+        assert bookmark_resp.status_code == 200
+        assert bookmark_resp.json()["position"] == pytest.approx(12.5)
+
+    async def test_import_rejects_non_portability_zip(self, app_client):
+        import zipfile
+
+        archive_bytes = io.BytesIO()
+        with zipfile.ZipFile(archive_bytes, "w") as archive:
+            archive.writestr("book.html", "<html><body>not an export</body></html>")
+        archive_bytes.seek(0)
+
+        resp = await app_client.post(
+            "/api/library/import",
+            files={"file": ("gutenberg.zip", archive_bytes, "application/zip")},
+        )
+        assert resp.status_code == 400
+        assert "missing required file" in resp.json()["detail"].lower() or "not a simplynarrated audiobook archive" in resp.json()["detail"].lower()
 
 
 # ===========================================================================

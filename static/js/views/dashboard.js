@@ -21,6 +21,11 @@
 // Dashboard View
 // ============================================
 
+const dashboardState = {
+  importing: false,
+  exportingBookIds: new Set(),
+};
+
 function renderDashboardView() {
   return `
         <div class="space-y-8">
@@ -55,6 +60,12 @@ function renderDashboardView() {
                     My Library
                 </h3>
               <div class="flex items-center gap-2">
+              <button id="import-audiobook-btn" onclick="triggerAudiobookImport()"
+                 class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-dark-600 hover:bg-dark-700 transition inline-flex items-center gap-1.5">
+                <span class="material-symbols-outlined text-sm">library_add</span>
+                Import Audiobook
+              </button>
+              <input id="import-audiobook-input" type="file" class="hidden" accept=".zip" />
                 <input id="library-search" type="search" placeholder="Search library..."
                      class="px-3 py-1.5 text-sm rounded-lg bg-dark-700 border border-dark-600 focus:outline-none focus:border-primary w-44 sm:w-56" />
                     <button onclick="sortLibrary('recent')" class="sort-btn px-3 py-1.5 text-xs font-semibold 
@@ -124,6 +135,11 @@ async function initDashboardView() {
       searchInput.addEventListener("input", () => {
         renderLibraryGrid(getVisibleLibraryBooks());
       });
+    }
+
+    const importInput = document.getElementById("import-audiobook-input");
+    if (importInput) {
+      importInput.addEventListener("change", handleAudiobookImportSelection);
     }
   } catch (error) {
     console.error("Failed to load library:", error);
@@ -198,6 +214,13 @@ function renderLibraryGrid(books) {
       (book) => `
         <div class="glass rounded-xl p-4 cursor-pointer hover:border-primary transition relative group/card"
              onclick="showPlayer('${book.id}')">
+            <button onclick="exportBook(event, '${book.id}')"
+                    class="absolute top-2 left-2 z-10 w-8 h-8 rounded-full bg-primary/10 hover:bg-primary text-primary hover:text-white
+                           flex items-center justify-center opacity-0 group-hover/card:opacity-100 transition duration-200"
+                    title="Export audiobook"
+                    data-export-book-id="${book.id}">
+                <span class="material-symbols-outlined text-sm">download</span>
+            </button>
             <!-- Delete Button -->
             <button onclick="deleteBook(event, '${book.id}', '${book.title.replace(/'/g, "\\'")}')"
                     class="absolute top-2 right-2 z-10 w-8 h-8 rounded-full bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white 
@@ -226,6 +249,93 @@ function renderLibraryGrid(books) {
     `,
     )
     .join("");
+}
+
+function triggerAudiobookImport() {
+  if (dashboardState.importing) return;
+
+  const input = document.getElementById("import-audiobook-input");
+  if (!input) return;
+
+  input.value = "";
+  input.click();
+}
+
+async function handleAudiobookImportSelection(event) {
+  const file = event.target.files?.[0];
+  if (!file || dashboardState.importing) {
+    return;
+  }
+
+  if (!file.name.toLowerCase().endsWith(".zip")) {
+    alert("Please select a .zip audiobook archive.");
+    event.target.value = "";
+    return;
+  }
+
+  dashboardState.importing = true;
+  const button = document.getElementById("import-audiobook-btn");
+  const originalMarkup = button?.innerHTML;
+  if (button) {
+    button.disabled = true;
+    button.classList.add("opacity-70", "cursor-not-allowed");
+    button.innerHTML = '<span class="material-symbols-outlined text-sm animate-spin">progress_activity</span>Importing...';
+  }
+
+  try {
+    const result = await api.importAudiobook(file);
+    await initDashboardView();
+    const remapNote = result.id_remapped ? " A new local ID was assigned to avoid a conflict." : "";
+    alert(`Imported "${result.title}" successfully.${remapNote}`);
+  } catch (error) {
+    alert("Error: " + error.message);
+  } finally {
+    dashboardState.importing = false;
+    event.target.value = "";
+    if (button) {
+      button.disabled = false;
+      button.classList.remove("opacity-70", "cursor-not-allowed");
+      button.innerHTML =
+        originalMarkup ||
+        '<span class="material-symbols-outlined text-sm">library_add</span>Import Audiobook';
+    }
+  }
+}
+
+async function exportBook(event, bookId) {
+  event.stopPropagation();
+  if (dashboardState.exportingBookIds.has(bookId)) {
+    return;
+  }
+
+  dashboardState.exportingBookIds.add(bookId);
+  const button = document.querySelector(`[data-export-book-id="${bookId}"]`);
+  if (button) {
+    button.disabled = true;
+    button.classList.add("opacity-100", "bg-primary", "text-white");
+    button.innerHTML = '<span class="material-symbols-outlined text-sm animate-spin">progress_activity</span>';
+  }
+
+  try {
+    const result = await api.exportBook(bookId);
+    const url = URL.createObjectURL(result.blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = result.filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  } catch (error) {
+    alert("Error: " + error.message);
+  } finally {
+    dashboardState.exportingBookIds.delete(bookId);
+    if (button) {
+      button.disabled = false;
+      button.classList.remove("opacity-100", "bg-primary", "text-white");
+      button.innerHTML = '<span class="material-symbols-outlined text-sm">download</span>';
+    }
+  }
 }
 
 /**
