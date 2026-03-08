@@ -43,6 +43,7 @@ from src.models.schemas import (
     UpdateChapterTextRequest,
     ReconvertChapterRequest,
 )
+from src.core.encoder import retag_book_mp3_files
 from src.core.job_manager import get_job_manager
 from src.core.library import get_library_manager
 from src.core.portability import export_book_archive, import_book_archive
@@ -105,6 +106,21 @@ def _ensure_chapter_exists_or_404(metadata: dict, chapter: int) -> None:
     exists = any(int(ch.get("number", 0)) == chapter for ch in metadata.get("chapters", []))
     if not exists:
         raise HTTPException(status_code=404, detail="Chapter not found")
+
+
+def _validate_bookmark_or_400(metadata: dict, chapter: int, position: float) -> None:
+    """Validate bookmark chapter and position values."""
+    if chapter < 1:
+        raise HTTPException(status_code=400, detail="Chapter must be >= 1")
+    if position < 0:
+        raise HTTPException(status_code=400, detail="Position must be non-negative")
+
+    total_chapters = int(metadata.get("total_chapters") or len(metadata.get("chapters", [])) or 0)
+    if total_chapters > 0 and chapter > total_chapters:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Chapter {chapter} exceeds book chapter count ({total_chapters})",
+        )
 
 
 def _cleanup_file(path: str) -> None:
@@ -605,6 +621,10 @@ async def save_bookmark(book_id: str, chapter: int, position: float):
     _validate_book_id_or_400(book_id)
 
     library = get_library_manager()
+    book_dir = library.get_book_dir(book_id)
+    metadata = _load_book_metadata_or_404(book_dir)
+    _validate_bookmark_or_400(metadata, chapter, position)
+
     success = library.save_bookmark(book_id, chapter, position)
 
     if not success:
@@ -650,10 +670,15 @@ async def update_book_metadata(book_id: str, request: UpdateMetadataRequest):
         raise HTTPException(status_code=400, detail="No fields to update")
 
     library = get_library_manager()
+    book_dir = library.get_book_dir(book_id)
+    _load_book_metadata_or_404(book_dir)
     success = library.update_book_metadata(book_id, updates)
 
     if not success:
         raise HTTPException(status_code=404, detail="Book not found")
+
+    metadata = _load_book_metadata_or_404(book_dir)
+    retag_book_mp3_files(book_dir, metadata)
 
     return {"status": "updated", "book_id": book_id, **updates}
 
@@ -716,6 +741,8 @@ async def upload_cover(book_id: str, file: UploadFile = File(...)):
     # Update metadata
     cover_url = f"/api/book/{book_id}/cover"
     library.update_book_metadata(book_id, {"cover_url": cover_url})
+    metadata = _load_book_metadata_or_404(book_dir)
+    retag_book_mp3_files(book_dir, metadata)
 
     return {"status": "uploaded", "cover_url": cover_url}
 

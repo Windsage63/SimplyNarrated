@@ -8,6 +8,7 @@ import os
 import io
 import json
 import asyncio
+import base64
 import pytest
 import numpy as np
 from mutagen.id3 import ID3
@@ -483,7 +484,7 @@ class TestBookmarkEndpoints:
 
         # Save
         resp = await app_client.post(
-            f"/api/bookmark?book_id={book_id}&chapter=2&position=33.5"
+            f"/api/bookmark?book_id={book_id}&chapter=1&position=33.5"
         )
         assert resp.status_code == 200
 
@@ -491,7 +492,7 @@ class TestBookmarkEndpoints:
         resp = await app_client.get(f"/api/bookmark/{book_id}")
         assert resp.status_code == 200
         data = resp.json()
-        assert data["chapter"] == 2
+        assert data["chapter"] == 1
         assert data["position"] == pytest.approx(33.5)
 
     async def test_default_bookmark(self, app_client, tmp_library_dir):
@@ -508,6 +509,34 @@ class TestBookmarkEndpoints:
     async def test_save_bookmark_invalid_book_id(self, app_client):
         resp = await app_client.post(
             "/api/bookmark?book_id=not-a-valid-uuid&chapter=1&position=10"
+        )
+        assert resp.status_code == 400
+
+    async def test_save_bookmark_rejects_chapter_zero(self, app_client, tmp_library_dir):
+        book_id = _populate_book(str(tmp_library_dir))
+        resp = await app_client.post(
+            f"/api/bookmark?book_id={book_id}&chapter=0&position=10"
+        )
+        assert resp.status_code == 400
+
+    async def test_save_bookmark_rejects_negative_chapter(self, app_client, tmp_library_dir):
+        book_id = _populate_book(str(tmp_library_dir))
+        resp = await app_client.post(
+            f"/api/bookmark?book_id={book_id}&chapter=-1&position=10"
+        )
+        assert resp.status_code == 400
+
+    async def test_save_bookmark_rejects_negative_position(self, app_client, tmp_library_dir):
+        book_id = _populate_book(str(tmp_library_dir))
+        resp = await app_client.post(
+            f"/api/bookmark?book_id={book_id}&chapter=1&position=-5"
+        )
+        assert resp.status_code == 400
+
+    async def test_save_bookmark_rejects_chapter_exceeds_total(self, app_client, tmp_library_dir):
+        book_id = _populate_book(str(tmp_library_dir))
+        resp = await app_client.post(
+            f"/api/bookmark?book_id={book_id}&chapter=2&position=10"
         )
         assert resp.status_code == 400
 
@@ -651,6 +680,39 @@ class TestChapterEditEndpoints:
 
 
 class TestCoverEndpoints:
+    async def test_metadata_patch_retags_existing_mp3(self, app_client, tmp_library_dir):
+        book_id = _populate_book(str(tmp_library_dir))
+        audio_path = os.path.join(str(tmp_library_dir), book_id, "chapter_01.mp3")
+
+        resp = await app_client.patch(
+            f"/api/book/{book_id}",
+            json={"title": "Renamed Book", "author": "Updated Author"},
+        )
+        assert resp.status_code == 200
+
+        tags = ID3(audio_path)
+        assert tags.get("TIT2").text == ["Chapter 1"]
+        assert tags.get("TALB").text == ["Renamed Book"]
+        assert tags.get("TPE1").text == ["Updated Author"]
+        assert tags.get("TRCK").text == ["1/1"]
+
+    async def test_upload_cover_retags_existing_mp3(self, app_client, tmp_library_dir):
+        book_id = _populate_book(str(tmp_library_dir))
+        audio_path = os.path.join(str(tmp_library_dir), book_id, "chapter_01.mp3")
+        jpeg_bytes = b"\xff\xd8\xff\xd9"
+
+        resp = await app_client.post(
+            f"/api/book/{book_id}/cover",
+            files={"file": ("cover.jpg", io.BytesIO(jpeg_bytes), "image/jpeg")},
+        )
+        assert resp.status_code == 200
+
+        tags = ID3(audio_path)
+        artwork = tags.getall("APIC")
+        assert len(artwork) == 1
+        assert artwork[0].mime == "image/jpeg"
+        assert artwork[0].data == jpeg_bytes
+
     async def test_get_cover_invalid_book_id(self, app_client):
         resp = await app_client.get("/api/book/not-a-valid-uuid/cover")
         assert resp.status_code == 400

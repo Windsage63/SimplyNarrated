@@ -101,7 +101,7 @@ function renderPlayerView(bookId) {
                     </button>
                     
                     <!-- Save Bookmark -->
-                    <button onclick="saveCurrentBookmark()" class="flex items-center gap-2 px-3 py-2 rounded-lg 
+                    <button onclick="saveCurrentBookmark(event)" class="flex items-center gap-2 px-3 py-2 rounded-lg 
                                                                     bg-dark-600 hover:bg-dark-700 transition">
                         <span class="material-symbols-outlined text-lg">bookmark_add</span>
                         <span>Bookmark</span>
@@ -584,14 +584,28 @@ async function loadBookmark(bookId) {
     const response = await fetch(`/api/bookmark/${bookId}`);
     if (response.ok) {
       const bookmark = await response.json();
-      playerState.currentChapter = bookmark.chapter || 1;
+      const maxChapter = Math.max(1, playerState.book?.total_chapters || 1);
+      const rawChapter = Number(bookmark.chapter);
+      const safeChapter = Number.isFinite(rawChapter)
+        ? Math.min(maxChapter, Math.max(1, Math.trunc(rawChapter)))
+        : 1;
+      const rawPosition = Number(bookmark.position);
+      const safePosition = Number.isFinite(rawPosition)
+        ? Math.max(0, rawPosition)
+        : 0;
+
+      playerState.currentChapter = safeChapter;
 
       // Wait for audio to load, then seek to position
-      if (bookmark.position > 0) {
+      if (safePosition > 0) {
         playerState.audioElement.addEventListener(
           "loadedmetadata",
           function seekOnce() {
-            playerState.audioElement.currentTime = bookmark.position;
+            const duration = playerState.audioElement.duration;
+            const clampedPosition = Number.isFinite(duration)
+              ? Math.min(safePosition, Math.max(0, duration - 0.25))
+              : safePosition;
+            playerState.audioElement.currentTime = clampedPosition;
             playerState.audioElement.removeEventListener(
               "loadedmetadata",
               seekOnce,
@@ -608,10 +622,11 @@ async function loadBookmark(bookId) {
 /**
  * Save current position as bookmark
  */
-async function saveCurrentBookmark() {
+async function saveCurrentBookmark(event) {
   await saveBookmarkToServer();
   // Visual feedback
-  const btn = event.target.closest("button");
+  const btn = event?.currentTarget || event?.target?.closest("button");
+  if (!btn) return;
   const originalContent = btn.innerHTML;
   btn.innerHTML =
     '<span class="material-symbols-outlined text-lg text-green-400">check</span><span>Saved!</span>';

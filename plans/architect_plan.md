@@ -3,20 +3,22 @@
 > **Text-to-Audiobook Conversion Application**
 > Using Kokoro-82M TTS with FastAPI Backend
 
-## 0. Implementation Status Snapshot (2026-02-14)
+## 0. Implementation Status Snapshot (2026-03-08)
 
 This blueprint contains target architecture and planned capabilities. Current implementation differs in a few important ways:
 
-- Output is currently **MP3-only** (WAV is planned, not implemented).
-- Conversion uses a **single narrator voice** in the active pipeline (dialogue voice switching is planned).
-- Job management now includes **persisted job state**, **restart recovery**, and **bounded concurrent processing**.
-- Landing page route is implemented with a **lightweight starter screen** pending full branded hero assets.
+- Upload supports **TXT, Markdown, PDF, and Gutenberg HTML ZIP** sources.
+- Output is currently **MP3-only**. Generated and reconverted chapters receive **ID3 metadata** (title, album, artist, track number, and embedded cover art when available).
+- Conversion uses a **single narrator voice** in the active pipeline (dialogue voice switching is still planned).
+- Library workflows now include **cover upload**, **portability export/import ZIPs**, **editable chapter text**, and **per-chapter reconversion**.
+- Job management includes **persisted job state**, **restart recovery**, and **bounded concurrent processing**.
+- Frontend assets needed for the main UI are served locally for **offline use** after installation.
 
 Use this section as the source of truth when blueprint intent and runtime behavior conflict.
 
 ## 1. Executive Summary
 
-SimplyNarrated is a local web application that converts books and text documents (`.txt`, `.md`, `.pdf`) into audiobooks saved as MP3 chapter files. Designed for non-technical users, it provides a polished multi-page interface with a landing page, file upload/configuration screen, conversion progress tracker, audiobook player, and user dashboard. The system uses the Kokoro-82M model running locally on GPU for high-quality, expressive speech synthesis.
+SimplyNarrated is a local web application that converts books and text documents (`.txt`, `.md`, `.pdf`, `.zip`) into audiobooks saved as MP3 chapter files. Designed for non-technical users, it provides a polished multi-page interface with a landing page, file upload/configuration screen, conversion progress tracker, audiobook player, and user dashboard. The system uses the Kokoro-82M model running locally on GPU for high-quality, expressive speech synthesis.
 
 ## 2. Technical Stack
 
@@ -25,8 +27,8 @@ SimplyNarrated is a local web application that converts books and text documents
 | **Frontend** | HTML/TailwindCSS/JavaScript | Modern dark-mode UI from Stitch designs |
 | **Backend** | Python 3.12 / FastAPI | Modern async framework, auto-generated API docs |
 | **TTS Model** | Kokoro-82M (82M) | Apache 2.0 license, high-quality, lightweight, low VRAM |
-| **Audio** | pydub + ffmpeg | MP3/WAV encoding and audio manipulation |
-| **File Parsing** | PyMuPDF, markdown | PDF and Markdown parsing |
+| **Audio** | pydub + ffmpeg + mutagen | MP3 encoding, metadata tagging, and audio manipulation |
+| **File Parsing** | PyMuPDF, regex/html utilities | PDF, Markdown, and Gutenberg ZIP parsing |
 | **Local Server** | Uvicorn | ASGI server for FastAPI |
 | **Icons** | Material Symbols Outlined | Google icon font from Stitch designs |
 | **Typography** | Inter (Google Fonts) | Clean, professional font family |
@@ -73,7 +75,7 @@ SimplyNarrated is a local web application that converts books and text documents
 | Screen | Purpose | Key Features |
 | ------ | ------- | ------------ |
 | **Landing Page** | Marketing/intro page | Hero section, 3-step process, feature cards, CTA |
-| **File Upload & Config** | Main conversion setup | Drag-drop upload, voice cards with preview, audio settings (speed, quality, format) |
+| **File Upload & Config** | Main conversion setup | Drag-drop upload, voice cards with preview, audio settings (speed, quality, MP3 output) |
 | **Conversion Progress** | Processing feedback | Circular progress indicator, activity log, time/rate stats, cancel option |
 | **Audiobook Player** | Built-in playback | Book cover display, play/pause/skip controls, chapter sidebar, progress scrubber, bookmarks |
 | **User Dashboard** | Library management | Conversion queue, book library grid, search, navigation sidebar |
@@ -100,11 +102,11 @@ font-family: 'Inter', sans-serif;
 
 | Component | Description | Priority |
 | --------- | ----------- | -------- |
-| **File Parser** | Extract and normalize text from TXT/MD/PDF | P0 |
+| **File Parser** | Extract and normalize text from TXT/MD/PDF/ZIP | P0 |
 | **Text Chunker** | Split text into ≤4000 word segments at natural breaks | P0 |
 | **Dialogue Detector** | Identify quoted speech for voice switching | P0 |
 | **TTS Engine** | Kokoro-82M wrapper with voice selection | P0 |
-| **Audio Encoder** | Convert raw audio to MP3/WAV, save chapters | P0 |
+| **Audio Encoder** | Convert raw audio to MP3, save chapters, and embed metadata | P0 |
 | **REST API** | FastAPI endpoints for all operations | P0 |
 | **Landing Page UI** | Marketing page with feature highlights | P1 |
 | **Upload/Config UI** | File upload, voice selection, audio settings | P0 |
@@ -154,7 +156,7 @@ font-family: 'Inter', sans-serif;
 │  │                     File-Based Data Repository (data/)                   ││
 │  │  - library/{book_id}/metadata.json  (title, author, chapters, duration) ││
 │  │  - library/{book_id}/chapter_XX.mp3 (audio files)                        ││
-│  │  - library/{book_id}/bookmark.json  (chapter, position, timestamp)       ││
+│  │  - library/{book_id}/bookmarks.json (chapter, position, timestamp)       ││
 │  │  - uploads/ (temporary uploaded files)                                   ││
 │  └──────────────────────────────────────────────────────────────────────────┘│
 └─────────────────────────────────────────────────────────────────────────────┘
@@ -175,7 +177,7 @@ font-family: 'Inter', sans-serif;
 
 1. **Landing**: User visits landing page → clicks "Start Converting Free"
 2. **Upload**: User drags file → POST /api/upload → File saved, job_id returned
-3. **Configure**: User picks voice (with preview), speed (0.5x-2.0x), quality (SD/HD/Ultra), format (MP3/WAV)
+3. **Configure**: User picks voice (with preview), speed (0.5x-2.0x), quality (SD/HD/Ultra), MP3 output, and optional footnote stripping
 4. **Generate**: User clicks "Start Conversion" → POST /api/generate with full config
 5. **Progress**: Frontend shows circular progress, activity log with phases:
    - Extracting text from file
@@ -188,14 +190,14 @@ font-family: 'Inter', sans-serif;
 
 ### Functional Requirements
 
-- [ ] FR-1: Accept `.txt`, `.md`, `.pdf` file uploads (max 50MB)
+- [ ] FR-1: Accept `.txt`, `.md`, `.pdf`, and Gutenberg `.zip` file uploads (max 50MB)
 - [ ] FR-2: Parse and extract clean text from all supported formats
 - [ ] FR-3: Chunk text at natural boundaries (chapters, headings) or ≤4000 words
 - [ ] FR-4: Detect quoted dialogue using regex patterns (`"..."`, `'...'`, etc.)
 - [ ] FR-5: Generate speech using Kokoro-82M with selected voice(s)
 - [ ] FR-6: Support playback speed adjustment (0.5x - 2.0x)
 - [ ] FR-7: Support output quality selection (SD/HD/Ultra)
-- [ ] FR-8: Support MP3 and WAV output formats
+- [ ] FR-8: Support MP3 output format
 - [ ] FR-9: Save audio as individual files per chapter/chunk
 - [ ] FR-10: Provide real-time progress with activity log
 - [ ] FR-11: Allow canceling in-progress conversions
@@ -228,7 +230,7 @@ Build a working end-to-end pipeline: upload a TXT file → generate single chapt
 
 1. Backend Core — FastAPI scaffold with file upload endpoint
 2. TTS Engine — Kokoro-82M integration, single voice generation
-3. File Parser — Start with TXT, add MD/EPUB/PDF incrementally
+3. File Parser — Support TXT/MD/PDF/Gutenberg ZIP inputs
 4. Text Chunker — Implement smart chunking with natural break detection
 5. Audio Pipeline — MP3 encoding and chapter file management
 6. Progress Tracking — Status endpoint with activity log
@@ -248,7 +250,7 @@ Build a working end-to-end pipeline: upload a TXT file → generate single chapt
 2. Dialogue Detector — Quote pattern matching for voice switching
 3. Voice Preview — Sample playback before conversion
 4. Bookmarks — Save and restore playback positions
-5. Advanced Settings — Quality, speed, format options
+5. Advanced Settings — Quality, speed, and cleanup options
 
 ### Risks to Watch
 
@@ -263,21 +265,21 @@ Build a working end-to-end pipeline: upload a TXT file → generate single chapt
 
 - `kokoro` - PyPI package for TTS model
 - `PyMuPDF` - PDF text extraction
-- `docs/stitch/` - UI design mockups and HTML templates
+- `static/` - Current shipped frontend assets and vendor bundles
 
 ## 9. Open Questions
 
 - [x] ~~Should we support pausing/resuming long generation jobs?~~ → Yes (Cancel shown in UI)
 - [x] ~~What's the maximum file size we should support?~~ → 50MB (per Stitch UI)
-- [ ] Should chapter MP3s include ID3 metadata (title, track number, cover art)?
+- [x] ~~Should chapter MP3s include ID3 metadata (title, track number, cover art)?~~ → Yes (implemented for generated and reconverted MP3 chapters)
 - [x] ~~Do we want a "preview" mode to test voices before full generation?~~ → Yes (Voice cards have play buttons)
 - [x] ~~Should we persist job history for re-downloading previous conversions?~~ → Yes (Dashboard shows library)
-- [ ] Should we extract/generate book cover art from uploaded files?
+- [x] ~~Should we extract/generate book cover art from uploaded files?~~ → Extract when available from PDF, Markdown, and Gutenberg ZIP sources; upload override is also supported
 - [ ] How should we handle very long books (500+ pages)?
 
 ---
 
 *Blueprint created: 2026-02-07*
-*Updated: 2026-02-07 (Stitch UI integration)*
+*Updated: 2026-03-08 (implementation snapshot refreshed)*
 *Model: Kokoro-82M*
 *Status: Awaiting user approval*

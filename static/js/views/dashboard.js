@@ -132,14 +132,14 @@ async function initDashboardView() {
     // Search filtering
     const searchInput = document.getElementById("library-search");
     if (searchInput) {
-      searchInput.addEventListener("input", () => {
+      searchInput.oninput = () => {
         renderLibraryGrid(getVisibleLibraryBooks());
-      });
+      };
     }
 
     const importInput = document.getElementById("import-audiobook-input");
     if (importInput) {
-      importInput.addEventListener("change", handleAudiobookImportSelection);
+      importInput.onchange = handleAudiobookImportSelection;
     }
   } catch (error) {
     console.error("Failed to load library:", error);

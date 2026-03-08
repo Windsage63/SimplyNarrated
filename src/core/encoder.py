@@ -17,12 +17,16 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
+import logging
 import os
 import numpy as np
 from typing import Optional
 from dataclasses import dataclass
 
 from mutagen.id3 import APIC, ID3, ID3NoHeaderError, TALB, TIT2, TPE1, TRCK
+
+
+logger = logging.getLogger(__name__)
 
 
 def _configure_ffmpeg_paths() -> None:
@@ -173,6 +177,45 @@ def embed_mp3_metadata(
 
     tags.save(file_path, v2_version=3)
     return file_path
+
+
+def _find_cover_path(book_dir: str) -> Optional[str]:
+    """Return the current cover file path for a book directory, if any."""
+    for candidate in ("cover.jpg", "cover.jpeg", "cover.png"):
+        candidate_path = os.path.join(book_dir, candidate)
+        if os.path.exists(candidate_path):
+            return candidate_path
+    return None
+
+
+def retag_book_mp3_files(book_dir: str, metadata: dict) -> None:
+    """Reapply current metadata and cover art to existing chapter MP3 files."""
+    chapters = metadata.get("chapters", [])
+    total_tracks = len(chapters) or None
+    cover_path = _find_cover_path(book_dir)
+
+    for chapter in chapters:
+        chapter_number = int(chapter.get("number", 0))
+        if chapter_number < 1:
+            continue
+
+        audio_name = chapter.get("audio_path") or f"chapter_{chapter_number:02d}.mp3"
+        audio_path = os.path.join(book_dir, os.path.basename(audio_name))
+        if not audio_path.lower().endswith(".mp3") or not os.path.exists(audio_path):
+            continue
+
+        chapter_title = chapter.get("title") or f"Chapter {chapter_number}"
+        embed_mp3_metadata(
+            audio_path,
+            title=chapter_title,
+            album=metadata.get("title"),
+            artist=metadata.get("author"),
+            track_number=chapter_number,
+            total_tracks=total_tracks,
+            cover_path=cover_path,
+        )
+
+        logger.info("Retagged MP3 metadata for chapter %s", chapter_number)
 
 
 def format_duration(seconds: float) -> str:

@@ -13,6 +13,7 @@ from src.core.parser import (
     parse_zip,
     parse_file,
     extract_cover_image,
+    _extract_cover_from_markdown,
     _normalize_line_breaks,
     _markdown_to_text,
     _split_into_chapters,
@@ -382,3 +383,21 @@ class TestExtractCoverFromZip:
     def test_no_cover_returns_none(self, sample_zip_no_cover, tmp_path):
         result = extract_cover_image(sample_zip_no_cover, str(tmp_path))
         assert result is None
+
+
+class TestExtractCoverFromMarkdown:
+    def test_rejects_parent_directory_image_reference(self, tmp_path):
+        parent_cover = tmp_path / "secret.jpg"
+        parent_cover.write_bytes(b"\xff\xd8\xff\xd9")
+
+        markdown_dir = tmp_path / "book"
+        markdown_dir.mkdir()
+        markdown_file = markdown_dir / "book.md"
+        markdown_file.write_text("# Book\n\n![cover](../secret.jpg)\n", encoding="utf-8")
+
+        output_dir = tmp_path / "output"
+        output_dir.mkdir()
+
+        result = _extract_cover_from_markdown(str(markdown_file), str(output_dir))
+        assert result is None
+        assert not os.path.exists(output_dir / "cover.jpg")

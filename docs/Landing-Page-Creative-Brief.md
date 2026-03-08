@@ -13,10 +13,10 @@ Secondary CTA: **Open Library**
 
 ## 2) Product Truth to Reflect (Do Not Overclaim)
 
-- Input formats: TXT, MD, PDF
-- Output: MP3 chapters
-- Built-in features: progress tracking, bookmarks, library management, cover images
-- Local operation with FastAPI + Kokoro voices
+- Input formats: TXT, MD, PDF, and Gutenberg HTML ZIP
+- Output: MP3 chapters with embedded track metadata
+- Built-in features: progress tracking, bookmarks, library management, cover images, portability export/import, chapter text editing, and per-chapter reconversion
+- Local operation with FastAPI + Kokoro voices and locally served frontend assets
 
 Avoid claims that are not currently shipped (for example WAV output or dialogue voice switching).
 
@@ -74,7 +74,7 @@ This visual should read as a pipeline: **Document → AI Voice → Audiobook**.
 
 ### Hero subcopy
 
-"Upload TXT, Markdown, or PDF files and generate chapter-based MP3 audiobooks with natural AI voices—directly on your machine."
+"Upload TXT, Markdown, PDF, or Gutenberg ZIP files and generate chapter-based MP3 audiobooks with natural AI voices—directly on your machine."
 
 ### Proof strip
 
@@ -104,7 +104,7 @@ Use these prompts directly in your image generator.
 
 ### E) OpenGraph Social Card Prompt
 
-"Design a 1200x630 social preview image for SimplyNarrated. Dark premium background, blue accent, bold title 'Turn Documents Into Audiobooks, Locally', subtitle 'Private AI narration for TXT, MD, and PDF'. Include simplified pipeline motif: document → AI wave → audiobook player. Modern, high contrast, clean whitespace, no watermark, no external logos."
+"Design a 1200x630 social preview image for SimplyNarrated. Dark premium background, blue accent, bold title 'Turn Documents Into Audiobooks, Locally', subtitle 'Private AI narration for TXT, MD, PDF, and Gutenberg ZIP'. Include simplified pipeline motif: document → AI wave → audiobook player. Modern, high contrast, clean whitespace, no watermark, no external logos."
 
 ## 7) Screenshot-Guided Workflow (Recommended)
 

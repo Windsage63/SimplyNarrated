@@ -389,7 +389,13 @@ def _extract_cover_from_markdown(file_path: str, output_dir: str) -> Optional[st
         source_dir = os.path.dirname(os.path.abspath(file_path))
         img_path = os.path.normpath(os.path.join(source_dir, img_ref))
 
-        # Security: ensure the resolved path is within or near the source directory
+        # Security: ensure the resolved path stays within the markdown directory tree
+        try:
+            if os.path.commonpath([source_dir, img_path]) != source_dir:
+                return None
+        except ValueError:
+            return None
+
         if not os.path.isfile(img_path):
             return None
 

@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-SimplyNarrated is a local web application that converts books and documents (`.txt`, `.md`, `.pdf`, Gutenberg `.zip`) into MP3 audiobooks using the **Kokoro-82M** TTS model running locally on GPU. It has a FastAPI backend and a vanilla JS SPA frontend, with no external databases or cloud dependencies.
+SimplyNarrated is a local web application that converts books and documents (`.txt`, `.md`, `.pdf`, Gutenberg `.zip`) into MP3 audiobooks using the **Kokoro-82M** TTS model running locally on GPU. It has a FastAPI backend and a vanilla JS SPA frontend, with no external databases or cloud dependencies. The library also supports cover management, portability export/import ZIPs, editable chapter text, and per-chapter reconversion.
 
 ## Commands
 
@@ -51,13 +51,13 @@ pip install -r requirements.txt
 src/
 ├── main.py           # FastAPI app init, lifespan (startup/shutdown), static file mounting
 ├── api/
-│   └── routes.py     # All 25+ REST endpoints (FastAPI router)
+│   └── routes.py     # FastAPI router for upload, library, playback, portability, and reconvert endpoints
 ├── core/
 │   ├── pipeline.py       # Main async orchestrator: parse → chunk → TTS → encode → store
 │   ├── tts_engine.py     # Kokoro-82M wrapper; loads .pt voice tensors from static/voices/
 │   ├── parser.py         # Extracts text from TXT/MD/PDF/ZIP; strips Gutenberg boilerplate
 │   ├── chunker.py        # Splits text into ~4000-word chunks preserving chapter boundaries
-│   ├── encoder.py        # WAV → MP3 conversion with ID3 tag embedding
+│   ├── encoder.py        # Raw audio → MP3 conversion with ID3 tag embedding
 │   ├── job_manager.py    # Async job queue with file-based persistence and restart recovery
 │   ├── library.py        # File-based library: JSON metadata per book, bookmark management
 │   ├── chapter_reconvert.py  # Reconvert individual chapters with different settings
@@ -70,12 +70,17 @@ src/
 - `data/library/{book_id}/metadata.json` — Book metadata
 - `data/library/{book_id}/chapter_NN.mp3` — Audio files
 - `data/library/{book_id}/chapter_NN.txt` — Editable chapter text
+- `data/library/{book_id}/bookmarks.json` — Saved playback position
 - `data/jobs.json` — Job ledger (survives restarts)
 - `data/uploads/` — Temporary uploaded files
 
 **Frontend:** SPA in `static/`. All vendor assets (Tailwind, fonts) are bundled in `static/vendor/` for offline use. Routes to pages are handled client-side.
 
 **Voices:** Stored as `.pt` tensor files in `static/voices/`. Prefixed `af_`/`am_` (American female/male), `bf_`/`bm_` (British female/male). The prefix determines the G2P phoneme region passed to Kokoro.
+
+**Portability:** Books can be exported/imported as SimplyNarrated ZIP archives containing `export_manifest.json`, `metadata.json`, chapter MP3/text files, and optional cover/source/bookmark files.
+
+**MP3 metadata:** Generated and reconverted chapters are tagged with ID3 title/album/artist/track data and embedded cover art when a cover is available.
 
 ## Key Conventions
 
@@ -104,6 +109,9 @@ All significant job events are appended to `job.activity_log` via:
 ```python
 job_manager._add_activity(job, "Message", "info")  # levels: info, success, warning, error
 ```
+
+### Chapter edit + reconvert flow
+The player edits chapter text by writing `chapter_NN.txt`, then queues `/api/book/{book_id}/chapter/{chapter}/reconvert` to rebuild only that chapter's MP3 and refresh duration/metadata in `metadata.json`.
 
 ### Async throughout
 All route handlers, pipeline stages, and file I/O use `async def` + `aiofiles`. CPU-bound TTS inference runs in a thread pool via `asyncio.get_event_loop().run_in_executor(None, ...)`.

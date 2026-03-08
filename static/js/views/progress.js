@@ -75,7 +75,7 @@ let progressInterval = null;
 function initProgressView() {
   // Start polling for status
   pollStatus();
-  progressInterval = setInterval(pollStatus, 2000);
+  progressInterval = setInterval(pollStatus, 5000);
 }
 
 async function pollStatus() {

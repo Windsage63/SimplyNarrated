@@ -19,6 +19,7 @@ limitations under the License.
 
 import os
 import logging
+import threading
 import warnings
 import numpy as np
 from typing import Optional, Tuple, List, Dict
@@ -94,6 +95,7 @@ class TTSEngine:
         self._shared_model = None  # Shared KModel instance to save memory
         self._initialized = False
         self._device = device  # Kokoro handles device selection automatically
+        self._init_lock = threading.Lock()
 
     @staticmethod
     def _lang_code_for_voice(voice_id: str) -> str:
@@ -117,11 +119,14 @@ class TTSEngine:
     def _get_pipeline(self, voice_id: str):
         """Get (or lazily create) the KPipeline for the given voice."""
         lang_code = self._lang_code_for_voice(voice_id)
-        if lang_code not in self._pipelines:
+        with self._init_lock:
+            if lang_code in self._pipelines:
+                return self._pipelines[lang_code]
+
             from kokoro import KPipeline
 
             label = "American" if lang_code == "a" else "British"
-            
+
             # If we don't have a shared model yet, creating the first pipeline will load it.
             # Subsequent pipelines use the already-loaded shared model.
             if self._shared_model is None:
@@ -134,17 +139,17 @@ class TTSEngine:
                 logger.info("Initializing %s English G2P rules (sharing base model)...", label)
                 # Reuse the model for other languages (fixes British pronunciation rules)
                 pipeline = KPipeline(
-                    lang_code=lang_code, 
-                    model=self._shared_model, 
+                    lang_code=lang_code,
+                    model=self._shared_model,
                     repo_id=REPO_ID,
-                    device=self._device
+                    device=self._device,
                 )
-            
+
             self._pipelines[lang_code] = pipeline
             logger.info("%s English G2P rules initialized!", label)
             self._initialized = True
-            
-        return self._pipelines[lang_code]
+
+            return pipeline
 
     def initialize(self) -> None:
         """Pre-load the American English pipeline."""

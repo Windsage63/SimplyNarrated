@@ -20,6 +20,9 @@ The system uses the **Kokoro-82M** model running locally on GPU for high-quality
 - **Get More Books Shortcut**: Library view includes a `Get More Books` button that links to Project Gutenberg with a quick format tip before opening.
 - **Smart Chunking**: Splits text into natural chapters or segments.
 - **Early Chapter Estimate**: Upload response includes an estimated chapter count before generation starts.
+- **Portable Library Archives**: Export and re-import complete audiobooks as SimplyNarrated ZIP archives, including chapter audio, chapter text, metadata, bookmarks, cover art, and original source files when present.
+- **Chapter Repair Workflow**: Edit generated chapter text and reconvert a single chapter without rerunning the whole book.
+- **Tagged MP3 Output**: Generated and reconverted chapter MP3s include title, album, artist, track number, and embedded cover art when available.
 - **Audiobook Player**: Built-in player with progress tracking and bookmarks.
 - **Library Management**: Dashboard to manage your converted books.
 - **Cover Management**: Upload and serve JPG/PNG cover images per book.
@@ -32,8 +35,10 @@ The system uses the **Kokoro-82M** model running locally on GPU for high-quality
 - Output format is currently **MP3-only**.
 - Voice generation is currently **single-narrator voice** during conversion.
 - For best Gutenberg imports, use **HTML ZIP** downloads; **TXT** downloads are also supported.
+- Portability import accepts **SimplyNarrated export ZIPs** (not arbitrary ZIP bundles).
 - ZIP cover auto-detection currently uses image filenames containing **"cover"**.
 - Landing and dashboard include updated branded UI with Gutenberg-focused onboarding.
+- The app writes **ID3 metadata** to chapter MP3s and embeds cover art when a cover is available.
 
 ## 🎮Simple Media Player
 
@@ -103,6 +108,32 @@ For advanced users who prefer to manage their own Python environment.
    ```
 
 4. **Open the application**: Navigate to `http://localhost:8010`.
+
+---
+
+## ✅ Testing
+
+After installation, run tests with the embedded Python runtime:
+
+```bash
+# Fast suite for routine work
+python_embedded\python.exe -m pytest tests/ -m "not slow"
+
+# Full suite
+python_embedded\python.exe -m pytest tests/
+
+# Single test file
+python_embedded\python.exe -m pytest tests/test_api.py
+
+# Single test by name
+python_embedded\python.exe -m pytest tests/test_api.py::TestChapterEditEndpoints::test_reconvert_chapter_end_to_end -v
+```
+
+`pytest.ini` configures `asyncio_mode = auto`, and tests marked `slow` require the Kokoro model runtime.
+
+## 🧹 Linting
+
+There is currently no dedicated lint or formatter configuration checked into the repository.
 
 ---
 
