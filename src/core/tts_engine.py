@@ -157,6 +157,11 @@ class TTSEngine:
             return
         self._get_pipeline("af_heart")  # triggers 'a' pipeline creation
 
+    def preload_runtime_assets(self) -> None:
+        """Preload the shared Kokoro-82M base model once and both English pipelines."""
+        self._get_pipeline("af_heart")
+        self._get_pipeline("bf_alice")
+
     def is_initialized(self) -> bool:
         """Check if at least one pipeline is loaded."""
         return self._initialized

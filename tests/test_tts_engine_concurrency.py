@@ -34,3 +34,25 @@ class TestTTSEngineConcurrency:
         assert FakePipeline.created == 1
         assert len({id(result) for result in results}) == 1
         assert engine.is_initialized()
+
+    def test_preload_runtime_assets_loads_both_english_pipelines(self, monkeypatch):
+        class FakePipeline:
+            created = 0
+            instances = []
+
+            def __init__(self, lang_code, repo_id=None, device=None, model=None):
+                FakePipeline.created += 1
+                self.lang_code = lang_code
+                self.model = model or object()
+                FakePipeline.instances.append(self)
+
+        monkeypatch.setitem(sys.modules, "kokoro", types.SimpleNamespace(KPipeline=FakePipeline))
+
+        engine = TTSEngine()
+        engine.preload_runtime_assets()
+
+        assert FakePipeline.created == 2
+        assert engine._get_pipeline("af_heart") is FakePipeline.instances[0]
+        assert engine._get_pipeline("bf_alice") is FakePipeline.instances[1]
+        assert FakePipeline.instances[0].model is FakePipeline.instances[1].model
+        assert engine.is_initialized()
