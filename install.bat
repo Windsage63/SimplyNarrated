@@ -191,7 +191,7 @@ echo.
 echo Pre-downloading Kokoro base model and American/British English pipelines...
 "%PY_EXE%" -c "from src.core.tts_engine import TTSEngine; TTSEngine().preload_runtime_assets()"
 if errorlevel 1 (
-    echo ERROR: Kokoro model asset installation failed.
+    echo ERROR: TTS runtime asset installation failed.
     pause
     exit /b 1
 )

@@ -35,7 +35,7 @@ class TestTTSEngineConcurrency:
         assert len({id(result) for result in results}) == 1
         assert engine.is_initialized()
 
-    def test_preload_runtime_assets_downloads_both_english_pipelines(self, monkeypatch):
+    def test_preload_runtime_assets_initializes_both_english_pipelines(self, monkeypatch):
         class FakePipeline:
             created = 0
 
@@ -50,6 +50,8 @@ class TestTTSEngineConcurrency:
         engine.preload_runtime_assets()
 
         assert FakePipeline.created == 2
-        assert set(engine._pipelines) == {"a", "b"}
-        assert engine._pipelines["a"].model is engine._pipelines["b"].model
+        american_lang = engine._lang_code_for_voice("af_heart")
+        british_lang = engine._lang_code_for_voice("bf_alice")
+        assert set(engine._pipelines) == {american_lang, british_lang}
+        assert engine._pipelines[american_lang].model is engine._pipelines[british_lang].model
         assert engine.is_initialized()
