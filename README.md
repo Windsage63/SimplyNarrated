@@ -51,7 +51,7 @@ The easiest way to get started — no Python installation required. This uses a 
 1. **Run the installer**: Double-click `install.bat` (or right-click → *Run as administrator*).
    - Select your GPU when prompted (RTX 50 series, RTX 30/40 series, or CPU only).
    - The script downloads a portable Python environment and installs all dependencies automatically.
-   - It also preinstalls the spaCy English model required for first-time voice generation.
+   - It also preinstalls spaCy, the `en_core_web_sm` model, and pre-downloads the Kokoro base model plus both American and British English pipelines so first-use voice previews work without extra setup.
 2. **Launch the app**: Double-click `run.bat`.
 3. **Open in browser**: Navigate to `http://localhost:8010`.
 
@@ -102,13 +102,20 @@ For advanced users who prefer to manage their own Python environment.
    pip install -r requirements.txt
    ```
 
-3. **Start the server**:
+3. **Pre-download the TTS runtime assets**:
+
+   ```bash
+   python -m spacy download en_core_web_sm
+   python -c "from src.core.tts_engine import TTSEngine; TTSEngine().preload_runtime_assets()"
+   ```
+
+4. **Start the server**:
 
    ```bash
    uvicorn src.main:app --reload --port 8010
    ```
 
-4. **Open the application**: Navigate to `http://localhost:8010`.
+5. **Open the application**: Navigate to `http://localhost:8010`.
 
 ---
 

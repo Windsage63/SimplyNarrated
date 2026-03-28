@@ -175,7 +175,7 @@ if errorlevel 1 (
 echo [OK] All dependencies installed
 
 REM -------------------------------------------------------
-REM  Step 7: Preinstall spaCy English model for TTS
+REM  Step 7: Preinstall TTS runtime assets
 REM -------------------------------------------------------
 echo.
 echo Installing spaCy English model required for voice previews...
@@ -186,6 +186,16 @@ if errorlevel 1 (
     exit /b 1
 )
 echo [OK] spaCy English model installed
+
+echo.
+echo Pre-downloading Kokoro base model and American/British English pipelines...
+"%PY_EXE%" -c "from src.core.tts_engine import TTSEngine; TTSEngine().preload_runtime_assets()"
+if errorlevel 1 (
+    echo ERROR: Kokoro model asset installation failed.
+    pause
+    exit /b 1
+)
+echo [OK] Kokoro base model and English pipelines installed
 
 REM -------------------------------------------------------
 REM  Done!
