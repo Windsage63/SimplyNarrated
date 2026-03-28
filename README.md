@@ -51,6 +51,7 @@ The easiest way to get started — no Python installation required. This uses a 
 1. **Run the installer**: Double-click `install.bat` (or right-click → *Run as administrator*).
    - Select your GPU when prompted (RTX 50 series, RTX 30/40 series, or CPU only).
    - The script downloads a portable Python environment and installs all dependencies automatically.
+   - It also preinstalls the spaCy English model required for first-time voice generation.
 2. **Launch the app**: Double-click `run.bat`.
 3. **Open in browser**: Navigate to `http://localhost:8010`.
 

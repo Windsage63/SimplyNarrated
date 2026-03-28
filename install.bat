@@ -175,6 +175,19 @@ if errorlevel 1 (
 echo [OK] All dependencies installed
 
 REM -------------------------------------------------------
+REM  Step 7: Preinstall spaCy English model for TTS
+REM -------------------------------------------------------
+echo.
+echo Installing spaCy English model required for voice previews...
+"%PY_EXE%" -m spacy download en_core_web_sm
+if errorlevel 1 (
+    echo ERROR: spaCy English model installation failed.
+    pause
+    exit /b 1
+)
+echo [OK] spaCy English model installed
+
+REM -------------------------------------------------------
 REM  Done!
 REM -------------------------------------------------------
 echo.

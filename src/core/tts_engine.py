@@ -18,14 +18,8 @@ limitations under the License.
 """
 
 import os
-import sys
 import logging
 import threading
-import tempfile
-import subprocess
-import importlib
-import importlib.util
-import urllib.request
 import warnings
 import numpy as np
 from typing import Optional, Tuple, List, Dict
@@ -41,40 +35,6 @@ warnings.filterwarnings("ignore", category=FutureWarning, module="torch.nn.utils
 VOICES_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "static", "voices")
 # Default repository ID for Kokoro base model
 REPO_ID = "hexgrad/Kokoro-82M"
-GET_PIP_URL = "https://bootstrap.pypa.io/get-pip.py"
-
-
-def _ensure_pip_available() -> None:
-    """Bootstrap pip into the active interpreter when embedded Python lacks it."""
-    if importlib.util.find_spec("pip") is not None:
-        return
-
-    logger.warning("pip is missing; bootstrapping it to enable spaCy language model downloads.")
-    with tempfile.TemporaryDirectory(prefix="simplynarrated-get-pip-") as temp_dir:
-        script_path = os.path.join(temp_dir, "get-pip.py")
-        try:
-            urllib.request.urlretrieve(GET_PIP_URL, script_path)
-            subprocess.run(
-                [sys.executable, script_path, "--no-warn-script-location"],
-                check=True,
-                capture_output=True,
-                text=True,
-            )
-        except Exception as exc:
-            raise RuntimeError(
-                "pip is required for spaCy language model dependencies. "
-                "Automatic pip bootstrap failed. Please rerun install.bat or install pip "
-                "into python_embedded manually."
-            ) from exc
-
-    importlib.invalidate_caches()
-    if importlib.util.find_spec("pip") is None:
-        raise RuntimeError(
-            "pip bootstrap completed, but pip is still unavailable to this Python installation. "
-            "Please rerun install.bat or manually install pip into python_embedded."
-        )
-
-    logger.info("pip bootstrapped successfully for the current Python runtime.")
 
 
 @dataclass
@@ -163,7 +123,6 @@ class TTSEngine:
             if lang_code in self._pipelines:
                 return self._pipelines[lang_code]
 
-            _ensure_pip_available()
             from kokoro import KPipeline
 
             label = "American" if lang_code == "a" else "British"
