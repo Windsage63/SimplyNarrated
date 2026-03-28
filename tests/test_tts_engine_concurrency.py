@@ -8,7 +8,7 @@ import types
 import threading
 from concurrent.futures import ThreadPoolExecutor
 
-from src.core.tts_engine import TTSEngine
+from src.core.tts_engine import TTSEngine, DEFAULT_AMERICAN_VOICE, DEFAULT_BRITISH_VOICE
 
 
 class TestTTSEngineConcurrency:
@@ -35,7 +35,7 @@ class TestTTSEngineConcurrency:
         assert len({id(result) for result in results}) == 1
         assert engine.is_initialized()
 
-    def test_preload_runtime_assets_initializes_both_english_pipelines(self, monkeypatch):
+    def test_preload_runtime_assets_creates_both_pipelines(self, monkeypatch):
         class FakePipeline:
             created = 0
 
@@ -50,8 +50,8 @@ class TestTTSEngineConcurrency:
         engine.preload_runtime_assets()
 
         assert FakePipeline.created == 2
-        american_lang = engine._lang_code_for_voice("af_heart")
-        british_lang = engine._lang_code_for_voice("bf_alice")
+        american_lang = engine._lang_code_for_voice(DEFAULT_AMERICAN_VOICE)
+        british_lang = engine._lang_code_for_voice(DEFAULT_BRITISH_VOICE)
         assert set(engine._pipelines) == {american_lang, british_lang}
         assert engine._pipelines[american_lang].model is engine._pipelines[british_lang].model
         assert engine.is_initialized()
