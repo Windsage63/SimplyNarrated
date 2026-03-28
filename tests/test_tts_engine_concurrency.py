@@ -8,7 +8,7 @@ import types
 import threading
 from concurrent.futures import ThreadPoolExecutor
 
-from src.core.tts_engine import TTSEngine, DEFAULT_AMERICAN_VOICE, DEFAULT_BRITISH_VOICE
+from src.core.tts_engine import TTSEngine
 
 
 class TestTTSEngineConcurrency:
@@ -35,14 +35,16 @@ class TestTTSEngineConcurrency:
         assert len({id(result) for result in results}) == 1
         assert engine.is_initialized()
 
-    def test_preload_runtime_assets_creates_both_pipelines(self, monkeypatch):
+    def test_preload_runtime_assets_initializes_both_english_pipelines(self, monkeypatch):
         class FakePipeline:
             created = 0
+            instances = []
 
             def __init__(self, lang_code, repo_id=None, device=None, model=None):
                 FakePipeline.created += 1
                 self.lang_code = lang_code
                 self.model = model or object()
+                FakePipeline.instances.append(self)
 
         monkeypatch.setitem(sys.modules, "kokoro", types.SimpleNamespace(KPipeline=FakePipeline))
 
@@ -50,8 +52,7 @@ class TestTTSEngineConcurrency:
         engine.preload_runtime_assets()
 
         assert FakePipeline.created == 2
-        american_lang = engine._lang_code_for_voice(DEFAULT_AMERICAN_VOICE)
-        british_lang = engine._lang_code_for_voice(DEFAULT_BRITISH_VOICE)
-        assert set(engine._pipelines) == {american_lang, british_lang}
-        assert engine._pipelines[american_lang].model is engine._pipelines[british_lang].model
+        assert engine._get_pipeline("af_heart") is FakePipeline.instances[0]
+        assert engine._get_pipeline("bf_alice") is FakePipeline.instances[1]
+        assert FakePipeline.instances[0].model is FakePipeline.instances[1].model
         assert engine.is_initialized()

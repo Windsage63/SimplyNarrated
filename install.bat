@@ -175,23 +175,13 @@ if errorlevel 1 (
 echo [OK] All dependencies installed
 
 REM -------------------------------------------------------
-REM  Step 7: Preinstall TTS runtime assets
+REM  Step 7: Preload English TTS runtime assets
 REM -------------------------------------------------------
 echo.
-echo Installing spaCy English model required for voice previews...
-"%PY_EXE%" -m spacy download en_core_web_sm
-if errorlevel 1 (
-    echo ERROR: spaCy English model installation failed.
-    pause
-    exit /b 1
-)
-echo [OK] spaCy English model installed
-
-echo.
-echo Pre-downloading Kokoro base model and American/British English pipelines...
+echo Preloading Kokoro-82M base model and English voice pipelines...
 "%PY_EXE%" -c "from src.core.tts_engine import TTSEngine; TTSEngine().preload_runtime_assets()"
 if errorlevel 1 (
-    echo ERROR: TTS runtime asset installation failed.
+    echo ERROR: TTS runtime asset preload failed.
     pause
     exit /b 1
 )

@@ -35,8 +35,6 @@ warnings.filterwarnings("ignore", category=FutureWarning, module="torch.nn.utils
 VOICES_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "static", "voices")
 # Default repository ID for Kokoro base model
 REPO_ID = "hexgrad/Kokoro-82M"
-DEFAULT_AMERICAN_VOICE = "af_heart"
-DEFAULT_BRITISH_VOICE = "bf_alice"
 
 
 @dataclass
@@ -157,12 +155,12 @@ class TTSEngine:
         """Pre-load the American English pipeline."""
         if self._initialized:
             return
-        self._get_pipeline(DEFAULT_AMERICAN_VOICE)  # triggers 'a' pipeline creation
+        self._get_pipeline("af_heart")  # triggers 'a' pipeline creation
 
     def preload_runtime_assets(self) -> None:
-        """Preload the shared Kokoro model and both English pipeline variants."""
-        self._get_pipeline(DEFAULT_AMERICAN_VOICE)
-        self._get_pipeline(DEFAULT_BRITISH_VOICE)
+        """Preload the shared Kokoro-82M base model once and both English pipelines."""
+        self._get_pipeline("af_heart")
+        self._get_pipeline("bf_alice")
 
     def is_initialized(self) -> bool:
         """Check if at least one pipeline is loaded."""
