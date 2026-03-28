@@ -49,7 +49,7 @@ def _ensure_pip_available() -> None:
     if importlib.util.find_spec("pip") is not None:
         return
 
-    logger.warning("pip is missing; bootstrapping it so spaCy can download its language model.")
+    logger.warning("pip is missing; bootstrapping it to enable spaCy language model downloads.")
     with tempfile.TemporaryDirectory(prefix="simplynarrated-get-pip-") as temp_dir:
         script_path = os.path.join(temp_dir, "get-pip.py")
         try:
@@ -62,7 +62,7 @@ def _ensure_pip_available() -> None:
             )
         except Exception as exc:
             raise RuntimeError(
-                "pip is required to download spaCy language models for voice samples. "
+                "pip is required for spaCy language model dependencies. "
                 "Automatic pip bootstrap failed. Please rerun install.bat or install pip "
                 "into python_embedded manually."
             ) from exc
@@ -70,7 +70,8 @@ def _ensure_pip_available() -> None:
     importlib.invalidate_caches()
     if importlib.util.find_spec("pip") is None:
         raise RuntimeError(
-            "pip bootstrap completed, but pip is still unavailable to this Python installation."
+            "pip bootstrap completed, but pip is still unavailable to this Python installation. "
+            "Please rerun install.bat or manually install pip into python_embedded."
         )
 
     logger.info("pip bootstrapped successfully for the current Python runtime.")

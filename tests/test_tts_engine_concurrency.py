@@ -86,12 +86,11 @@ class TestTTSEnginePipBootstrap:
         assert engine.is_initialized()
 
     def test_bootstrap_failure_raises_clear_error(self, monkeypatch):
+        def fake_urlretrieve(url, filename):
+            raise OSError("offline")
+
         monkeypatch.setattr(tts_module.importlib.util, "find_spec", lambda name: None)
-        monkeypatch.setattr(
-            tts_module.urllib.request,
-            "urlretrieve",
-            lambda url, filename: (_ for _ in ()).throw(OSError("offline")),
-        )
+        monkeypatch.setattr(tts_module.urllib.request, "urlretrieve", fake_urlretrieve)
 
         engine = TTSEngine()
         with pytest.raises(RuntimeError, match="Automatic pip bootstrap failed"):
