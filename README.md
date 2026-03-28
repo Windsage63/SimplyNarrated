@@ -51,7 +51,8 @@ The easiest way to get started — no Python installation required. This uses a 
 1. **Run the installer**: Double-click `install.bat` (or right-click → *Run as administrator*).
    - Select your GPU when prompted (RTX 50 series, RTX 30/40 series, or CPU only).
    - The script downloads a portable Python environment and installs all dependencies automatically.
-   - It also preloads the Kokoro-82M base model plus both American and British English pipelines so first-use voice generation does not trigger additional setup.
+   - It also preloads the Kokoro-82M base model plus both American and British English pipelines.
+   - This ensures first-use voice generation does not trigger additional setup.
 2. **Launch the app**: Double-click `run.bat`.
 3. **Open in browser**: Navigate to `http://localhost:8010`.
 

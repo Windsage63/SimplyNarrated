@@ -35,7 +35,7 @@ class TestTTSEngineConcurrency:
         assert len({id(result) for result in results}) == 1
         assert engine.is_initialized()
 
-    def test_preload_runtime_assets_initializes_both_english_pipelines(self, monkeypatch):
+    def test_preload_runtime_assets_loads_both_english_pipelines(self, monkeypatch):
         class FakePipeline:
             created = 0
             instances = []
