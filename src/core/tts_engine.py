@@ -18,6 +18,7 @@ limitations under the License.
 """
 
 import os
+import sys
 import logging
 import threading
 import warnings
@@ -33,6 +34,15 @@ warnings.filterwarnings("ignore", category=FutureWarning, module="torch.nn.utils
 
 # Directory containing local voice .pt files
 VOICES_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "static", "voices")
+
+# Ensure the embedded spaCy model (models/en_core_web_sm) is discoverable.
+# The embedded Python environment lacks a standalone `pip` command, so spaCy's
+# automatic download cannot work.  By placing the models/ directory on sys.path
+# the model package is importable and spaCy skips the download entirely.
+_MODELS_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "models"))
+if os.path.isdir(_MODELS_DIR) and _MODELS_DIR not in sys.path:
+    sys.path.insert(0, _MODELS_DIR)
+
 # Default repository ID for Kokoro base model
 REPO_ID = "hexgrad/Kokoro-82M"
 

@@ -99,6 +99,15 @@ if exist "%PTH_FILE%" (
     ) else (
         echo [OK] Project root already in path
     )
+
+    REM Add models/ directory so embedded spaCy model is importable
+    findstr /C:"..\models" "%PTH_FILE%" >nul 2>&1
+    if errorlevel 1 (
+        echo ..\models>> "%PTH_FILE%"
+        echo [OK] Added models directory to %PTH_FILE%
+    ) else (
+        echo [OK] Models directory already in path
+    )
 ) else (
     echo WARNING: %PTH_FILE% not found. Packages may not be discoverable.
 )
