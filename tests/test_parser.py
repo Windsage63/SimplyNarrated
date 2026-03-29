@@ -174,6 +174,24 @@ class TestSplitIntoChapters:
         assert chapters[0][0] == "Preamble"
         assert "Introduction" in chapters[0][1]
 
+    def test_mixed_case_paragraphs_not_split_on_triple_newlines(self):
+        """Paragraphs separated by triple newlines must not be mistaken
+        for ALL-CAPS section headings when their text is mixed-case."""
+        text = (
+            "A few words about Dostoevsky himself.\n\n\n"
+            "Dostoevsky was the son of a doctor. His parents were very hard-working\n"
+            "and deeply religious people.\n\n\n"
+            "Though always sickly and delicate Dostoevsky came out third.\n\n\n"
+            "This story was published by the poet Nekrassov.\n"
+        )
+        chapters = _split_into_chapters(text)
+        assert len(chapters) == 1
+        assert chapters[0][0] == "Chapter 1"
+        # All paragraph text must be present in chapter content
+        assert "Dostoevsky was the son" in chapters[0][1]
+        assert "Though always sickly" in chapters[0][1]
+        assert "This story was published" in chapters[0][1]
+
 
 # ---------------------------------------------------------------------------
 # parse_txt

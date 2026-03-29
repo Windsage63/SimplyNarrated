@@ -468,21 +468,25 @@ def _extract_cover_from_zip(file_path: str, output_dir: str) -> Optional[str]:
 
 def _split_into_chapters(text: str) -> List[Tuple[str, str]]:
     """Split text into chapters based on common patterns."""
-    # Common chapter patterns, tried in priority order
+    # Common chapter patterns, tried in priority order.
+    # Each entry is (pattern, flags).  The ALL-CAPS pattern must NOT use
+    # IGNORECASE – otherwise [A-Z] matches lowercase letters too, and
+    # ordinary paragraph text following triple-newlines is mistakenly
+    # treated as a section heading.
     chapter_patterns = [
-        r"(?:^|\n\n)(Chapter\s+\d+[^\n]*)\n",
-        r"(?:^|\n\n)(CHAPTER\s+\d+[^\n]*)\n",
-        r"(?:^|\n\n)(Part\s+\d+[^\n]*)\n",
-        r"(?:^|\n\n)(PART\s+\d+[^\n]*)\n",
+        (r"(?:^|\n\n)(Chapter\s+\d+[^\n]*)\n", re.IGNORECASE),
+        (r"(?:^|\n\n)(CHAPTER\s+\d+[^\n]*)\n", re.IGNORECASE),
+        (r"(?:^|\n\n)(Part\s+\d+[^\n]*)\n", re.IGNORECASE),
+        (r"(?:^|\n\n)(PART\s+\d+[^\n]*)\n", re.IGNORECASE),
         # ALL-CAPS section headers surrounded by blank lines (e.g. essay titles)
-        r"\n\n\n+([A-Z][A-Z][A-Z \-'.,;:!?]+)\n",
-        r"(?:^|\n\n)(\d+\.\s+[^\n]+)\n",
+        (r"\n\n\n+([A-Z][A-Z][A-Z \-'.,;:!?]+)\n", 0),
+        (r"(?:^|\n\n)(\d+\.\s+[^\n]+)\n", re.IGNORECASE),
     ]
 
     chapters = []
 
-    for pattern in chapter_patterns:
-        matches = list(re.finditer(pattern, text, re.IGNORECASE))
+    for pattern, flags in chapter_patterns:
+        matches = list(re.finditer(pattern, text, flags))
         if not matches:
             continue
 
