@@ -343,7 +343,7 @@ async def get_voice_sample(voice_id: str):
     try:
         tts_engine = get_tts_engine()
         quote = SAMPLE_QUOTE
-        logger.info(f"Generating voice sample for {voice_id}: '{quote[:50]}...'")
+        logger.info("Generating voice sample for %s: '%.50s...'", voice_id, quote)
 
         # Run TTS in thread pool to not block
         loop = asyncio.get_running_loop()
@@ -358,7 +358,7 @@ async def get_voice_sample(voice_id: str):
 
         # Encode to MP3
         cache_path_mp3 = os.path.join(cache_dir, f"{voice_id}.mp3")
-        settings = EncoderSettings(format="mp3", bitrate="128k")
+        settings = EncoderSettings(bitrate="128k")
 
         actual_path = await asyncio.get_running_loop().run_in_executor(
             None, lambda: encode_audio(audio, sample_rate, cache_path_mp3, settings)

@@ -29,21 +29,10 @@ from mutagen.id3 import APIC, ID3, ID3NoHeaderError, TALB, TIT2, TPE1, TRCK
 logger = logging.getLogger(__name__)
 
 
-def _configure_ffmpeg_paths() -> None:
-    """Add bundled ffmpeg binaries to PATH when available."""
-    try:
-        import static_ffmpeg
-
-        static_ffmpeg.add_paths()
-    except ImportError:
-        pass
-
-
 @dataclass
 class EncoderSettings:
     """Audio encoding settings."""
 
-    format: str = "mp3"
     bitrate: str = "192k"  # 128k (SD), 192k (HD), 320k (Ultra)
     sample_rate: int = 24000
     channels: int = 1
@@ -57,11 +46,10 @@ QUALITY_PRESETS = {
 }
 
 
-def get_encoder_settings(quality: str = "sd", format: str = "mp3") -> EncoderSettings:
+def get_encoder_settings(quality: str = "sd") -> EncoderSettings:
     """Get encoder settings for a quality preset."""
     preset = QUALITY_PRESETS.get(quality, QUALITY_PRESETS["sd"])
     return EncoderSettings(
-        format=format,
         bitrate=preset.bitrate,
         sample_rate=preset.sample_rate,
         channels=preset.channels,
@@ -88,8 +76,6 @@ def encode_audio(
     """
     if settings is None:
         settings = EncoderSettings()
-
-    _configure_ffmpeg_paths()
 
     # Normalize audio to int16 range
     if audio.dtype == np.float32 or audio.dtype == np.float64:

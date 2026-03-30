@@ -12,7 +12,6 @@ from mutagen.id3 import ID3
 from src.core.encoder import (
     EncoderSettings,
     QUALITY_PRESETS,
-    _configure_ffmpeg_paths,
     embed_mp3_metadata,
     get_encoder_settings,
     encode_audio,
@@ -53,8 +52,8 @@ class TestGetEncoderSettings:
         assert s.bitrate == "128k"
 
     def test_format_override(self):
-        s = get_encoder_settings(quality="sd", format="mp3")
-        assert s.format == "mp3"
+        s = get_encoder_settings(quality="sd")
+        assert s.bitrate == "128k"
 
     def test_unknown_quality_falls_back(self):
         s = get_encoder_settings(quality="invalid")
@@ -89,11 +88,7 @@ class TestEncodeAudioMp3:
     @staticmethod
     def _ffmpeg_available() -> bool:
         """Check if ffmpeg is available."""
-        try:
-            _configure_ffmpeg_paths()
-            return shutil.which("ffmpeg") is not None
-        except ImportError:
-            return False
+        return shutil.which("ffmpeg") is not None
 
     @pytest.fixture(autouse=True)
     def _skip_if_no_ffmpeg(self):
@@ -103,7 +98,7 @@ class TestEncodeAudioMp3:
     def test_creates_mp3_file(self, tmp_path):
         audio = _sine_wave()
         out = str(tmp_path / "test.mp3")
-        result = encode_audio(audio, 24000, out, EncoderSettings(format="mp3", bitrate="128k"))
+        result = encode_audio(audio, 24000, out, EncoderSettings(bitrate="128k"))
         assert os.path.exists(result)
         assert result.endswith(".mp3")
         assert os.path.getsize(result) > 0
@@ -111,26 +106,26 @@ class TestEncodeAudioMp3:
     def test_creates_directory_if_missing(self, tmp_path):
         audio = _sine_wave()
         nested = tmp_path / "a" / "b" / "output.mp3"
-        result = encode_audio(audio, 24000, str(nested), EncoderSettings(format="mp3", bitrate="128k"))
+        result = encode_audio(audio, 24000, str(nested), EncoderSettings(bitrate="128k"))
         assert os.path.exists(result)
 
     def test_float32_normalization(self, tmp_path):
         """Float32 input should be normalised to int16 internally."""
         audio = _sine_wave().astype(np.float32)
         out = str(tmp_path / "float.mp3")
-        result = encode_audio(audio, 24000, out, EncoderSettings(format="mp3", bitrate="128k"))
+        result = encode_audio(audio, 24000, out, EncoderSettings(bitrate="128k"))
         assert os.path.exists(result)
 
     def test_float64_input(self, tmp_path):
         audio = _sine_wave().astype(np.float64)
         out = str(tmp_path / "f64.mp3")
-        result = encode_audio(audio, 24000, out, EncoderSettings(format="mp3", bitrate="128k"))
+        result = encode_audio(audio, 24000, out, EncoderSettings(bitrate="128k"))
         assert os.path.exists(result)
 
     def test_int16_passthrough(self, tmp_path):
         audio = (_sine_wave() * 32767).astype(np.int16)
         out = str(tmp_path / "i16.mp3")
-        result = encode_audio(audio, 24000, out, EncoderSettings(format="mp3", bitrate="128k"))
+        result = encode_audio(audio, 24000, out, EncoderSettings(bitrate="128k"))
         assert os.path.exists(result)
 
     def test_mp3_is_readable(self, tmp_path):
@@ -139,7 +134,7 @@ class TestEncodeAudioMp3:
 
         audio = _sine_wave(duration=1.0)
         out = str(tmp_path / "readable.mp3")
-        encode_audio(audio, 24000, out, EncoderSettings(format="mp3", bitrate="128k"))
+        encode_audio(audio, 24000, out, EncoderSettings(bitrate="128k"))
 
         segment = AudioSegment.from_mp3(out)
         assert len(segment) > 0  # duration in ms
@@ -148,7 +143,7 @@ class TestEncodeAudioMp3:
         audio = _sine_wave(duration=1.0)
         out = str(tmp_path / "tagged.mp3")
 
-        encode_audio(audio, 24000, out, EncoderSettings(format="mp3", bitrate="128k"))
+        encode_audio(audio, 24000, out, EncoderSettings(bitrate="128k"))
         embed_mp3_metadata(
             out,
             title="Chapter 1",
@@ -176,7 +171,7 @@ class TestEncodeAudioMp3:
             )
         )
 
-        encode_audio(audio, 24000, out, EncoderSettings(format="mp3", bitrate="128k"))
+        encode_audio(audio, 24000, out, EncoderSettings(bitrate="128k"))
         embed_mp3_metadata(
             out,
             title="Chapter 2",

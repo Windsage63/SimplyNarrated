@@ -128,7 +128,7 @@ async def process_chapter_reconvert_job(job: Job, config: Dict[str, Any]) -> Non
     if requested_format != "mp3":
         raise RuntimeError("Only MP3 chapter reconversion is supported")
 
-    encoder_settings = get_encoder_settings(quality=quality, format="mp3")
+    encoder_settings = get_encoder_settings(quality=quality)
 
     job.total_chapters = 1
     job.current_chapter = chapter_number
