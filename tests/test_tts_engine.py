@@ -114,7 +114,7 @@ class TestTTSThenEncode:
         audio, sr = tts_engine.generate_speech(text, "af_heart", speed=1.0)
 
         out_path = str(tmp_path / "output.mp3")
-        result = encode_audio(audio, sr, out_path, EncoderSettings(format="mp3", bitrate="128k"))
+        result = encode_audio(audio, sr, out_path, EncoderSettings(bitrate="128k"))
 
         assert os.path.exists(result)
         assert os.path.getsize(result) > 0
