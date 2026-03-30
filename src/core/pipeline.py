@@ -73,7 +73,8 @@ async def process_book(job: Job, config: Dict[str, Any]) -> None:
         job_manager._add_activity(job, "Extracting text from file...")
         await asyncio.sleep(0.1)  # Yield to event loop
 
-        document = parse_file(job.file_path)
+        loop = asyncio.get_running_loop()
+        document = await loop.run_in_executor(None, parse_file, job.file_path)
         job_manager._add_activity(
             job,
             f"Found {len(document.chapters)} chapters in '{document.title}'",

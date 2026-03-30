@@ -131,6 +131,7 @@ class JobManager:
         )
 
     def _persist_jobs(self) -> None:
+        """Synchronous persist — used during startup/shutdown and sync paths."""
         payload = {"jobs": [self._serialize_job(job) for job in self._jobs.values()]}
         with open(self.jobs_file, "w", encoding="utf-8") as f:
             json.dump(payload, f, indent=2)
@@ -184,14 +185,13 @@ class JobManager:
         return self._jobs.get(job_id)
 
     def _add_activity(self, job: Job, message: str, status: str = "info") -> None:
-        """Add an activity log entry to a job."""
+        """Add an activity log entry to a job. Does NOT persist — caller must flush."""
         entry = ActivityLogEntry(
             timestamp=datetime.now(),
             message=message,
             status=status,
         )
         job.activity_log.append(entry)
-        self._persist_jobs()
 
     def update_progress(
         self,
@@ -207,8 +207,7 @@ class JobManager:
             job.current_chapter = current_chapter
             if message:
                 self._add_activity(job, message)
-            else:
-                self._persist_jobs()
+            self._persist_jobs()
 
     async def start_job(
         self, job_id: str, config: dict, process_func: Callable[[Job, dict], Any]
