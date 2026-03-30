@@ -229,6 +229,29 @@ def sample_library_book(tmp_library_dir):
     return book_id, str(book_dir)
 
 
+@pytest.fixture
+def sample_pdf_file(tmp_uploads_dir):
+    """Create a minimal PDF with text for parser testing using PyMuPDF."""
+    import fitz  # PyMuPDF
+
+    doc = fitz.open()
+    page = doc.new_page()
+    page.insert_text(
+        (72, 72),
+        "My Test PDF Book\n\n"
+        "Chapter 1\n\n"
+        "This is the first chapter of the PDF. "
+        "It has several sentences for testing.\n\n"
+        "Chapter 2\n\n"
+        "This is the second chapter of the PDF book.",
+    )
+
+    path = tmp_uploads_dir / "sample.pdf"
+    doc.save(str(path))
+    doc.close()
+    return str(path)
+
+
 # ---------------------------------------------------------------------------
 # FastAPI test client
 # ---------------------------------------------------------------------------

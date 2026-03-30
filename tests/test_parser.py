@@ -419,3 +419,27 @@ class TestExtractCoverFromMarkdown:
         result = _extract_cover_from_markdown(str(markdown_file), str(output_dir))
         assert result is None
         assert not os.path.exists(output_dir / "cover.jpg")
+
+
+# ---------------------------------------------------------------------------
+# PDF parsing
+# ---------------------------------------------------------------------------
+
+
+class TestParsePdf:
+    def test_parse_pdf_returns_document(self, sample_pdf_file):
+        doc = parse_file(sample_pdf_file)
+        assert doc is not None
+
+    def test_parse_pdf_has_chapters(self, sample_pdf_file):
+        doc = parse_file(sample_pdf_file)
+        assert len(doc.chapters) >= 1
+
+    def test_parse_pdf_chapter_content_not_empty(self, sample_pdf_file):
+        doc = parse_file(sample_pdf_file)
+        for title, content in doc.chapters:
+            assert content.strip(), f"Chapter '{title}' has no content"
+
+    def test_parse_pdf_title_extracted(self, sample_pdf_file):
+        doc = parse_file(sample_pdf_file)
+        assert doc.title

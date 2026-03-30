@@ -32,7 +32,7 @@ class AudioQuality(str, Enum):
 
 
 class AudioFormat(str, Enum):
-    """Audio output format options."""
+    """Audio output format options. Currently only MP3 is supported; reserved for future formats."""
 
     MP3 = "mp3"
 

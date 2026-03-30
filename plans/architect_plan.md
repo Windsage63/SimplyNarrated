@@ -7,12 +7,12 @@
 
 This blueprint contains target architecture and planned capabilities. Current implementation differs in a few important ways:
 
-- Upload supports **TXT, Markdown, PDF, and Gutenberg HTML ZIP** sources.
-- Output is currently **MP3-only**. Generated and reconverted chapters receive **ID3 metadata** (title, album, artist, track number, and embedded cover art when available).
-- Conversion uses a **single narrator voice** in the active pipeline (dialogue voice switching is still planned).
-- Library workflows now include **cover upload**, **portability export/import ZIPs**, **editable chapter text**, and **per-chapter reconversion**.
-- Job management includes **persisted job state**, **restart recovery**, and **bounded concurrent processing**.
-- Frontend assets needed for the main UI are served locally for **offline use** after installation.
+  - Upload supports **TXT, Markdown, PDF, and Gutenberg HTML ZIP** sources.
+  - Output is currently **MP3-only**. Generated and reconverted chapters receive **ID3 metadata** (title, album, artist, track number, and embedded cover art when available).
+  - Conversion uses a **single narrator voice** in the active pipeline (dialogue voice switching is still planned).
+  - Library workflows now include **cover upload**, **portability export/import ZIPs**, **editable chapter text**, and **per-chapter reconversion**.
+  - Job management includes **persisted job state**, **restart recovery**, and **bounded concurrent processing**.
+  - Frontend assets needed for the main UI are served locally for **offline use** after installation.
 
 Use this section as the source of truth when blueprint intent and runtime behavior conflict.
 
@@ -37,38 +37,38 @@ SimplyNarrated is a local web application that converts books and text documents
 
 ### Decision 1: Local-First Architecture
 
-- **Choice:** All processing runs on user's local machine
-- **Rationale:** Privacy-focused, no cloud costs, works offline after model download
-- **Trade-offs:** Requires GPU (or slower CPU inference), user must install Python and PyTorch
+  - **Choice:** All processing runs on user's local machine
+  - **Rationale:** Privacy-focused, no cloud costs, works offline after model download
+  - **Trade-offs:** Requires GPU (or slower CPU inference), user must install Python and PyTorch
 
 ### Decision 2: Chapter-Based Output
 
-- **Choice:** Separate MP3 file per chapter/chunk (≤4000 words each)
-- **Rationale:** Easier to navigate, resume listening, smaller file sizes for processing
-- **Trade-offs:** Multiple files to manage vs. single concatenated audiobook
+  - **Choice:** Separate MP3 file per chapter/chunk (≤4000 words each)
+  - **Rationale:** Easier to navigate, resume listening, smaller file sizes for processing
+  - **Trade-offs:** Multiple files to manage vs. single concatenated audiobook
 
 ### Decision 3: Single Voice System
 
-- **Choice:** Users select one narrator voice
-- **Rationale:** Simpler to implement and use
+  - **Choice:** Users select one narrator voice
+  - **Rationale:** Simpler to implement and use
 
 ### Decision 4: Smart Chunking Strategy
 
-- **Choice:** Hybrid approach — prefer natural breaks (chapters, headings), fall back to word count
-- **Rationale:** Preserves semantic coherence, respects document structure
-- **Trade-offs:** More complex parsing logic, edge cases with unstructured text
+  - **Choice:** Hybrid approach — prefer natural breaks (chapters, headings), fall back to word count
+  - **Rationale:** Preserves semantic coherence, respects document structure
+  - **Trade-offs:** More complex parsing logic, edge cases with unstructured text
 
 ### Decision 5: Multi-Page SPA Architecture (NEW)
 
-- **Choice:** 5 distinct views managed via JavaScript routing
-- **Rationale:** Stitch UI designs show comprehensive user experience beyond basic converter
-- **Trade-offs:** More complex frontend, requires state management
+  - **Choice:** 5 distinct views managed via JavaScript routing
+  - **Rationale:** Stitch UI designs show comprehensive user experience beyond basic converter
+  - **Trade-offs:** More complex frontend, requires state management
 
 ### Decision 6: File-Based Persistence
 
-- **Choice:** All metadata and user data stored in JSON files within the `data/` directory.
-- **Rationale:** Simplicity, portability, and zero-dependency database setup.
-- **Constraint:** No SQLite or other database engines are desired. Every data point must be traceable to a JSON file.
+  - **Choice:** All metadata and user data stored in JSON files within the `data/` directory.
+  - **Rationale:** Simplicity, portability, and zero-dependency database setup.
+  - **Constraint:** No SQLite or other database engines are desired. Every data point must be traceable to a JSON file.
 
 ## 4. UI Screens (From Stitch Designs)
 
@@ -190,30 +190,30 @@ font-family: 'Inter', sans-serif;
 
 ### Functional Requirements
 
-- [ ] FR-1: Accept `.txt`, `.md`, `.pdf`, and Gutenberg `.zip` file uploads (max 50MB)
-- [ ] FR-2: Parse and extract clean text from all supported formats
-- [ ] FR-3: Chunk text at natural boundaries (chapters, headings) or ≤4000 words
-- [ ] FR-4: Detect quoted dialogue using regex patterns (`"..."`, `'...'`, etc.)
-- [ ] FR-5: Generate speech using Kokoro-82M with selected voice(s)
-- [ ] FR-6: Support playback speed adjustment (0.5x - 2.0x)
-- [ ] FR-7: Support output quality selection (SD/HD/Ultra)
-- [ ] FR-8: Support MP3 output format
-- [ ] FR-9: Save audio as individual files per chapter/chunk
-- [ ] FR-10: Provide real-time progress with activity log
-- [ ] FR-11: Allow canceling in-progress conversions
-- [ ] FR-12: Persist library of converted books
-- [ ] FR-13: Provide built-in audiobook player
-- [ ] FR-14: Support bookmarks and playback position memory
-- [ ] FR-15: Voice preview before conversion
+  - [ ] FR-1: Accept `.txt`, `.md`, `.pdf`, and Gutenberg `.zip` file uploads (max 50MB)
+  - [ ] FR-2: Parse and extract clean text from all supported formats
+  - [ ] FR-3: Chunk text at natural boundaries (chapters, headings) or ≤4000 words
+  - [ ] FR-4: Detect quoted dialogue using regex patterns (`"..."`, `'...'`, etc.)
+  - [ ] FR-5: Generate speech using Kokoro-82M with selected voice(s)
+  - [ ] FR-6: Support playback speed adjustment (0.5x - 2.0x)
+  - [ ] FR-7: Support output quality selection (SD/HD/Ultra)
+  - [ ] FR-8: Support MP3 output format
+  - [ ] FR-9: Save audio as individual files per chapter/chunk
+  - [ ] FR-10: Provide real-time progress with activity log
+  - [ ] FR-11: Allow canceling in-progress conversions
+  - [ ] FR-12: Persist library of converted books
+  - [ ] FR-13: Provide built-in audiobook player
+  - [ ] FR-14: Support bookmarks and playback position memory
+  - [ ] FR-15: Voice preview before conversion
 
 ### Non-Functional Requirements
 
-- [ ] NFR-1: Support GPU acceleration (CUDA) with CPU fallback
-- [ ] NFR-2: Process 4000 words in under 5 minutes on mid-range GPU
-- [ ] NFR-3: Web UI must be accessible and usable without developer tools
-- [ ] NFR-4: No external API calls — fully offline after model download
-- [ ] NFR-5: Dark mode by default with Stitch design system
-- [ ] NFR-6: Responsive design for desktop use
+  - [ ] NFR-1: Support GPU acceleration (CUDA) with CPU fallback
+  - [ ] NFR-2: Process 4000 words in under 5 minutes on mid-range GPU
+  - [ ] NFR-3: Web UI must be accessible and usable without developer tools
+  - [ ] NFR-4: No external API calls — fully offline after model download
+  - [ ] NFR-5: Dark mode by default with Stitch design system
+  - [ ] NFR-6: Responsive design for desktop use
 
 ## 8. Planning Agent Handoff
 
@@ -263,19 +263,19 @@ Build a working end-to-end pipeline: upload a TXT file → generate single chapt
 
 ### Reference Files
 
-- `kokoro` - PyPI package for TTS model
-- `PyMuPDF` - PDF text extraction
-- `static/` - Current shipped frontend assets and vendor bundles
+  - `kokoro` - PyPI package for TTS model
+  - `PyMuPDF` - PDF text extraction
+  - `static/` - Current shipped frontend assets and vendor bundles
 
 ## 9. Open Questions
 
-- [x] ~~Should we support pausing/resuming long generation jobs?~~ → Yes (Cancel shown in UI)
-- [x] ~~What's the maximum file size we should support?~~ → 50MB (per Stitch UI)
-- [x] ~~Should chapter MP3s include ID3 metadata (title, track number, cover art)?~~ → Yes (implemented for generated and reconverted MP3 chapters)
-- [x] ~~Do we want a "preview" mode to test voices before full generation?~~ → Yes (Voice cards have play buttons)
-- [x] ~~Should we persist job history for re-downloading previous conversions?~~ → Yes (Dashboard shows library)
-- [x] ~~Should we extract/generate book cover art from uploaded files?~~ → Extract when available from PDF, Markdown, and Gutenberg ZIP sources; upload override is also supported
-- [ ] How should we handle very long books (500+ pages)?
+  - [x] ~~Should we support pausing/resuming long generation jobs?~~ → Yes (Cancel shown in UI)
+  - [x] ~~What's the maximum file size we should support?~~ → 50MB (per Stitch UI)
+  - [x] ~~Should chapter MP3s include ID3 metadata (title, track number, cover art)?~~ → Yes (implemented for generated and reconverted MP3 chapters)
+  - [x] ~~Do we want a "preview" mode to test voices before full generation?~~ → Yes (Voice cards have play buttons)
+  - [x] ~~Should we persist job history for re-downloading previous conversions?~~ → Yes (Dashboard shows library)
+  - [x] ~~Should we extract/generate book cover art from uploaded files?~~ → Extract when available from PDF, Markdown, and Gutenberg ZIP sources; upload override is also supported
+  - [ ] How should we handle very long books (500+ pages)?
 
 ---
 

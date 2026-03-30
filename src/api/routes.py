@@ -17,13 +17,15 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
-import os
-import re
-import uuid
 import asyncio
+import io
 import json
 import math
+import os
+import re
 import tempfile
+import uuid
+import zipfile
 import aiofiles
 from fastapi import APIRouter, UploadFile, File, HTTPException, BackgroundTasks
 from fastapi.responses import FileResponse
@@ -91,14 +93,14 @@ def _validate_chapter_or_400(chapter: int) -> None:
         raise HTTPException(status_code=400, detail="Chapter number must be >= 1")
 
 
-def _load_book_metadata_or_404(book_dir: str) -> dict:
+async def _load_book_metadata_or_404(book_dir: str) -> dict:
     """Load metadata for a book directory, raising 404 if unavailable."""
     metadata_path = os.path.join(book_dir, "metadata.json")
     if not os.path.exists(metadata_path):
         raise HTTPException(status_code=404, detail="Book not found")
 
-    with open(metadata_path, "r", encoding="utf-8") as metadata_file:
-        return json.load(metadata_file)
+    async with aiofiles.open(metadata_path, "r", encoding="utf-8") as metadata_file:
+        return json.loads(await metadata_file.read())
 
 
 def _ensure_chapter_exists_or_404(metadata: dict, chapter: int) -> None:
@@ -141,7 +143,6 @@ def _estimate_chapters(file_ext: str, content: bytes, file_size: int) -> int:
             return max(1, math.ceil(words / 4000))
         if file_ext == ".zip":
             # ZIP with HTML: estimate from uncompressed HTML size
-            import zipfile, io
             try:
                 with zipfile.ZipFile(io.BytesIO(content)) as zf:
                     html_sizes = [
@@ -228,6 +229,11 @@ async def start_generation(request: GenerateRequest, background_tasks: Backgroun
             status_code=400,
             detail=f"Job cannot be started. Current status: {job.status}",
         )
+
+    # Validate narrator_voice against known voices
+    valid_voice_ids = {v.id for v in AVAILABLE_VOICES}
+    if request.narrator_voice not in valid_voice_ids:
+        raise HTTPException(status_code=400, detail="Invalid narrator voice")
 
     # Convert request to config dict
     config = {
@@ -337,7 +343,7 @@ async def get_voice_sample(voice_id: str):
     try:
         tts_engine = get_tts_engine()
         quote = SAMPLE_QUOTE
-        logger.info(f"Generating voice sample for {voice_id}: '{quote[:50]}...'")
+        logger.info("Generating voice sample for %s: '%.50s...'", voice_id, quote)
 
         # Run TTS in thread pool to not block
         loop = asyncio.get_running_loop()
@@ -352,7 +358,7 @@ async def get_voice_sample(voice_id: str):
 
         # Encode to MP3
         cache_path_mp3 = os.path.join(cache_dir, f"{voice_id}.mp3")
-        settings = EncoderSettings(format="mp3", bitrate="128k")
+        settings = EncoderSettings(bitrate="128k")
 
         actual_path = await asyncio.get_running_loop().run_in_executor(
             None, lambda: encode_audio(audio, sample_rate, cache_path_mp3, settings)
@@ -369,9 +375,9 @@ async def get_voice_sample(voice_id: str):
 
     except HTTPException:
         raise
-    except Exception as e:
-        logger.exception(f"Failed to generate voice sample for {voice_id}")
-        raise HTTPException(status_code=500, detail=f"Failed to generate sample: {e}")
+    except Exception:
+        logger.exception("Failed to generate voice sample for %s", voice_id)
+        raise HTTPException(status_code=500, detail="Failed to generate voice sample")
 
 
 @router.get("/library", response_model=LibraryResponse)
@@ -548,7 +554,7 @@ async def update_chapter_text(book_id: str, chapter: int, request: UpdateChapter
 
     library = get_library_manager()
     book_dir = library.get_book_dir(book_id)
-    metadata = _load_book_metadata_or_404(book_dir)
+    metadata = await _load_book_metadata_or_404(book_dir)
     _ensure_chapter_exists_or_404(metadata, chapter)
 
     text_path = os.path.join(book_dir, f"chapter_{chapter:02d}.txt")
@@ -573,8 +579,14 @@ async def reconvert_chapter(book_id: str, chapter: int, request: ReconvertChapte
 
     library = get_library_manager()
     book_dir = library.get_book_dir(book_id)
-    metadata = _load_book_metadata_or_404(book_dir)
+    metadata = await _load_book_metadata_or_404(book_dir)
     _ensure_chapter_exists_or_404(metadata, chapter)
+
+    # Validate narrator_voice if provided
+    if request.narrator_voice is not None:
+        valid_voice_ids = {v.id for v in AVAILABLE_VOICES}
+        if request.narrator_voice not in valid_voice_ids:
+            raise HTTPException(status_code=400, detail="Invalid narrator voice")
 
     text_path = os.path.join(book_dir, f"chapter_{chapter:02d}.txt")
     if not os.path.exists(text_path):
@@ -622,7 +634,7 @@ async def save_bookmark(book_id: str, chapter: int, position: float):
 
     library = get_library_manager()
     book_dir = library.get_book_dir(book_id)
-    metadata = _load_book_metadata_or_404(book_dir)
+    metadata = await _load_book_metadata_or_404(book_dir)
     _validate_bookmark_or_400(metadata, chapter, position)
 
     success = library.save_bookmark(book_id, chapter, position)
@@ -671,13 +683,13 @@ async def update_book_metadata(book_id: str, request: UpdateMetadataRequest):
 
     library = get_library_manager()
     book_dir = library.get_book_dir(book_id)
-    _load_book_metadata_or_404(book_dir)
+    await _load_book_metadata_or_404(book_dir)
     success = library.update_book_metadata(book_id, updates)
 
     if not success:
         raise HTTPException(status_code=404, detail="Book not found")
 
-    metadata = _load_book_metadata_or_404(book_dir)
+    metadata = await _load_book_metadata_or_404(book_dir)
     retag_book_mp3_files(book_dir, metadata)
 
     return {"status": "updated", "book_id": book_id, **updates}
@@ -741,7 +753,7 @@ async def upload_cover(book_id: str, file: UploadFile = File(...)):
     # Update metadata
     cover_url = f"/api/book/{book_id}/cover"
     library.update_book_metadata(book_id, {"cover_url": cover_url})
-    metadata = _load_book_metadata_or_404(book_dir)
+    metadata = await _load_book_metadata_or_404(book_dir)
     retag_book_mp3_files(book_dir, metadata)
 
     return {"status": "uploaded", "cover_url": cover_url}

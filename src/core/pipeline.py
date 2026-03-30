@@ -73,7 +73,8 @@ async def process_book(job: Job, config: Dict[str, Any]) -> None:
         job_manager._add_activity(job, "Extracting text from file...")
         await asyncio.sleep(0.1)  # Yield to event loop
 
-        document = parse_file(job.file_path)
+        loop = asyncio.get_running_loop()
+        document = await loop.run_in_executor(None, parse_file, job.file_path)
         job_manager._add_activity(
             job,
             f"Found {len(document.chapters)} chapters in '{document.title}'",
@@ -138,7 +139,6 @@ async def process_book(job: Job, config: Dict[str, Any]) -> None:
         # Phase 4: Generate audio for each chunk
         encoder_settings = get_encoder_settings(
             quality=config.get("quality", "sd"),
-            format=config.get("format", "mp3"),
         )
 
         voice_id = config.get("narrator_voice", "af_heart")
@@ -172,7 +172,7 @@ async def process_book(job: Job, config: Dict[str, Any]) -> None:
             )
 
             # Encode and save
-            output_filename = f"chapter_{chapter_num:02d}.{encoder_settings.format}"
+            output_filename = f"chapter_{chapter_num:02d}.mp3"
             output_path = os.path.join(job.output_dir, output_filename)
 
             await loop.run_in_executor(
@@ -223,7 +223,7 @@ async def process_book(job: Job, config: Dict[str, Any]) -> None:
                     "duration": format_duration(chunk.estimated_duration)
                     if hasattr(chunk, "estimated_duration")
                     else None,
-                    "audio_path": f"chapter_{chapter_num:02d}.{encoder_settings.format}",
+                    "audio_path": f"chapter_{chapter_num:02d}.mp3",
                     "text_path": f"chapter_{chapter_num:02d}.txt",
                     "completed": True,
                 }
@@ -241,13 +241,13 @@ async def process_book(job: Job, config: Dict[str, Any]) -> None:
             "total_chapters": len(chunks),
             "total_duration": total_duration,
             "created_at": datetime.now().isoformat(),
-            "format": encoder_settings.format,
+            "format": "mp3",
             "quality": config.get("quality", "sd"),
             "chapters": chapter_list,
         }
 
         metadata_path = os.path.join(job.output_dir, "metadata.json")
-        with open(metadata_path, "w") as f:
+        with open(metadata_path, "w", encoding="utf-8") as f:
             json.dump(metadata, f, indent=2)
 
         job.progress = 100.0

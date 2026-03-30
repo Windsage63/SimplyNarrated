@@ -19,7 +19,6 @@ limitations under the License.
 
 import os
 import json
-import time
 import asyncio
 import logging
 from typing import Any, Dict, List
@@ -63,7 +62,7 @@ def _format_total_duration_from_chapters(chapters: List[Dict[str, Any]]) -> str:
     return format_duration(total_seconds)
 
 
-def _replace_with_retry(source_path: str, destination_path: str, retries: int = 6) -> None:
+async def _replace_with_retry(source_path: str, destination_path: str, retries: int = 6) -> None:
     retry_delay_seconds = 0.5
     last_error = None
 
@@ -73,7 +72,7 @@ def _replace_with_retry(source_path: str, destination_path: str, retries: int = 
             return
         except (PermissionError, OSError) as error:
             last_error = error
-            time.sleep(retry_delay_seconds)
+            await asyncio.sleep(retry_delay_seconds)
 
     if os.path.exists(source_path):
         try:
@@ -107,6 +106,11 @@ async def process_chapter_reconvert_job(job: Job, config: Dict[str, Any]) -> Non
     if not os.path.exists(text_path):
         raise RuntimeError("Chapter text not found")
 
+    # NOTE: metadata.json is read once at the start and written at the end with no
+    # file-level locking. Concurrent writes for different chapters of the same book
+    # would cause data loss. This is safe only because JobManager's semaphore
+    # (max_concurrent_jobs=1) serialises all jobs. Do not increase concurrency
+    # without adding proper file-level locking (e.g. filelock) here.
     with open(metadata_path, "r", encoding="utf-8") as metadata_file:
         metadata = json.load(metadata_file)
 
@@ -124,7 +128,7 @@ async def process_chapter_reconvert_job(job: Job, config: Dict[str, Any]) -> Non
     if requested_format != "mp3":
         raise RuntimeError("Only MP3 chapter reconversion is supported")
 
-    encoder_settings = get_encoder_settings(quality=quality, format="mp3")
+    encoder_settings = get_encoder_settings(quality=quality)
 
     job.total_chapters = 1
     job.current_chapter = chapter_number
@@ -220,7 +224,7 @@ async def process_chapter_reconvert_job(job: Job, config: Dict[str, Any]) -> Non
         f"Replacing chapter {chapter_number} audio file...",
     )
 
-    await loop.run_in_executor(None, lambda: _replace_with_retry(temp_audio_path, audio_path))
+    await _replace_with_retry(temp_audio_path, audio_path)
 
     chapter_audio = AudioSegment.from_file(audio_path)
     chapter_duration = format_duration(chapter_audio.duration_seconds)
