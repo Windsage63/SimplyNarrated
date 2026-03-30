@@ -85,6 +85,10 @@ def chunk_text(
         if current_pos + max_words < len(words):
             chunk_text = _find_break_point(chunk_text)
             actual_words = len(chunk_text.split())
+            # Guard: if break-point returned empty text, fall back to the full word slice
+            if actual_words == 0:
+                chunk_text = " ".join(chunk_words)
+                actual_words = len(chunk_words)
         else:
             actual_words = len(chunk_words)
 
@@ -143,26 +147,23 @@ def chunk_chapters(
     large ones to respect max_words.
     """
     final_chunks = []
-    current_bucket_text = []
-    current_bucket_word_count = 0
-    current_bucket_titles = []
     chunk_counter = 0
 
-    def flush_bucket():
-        nonlocal chunk_counter
-        if not current_bucket_text:
-            return 0
+    bucket: dict = {"text": [], "titles": [], "word_count": 0}
 
-        combined_text = "\n\n".join(current_bucket_text)
-        # Create a combined title for the merged chunk
-        if len(current_bucket_titles) > 1:
-            first = current_bucket_titles[0]
-            last = current_bucket_titles[-1]
+    def flush_bucket() -> None:
+        nonlocal chunk_counter
+        if not bucket["text"]:
+            return
+
+        combined_text = "\n\n".join(bucket["text"])
+        if len(bucket["titles"]) > 1:
+            first = bucket["titles"][0]
+            last = bucket["titles"][-1]
             bucket_title = f"{first} - {last}"
         else:
-            bucket_title = current_bucket_titles[0]
+            bucket_title = bucket["titles"][0]
 
-        # Use chunk_text to handle final padding/splitting if needed
         bucket_chunks = chunk_text(combined_text, max_words, bucket_title)
 
         for ch in bucket_chunks:
@@ -170,16 +171,15 @@ def chunk_chapters(
             final_chunks.append(ch)
             chunk_counter += 1
 
-        current_bucket_text.clear()
-        current_bucket_titles.clear()
-        return 0  # New count
+        bucket["text"].clear()
+        bucket["titles"].clear()
+        bucket["word_count"] = 0
 
     for title, content in chapters:
         words_in_chapter = count_words(content)
 
-        # If this chapter alone exceeds the limit, flush bucket and push through
         if words_in_chapter > max_words:
-            current_bucket_word_count = flush_bucket()
+            flush_bucket()
             chapter_chunks = chunk_text(content, max_words, title)
             for ch in chapter_chunks:
                 ch.index = chunk_counter
@@ -187,18 +187,13 @@ def chunk_chapters(
                 chunk_counter += 1
             continue
 
-        # If adding this chapter exceeds the limit, flush current bucket
-        if (
-            current_bucket_word_count + words_in_chapter > max_words
-            and current_bucket_text
-        ):
-            current_bucket_word_count = flush_bucket()
+        if bucket["word_count"] + words_in_chapter > max_words and bucket["text"]:
+            flush_bucket()
 
-        current_bucket_text.append(content)
-        current_bucket_titles.append(title)
-        current_bucket_word_count += words_in_chapter
+        bucket["text"].append(content)
+        bucket["titles"].append(title)
+        bucket["word_count"] += words_in_chapter
 
-    # Final flush
     flush_bucket()
 
     return final_chunks

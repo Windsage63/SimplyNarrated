@@ -430,7 +430,7 @@ def _extract_cover_from_zip(file_path: str, output_dir: str) -> Optional[str]:
                 m for m in zf.infolist()
                 if not m.is_dir()
                 and _safe_zip_member(m.filename)
-                and m.filename.lower().endswith((".jpg", ".jpeg", ".png", ".gif"))
+                and m.filename.lower().endswith((".jpg", ".jpeg", ".png"))
             ]
 
             # Find the member whose basename contains 'cover'
@@ -448,8 +448,6 @@ def _extract_cover_from_zip(file_path: str, output_dir: str) -> Optional[str]:
             ext = os.path.splitext(cover_member.filename)[1].lower()
             if ext in (".jpg", ".jpeg"):
                 cover_filename = "cover.jpg"
-            elif ext == ".png":
-                cover_filename = "cover.png"
             else:
                 cover_filename = "cover.png"
 

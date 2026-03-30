@@ -24,6 +24,8 @@ import asyncio
 import json
 import math
 import tempfile
+import io
+import zipfile
 import aiofiles
 from fastapi import APIRouter, UploadFile, File, HTTPException, BackgroundTasks
 from fastapi.responses import FileResponse
@@ -141,7 +143,6 @@ def _estimate_chapters(file_ext: str, content: bytes, file_size: int) -> int:
             return max(1, math.ceil(words / 4000))
         if file_ext == ".zip":
             # ZIP with HTML: estimate from uncompressed HTML size
-            import zipfile, io
             try:
                 with zipfile.ZipFile(io.BytesIO(content)) as zf:
                     html_sizes = [
