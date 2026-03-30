@@ -17,14 +17,14 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
-import os
-import re
-import uuid
 import asyncio
+import io
 import json
 import math
+import os
+import re
 import tempfile
-import io
+import uuid
 import zipfile
 import aiofiles
 from fastapi import APIRouter, UploadFile, File, HTTPException, BackgroundTasks
