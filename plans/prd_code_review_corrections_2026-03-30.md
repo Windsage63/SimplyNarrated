@@ -5,16 +5,18 @@
 **Author:** GitHub Copilot (automated PRD)
 **Target audience:** Junior developer handing-off document
 
+> **Completion Status (2026-03-30):** All 18 tasks across 4 phases have been implemented and verified. The test suite passes with 164 non-slow tests.
+
 ---
 
 ## Purpose
 
 This document translates every finding from the 2026-03-29 code review into concrete, step-by-step implementation tasks. Each task contains:
 
-- **What** the problem is (plain English)
-- **Where** the code lives (file + line numbers)
-- **Exactly how** to fix it (code snippets you can copy-paste)
-- **How to verify** the fix is correct (manual or automated tests)
+  - **What** the problem is (plain English)
+  - **Where** the code lives (file + line numbers)
+  - **Exactly how** to fix it (code snippets you can copy-paste)
+  - **How to verify** the fix is correct (manual or automated tests)
 
 Work through the phases in order. Each phase builds on the previous one.
 
@@ -24,33 +26,33 @@ Work through the phases in order. Each phase builds on the previous one.
 
 ### Phase 1 — Security & Correctness (Major findings, do these first)
 
-- [ ] **Task 1.1** — Validate `narrator_voice` in `/generate` and `/reconvert` endpoints
-- [ ] **Task 1.2** — Redact internal exception detail from voice-sample 500 response
-- [ ] **Task 1.3** — Offload `parse_file()` to a thread-pool executor in the pipeline
-- [ ] **Task 1.4** — Convert `_load_book_metadata_or_404()` to async I/O
-- [ ] **Task 1.5** — Debounce `_persist_jobs()` so it is not called on every activity log entry
+  - [x] **Task 1.1** — Validate `narrator_voice` in `/generate` and `/reconvert` endpoints
+  - [x] **Task 1.2** — Redact internal exception detail from voice-sample 500 response
+  - [x] **Task 1.3** — Offload `parse_file()` to a thread-pool executor in the pipeline
+  - [x] **Task 1.4** — Convert `_load_book_metadata_or_404()` to async I/O
+  - [x] **Task 1.5** — Debounce `_persist_jobs()` so it is not called on every activity log entry
 
 ### Phase 2 — Logic & Edge Case Fixes (Minor findings)
 
-- [ ] **Task 2.1** — Guard against infinite loop in `chunk_text()` when break-point is empty
-- [ ] **Task 2.2** — Handle GIF cover images correctly in ZIP extraction
-- [ ] **Task 2.3** — Replace blocking `time.sleep()` in `_replace_with_retry()` with async sleep
-- [ ] **Task 2.4** — Refactor `flush_bucket()` closure to use an explicit data structure
-- [ ] **Task 2.5** — Move `zipfile`/`io` imports out of `_estimate_chapters()` function body
-- [ ] **Task 2.6** — Document the serialization-dependency of the reconvert metadata write
+  - [x] **Task 2.1** — Guard against infinite loop in `chunk_text()` when break-point is empty
+  - [x] **Task 2.2** — Handle GIF cover images correctly in ZIP extraction
+  - [x] **Task 2.3** — Replace blocking `time.sleep()` in `_replace_with_retry()` with async sleep
+  - [x] **Task 2.4** — Refactor `flush_bucket()` closure to use an explicit data structure
+  - [x] **Task 2.5** — Move `zipfile`/`io` imports out of `_estimate_chapters()` function body
+  - [x] **Task 2.6** — Document the serialization-dependency of the reconvert metadata write
 
 ### Phase 3 — Code Quality & Simplification (Minor/Nit findings)
 
-- [ ] **Task 3.1** — Remove `AudioFormat` enum / `format` field or actually use it in `encode_audio()`
-- [ ] **Task 3.2** — Remove duplicate `static_ffmpeg.add_paths()` in `encoder.py`
-- [ ] **Task 3.3** — Add missing `encoding="utf-8"` to metadata write in `pipeline.py`
-- [ ] **Task 3.4** — Convert f-string logger calls to `%s`-style deferred formatting
+  - [x] **Task 3.1** — Remove `AudioFormat` enum / `format` field or actually use it in `encode_audio()`
+  - [x] **Task 3.2** — Remove duplicate `static_ffmpeg.add_paths()` in `encoder.py`
+  - [x] **Task 3.3** — Add missing `encoding="utf-8"` to metadata write in `pipeline.py`
+  - [x] **Task 3.4** — Convert f-string logger calls to `%s`-style deferred formatting
 
 ### Phase 4 — Testing & Documentation (Minor/Nit findings)
 
-- [ ] **Task 4.1** — Write unit tests for `chapter_reconvert.py` helpers
-- [ ] **Task 4.2** — Write unit tests for `portability.py` helpers
-- [ ] **Task 4.3** — Add PDF parsing test coverage
+  - [x] **Task 4.1** — Write unit tests for `chapter_reconvert.py` helpers
+  - [x] **Task 4.2** — Write unit tests for `portability.py` helpers
+  - [x] **Task 4.3** — Add PDF parsing test coverage
 
 ---
 
@@ -82,8 +84,8 @@ The `/api/generate` and `/api/book/{book_id}/chapter/{chapter}/reconvert` endpoi
 
 #### Exact Location
 
-- **`/generate` endpoint** — around line 215 of `src/api/routes.py`, inside `async def start_generation(...)`.
-- **`/reconvert` endpoint** — around line 566, inside `async def reconvert_chapter(...)`.
+  - **`/generate` endpoint** — around line 215 of `src/api/routes.py`, inside `async def start_generation(...)`.
+  - **`/reconvert` endpoint** — around line 566, inside `async def reconvert_chapter(...)`.
 
 #### Step-by-Step Fix
 
@@ -779,8 +781,9 @@ def chunk_chapters(
 ```
 
 > **Key differences from the original:**
-> - `flush_bucket()` now returns `None` — callers no longer need to do `current_bucket_word_count = flush_bucket()`.
-> - All three mutable state fields live inside the `bucket` dict, so clearing is done inside `flush_bucket` and is never accidentally missed.
+>
+>   - `flush_bucket()` now returns `None` — callers no longer need to do `current_bucket_word_count = flush_bucket()`.
+>   - All three mutable state fields live inside the `bucket` dict, so clearing is done inside `flush_bucket` and is never accidentally missed.
 
 #### How to Verify
 
@@ -903,8 +906,8 @@ The simplest fix is to remove the `format` parameter from `EncoderSettings` and 
 
 #### Exact Location
 
-- `src/core/encoder.py`, `EncoderSettings` dataclass and `encode_audio()` (around lines 43–116)
-- `src/models/schemas.py`, `AudioFormat` enum and `format` field in `GenerateRequest` / `ReconvertChapterRequest` (around lines 34–91)
+  - `src/core/encoder.py`, `EncoderSettings` dataclass and `encode_audio()` (around lines 43–116)
+  - `src/models/schemas.py`, `AudioFormat` enum and `format` field in `GenerateRequest` / `ReconvertChapterRequest` (around lines 34–91)
 
 #### Step-by-Step Fix
 
@@ -1108,8 +1111,8 @@ Two `logger` calls use f-strings, which evaluate the string expression even when
 
 `src/api/routes.py`:
 
-- Around line 340: `logger.info(f"Generating voice sample for {voice_id}: '{quote[:50]}...'")`
-- Around line 373: `logger.exception(f"Failed to generate voice sample for {voice_id}")`
+  - Around line 340: `logger.info(f"Generating voice sample for {voice_id}: '{quote[:50]}...'")`
+  - Around line 373: `logger.exception(f"Failed to generate voice sample for {voice_id}")`
 
 #### Step-by-Step Fix
 
@@ -1510,29 +1513,28 @@ python -m pytest tests/test_parser.py::TestParsePdf -v
 
 ## Summary Table
 
-| Task | File(s) | Effort | Phase |
-|------|---------|--------|-------|
-| 1.1 Voice validation in /generate & /reconvert | `src/api/routes.py` | Low | 1 |
-| 1.2 Redact exception detail in voice-sample 500 | `src/api/routes.py` | Low | 1 |
-| 1.3 parse_file() → run_in_executor | `src/core/pipeline.py` | Low | 1 |
-| 1.4 _load_book_metadata_or_404() → async | `src/api/routes.py` | Medium | 1 |
-| 1.5 _persist_jobs() debounce / async | `src/core/job_manager.py`, `pipeline.py`, `chapter_reconvert.py` | Medium | 1 |
-| 2.1 chunk_text() infinite-loop guard | `src/core/chunker.py` | Low | 2 |
-| 2.2 GIF cover image handling | `src/core/parser.py` | Low | 2 |
-| 2.3 _replace_with_retry() → async sleep | `src/core/chapter_reconvert.py` | Low | 2 |
-| 2.4 flush_bucket() refactor | `src/core/chunker.py` | Low | 2 |
-| 2.5 Move zipfile/io imports to top | `src/api/routes.py` | Low | 2 |
-| 2.6 Document semaphore dependency | `src/core/chapter_reconvert.py` | Low | 2 |
-| 3.1 Remove unused AudioFormat/format field | `src/core/encoder.py`, `src/core/pipeline.py`, `src/core/chapter_reconvert.py` | Low | 3 |
-| 3.2 Remove duplicate ffmpeg add_paths() | `src/core/encoder.py` | Low | 3 |
-| 3.3 Add encoding="utf-8" to metadata write | `src/core/pipeline.py` | Low | 3 |
-| 3.4 Convert f-string logger calls | `src/api/routes.py` | Low | 3 |
-| 4.1 Unit tests for chapter_reconvert.py | `tests/test_chapter_reconvert.py` (new) | Medium | 4 |
-| 4.2 Unit tests for portability.py | `tests/test_portability.py` (new) | Medium | 4 |
-| 4.3 PDF parsing tests | `tests/conftest.py`, `tests/test_parser.py` | Medium | 4 |
+| Task | File(s) | Effort | Phase | Status |
+|------|---------|--------|-------|--------|
+| 1.1 Voice validation in /generate & /reconvert | `src/api/routes.py` | Low | 1 | ✅ |
+| 1.2 Redact exception detail in voice-sample 500 | `src/api/routes.py` | Low | 1 | ✅ |
+| 1.3 parse_file() → run_in_executor | `src/core/pipeline.py` | Low | 1 | ✅ |
+| 1.4 _load_book_metadata_or_404() → async | `src/api/routes.py` | Medium | 1 | ✅ |
+| 1.5 _persist_jobs() debounce / async | `src/core/job_manager.py`, `pipeline.py`, `chapter_reconvert.py` | Medium | 1 | ✅ |
+| 2.1 chunk_text() infinite-loop guard | `src/core/chunker.py` | Low | 2 | ✅ |
+| 2.2 GIF cover image handling | `src/core/parser.py` | Low | 2 | ✅ |
+| 2.3 _replace_with_retry() → async sleep | `src/core/chapter_reconvert.py` | Low | 2 | ✅ |
+| 2.4 flush_bucket() refactor | `src/core/chunker.py` | Low | 2 | ✅ |
+| 2.5 Move zipfile/io imports to top | `src/api/routes.py` | Low | 2 | ✅ |
+| 2.6 Document semaphore dependency | `src/core/chapter_reconvert.py` | Low | 2 | ✅ |
+| 3.1 Remove unused AudioFormat/format field | `src/core/encoder.py`, `src/core/pipeline.py`, `src/core/chapter_reconvert.py` | Low | 3 | ✅ |
+| 3.2 Remove duplicate ffmpeg add_paths() | `src/core/encoder.py` | Low | 3 | ✅ |
+| 3.3 Add encoding="utf-8" to metadata write | `src/core/pipeline.py` | Low | 3 | ✅ |
+| 3.4 Convert f-string logger calls | `src/api/routes.py` | Low | 3 | ✅ |
+| 4.1 Unit tests for chapter_reconvert.py | `tests/test_chapter_reconvert.py` (new) | Medium | 4 | ✅ |
+| 4.2 Unit tests for portability.py | `tests/test_portability.py` (new) | Medium | 4 | ✅ |
+| 4.3 PDF parsing tests | `tests/conftest.py`, `tests/test_parser.py` | Medium | 4 | ✅ |
 
-**Total tasks:** 18
-**Estimated total effort:** ~2–3 developer days for a junior developer working methodically
+**Total tasks:** 18 — **All complete**
 
 ---
 
@@ -1561,4 +1563,5 @@ Then:
 
 *PRD created: 2026-03-30*
 *Based on: `plans/code_review_report_2026-03-29.md`*
+*All tasks completed: 2026-03-30*
 *App version: SimplyNarrated 0.1.0*

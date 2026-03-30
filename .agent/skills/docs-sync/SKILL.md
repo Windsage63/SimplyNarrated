@@ -57,8 +57,8 @@ Produce the Mismatch Report and summary using the output format below.
 
 ### Mismatch Report
 
-| File | Location | Discrepancy | Type | Proposed Action |
-|:-----|:---------|:------------|:-----|:----------------|
+| File                  | Location    | Discrepancy                   | Type       | Proposed Action   |
+| :-------------------- | :---------- | :---------------------------- | :--------- | :---------------- |
 | docs/API-Reference.md | `## Upload` | Missing `max_file_size` param | Actionable | Add parameter row |
 
 ### Summary
@@ -68,11 +68,11 @@ Produce the Mismatch Report and summary using the output format below.
 - **Clarifying items logged:** N (see `DOCS_TODO.md`)
 - **Recommendations:** [brief list]
 
-> [Dry, grumpy one-liner reflecting on the state of the documentation]
+> [Dry, grumpy one-liner reflecting on the state of the documentation - a la Bertram Gilfoyle]
 
 ## Gotchas
 
-- **Intent vs. implementation:** PRDs and design docs describe *desired* behavior. If code deviates from a PRD, flag the code as deviating — do not silently update the PRD to match buggy code.
+- **Intent vs. implementation:** PRDs and design docs describe _desired_ behavior. If code deviates from a PRD, flag the code as deviating — do not silently update the PRD to match buggy code.
 - **Shared tables drift independently.** A fix to an API quick-reference table in one doc must propagate to every doc that contains a copy of that table.
 - **Generated metadata is not user-editable.** Fields like `duration` or `chapter_count` in `metadata.json` are computed at conversion time. Do not document them as configurable.
 - **Route docstrings and API reference can diverge.** Always check both the inline code docstrings and the standalone API docs — they drift independently.
@@ -81,7 +81,7 @@ Produce the Mismatch Report and summary using the output format below.
 
 STOP IMMEDIATELY if you consider:
 
-- Updating PRD/design docs to match code that may be buggy (intent docs are source of truth for *intent*)
+- Updating PRD/design docs to match code that may be buggy (intent docs are source of truth for _intent_)
 - Inventing behavior you cannot prove exists in the code
 - Modifying source code to match documentation
 - Rewriting documentation style or tone beyond what's needed to fix mismatches

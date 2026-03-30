@@ -1,5 +1,7 @@
 # SimplyNarrated API Reference
 
+> **Last synced with codebase:** 2026-03-30
+
 Base URL: `/api`
 
 ## Overview
@@ -8,11 +10,13 @@ The API supports file upload, audiobook generation jobs, voice previews, library
 
 ## Conventions
 
-- `book_id` must match the UUID-like format `xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx` on book-scoped routes.
-- Chapter numbers must be integers greater than or equal to `1`.
-- Audio output is currently MP3-only.
-- Common error codes: `400` validation, `404` not found, `413` payload too large, `500` internal state/runtime failure.
-- The dashboard UI includes a `Get More Books` action that opens Project Gutenberg after showing a quick format tip.
+  - `book_id` must match the UUID-like format `xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx` on book-scoped routes.
+  - Chapter numbers must be integers greater than or equal to `1`.
+  - Audio output is currently MP3-only. The `format` field is accepted in request schemas for forward compatibility but only `"mp3"` is supported.
+  - `narrator_voice` is validated against the set of known local voice IDs on both the `/generate` and `/reconvert` endpoints. Invalid voice IDs are rejected with `400`.
+  - Common error codes: `400` validation, `404` not found, `413` payload too large, `500` internal state/runtime failure.
+  - Internal error details are never exposed in `500` responses; generic messages are returned and full diagnostics are logged server-side.
+  - The dashboard UI includes a `Get More Books` action that opens Project Gutenberg after showing a quick format tip.
 
 ## Endpoints
 
@@ -20,18 +24,18 @@ The API supports file upload, audiobook generation jobs, voice previews, library
 
 #### Upload file
 
-- **Method**: `POST`
-- **Path**: `/upload`
-- **Body**: `multipart/form-data` with `file`
-- **Supports**: `.txt`, `.md`, `.pdf`, `.zip`
-- **Max size**: `50MB`
-- **ZIP behavior**:
-  - Treats the upload as a Gutenberg-style HTML ZIP.
-  - Selects the largest `.html` or `.htm` member as the narration source.
-  - Rejects corrupt archives and oversized/unsafe archives.
-  - Removes Gutenberg header/footer boilerplate before chapter splitting.
-  - Attempts cover extraction from image filenames whose basename contains `cover`.
-- **Response**:
+  - **Method**: `POST`
+  - **Path**: `/upload`
+  - **Body**: `multipart/form-data` with `file`
+  - **Supports**: `.txt`, `.md`, `.pdf`, `.zip`
+  - **Max size**: `50MB`
+  - **ZIP behavior**:
+    - Treats the upload as a Gutenberg-style HTML ZIP.
+    - Selects the largest `.html` or `.htm` member as the narration source.
+    - Rejects corrupt archives and oversized/unsafe archives.
+    - Removes Gutenberg header/footer boilerplate before chapter splitting.
+    - Attempts cover extraction from image filenames whose basename contains `cover`.
+  - **Response**:
 
   ```json
   {
@@ -45,9 +49,9 @@ The API supports file upload, audiobook generation jobs, voice previews, library
 
 #### Start generation
 
-- **Method**: `POST`
-- **Path**: `/generate`
-- **Body**:
+  - **Method**: `POST`
+  - **Path**: `/generate`
+  - **Body**:
 
   ```json
   {
@@ -62,12 +66,14 @@ The API supports file upload, audiobook generation jobs, voice previews, library
   }
   ```
 
-- **Notes**:
-  - `dialogue_voice` is accepted by the schema but the active pipeline currently uses a single narrator voice.
-  - `quality` presets map to MP3 bitrates: `sd=128k`, `hd=192k`, `ultra=320k`.
-  - `remove_square_bracket_numbers` strips `[N]` references before synthesis.
-  - `remove_paren_numbers` strips `(N)` references before synthesis.
-- **Response**:
+  - **Notes**:
+    - `narrator_voice` must be a valid voice ID from the `/voices` endpoint. Invalid IDs are rejected with `400`.
+    - `dialogue_voice` is accepted by the schema but the active pipeline currently uses a single narrator voice.
+    - `quality` presets map to MP3 bitrates: `sd=128k`, `hd=192k`, `ultra=320k`.
+    - `format` is accepted for forward compatibility but only `"mp3"` is currently supported.
+    - `remove_square_bracket_numbers` strips `[N]` references before synthesis.
+    - `remove_paren_numbers` strips `(N)` references before synthesis.
+  - **Response**:
 
   ```json
   {
@@ -78,9 +84,9 @@ The API supports file upload, audiobook generation jobs, voice previews, library
 
 #### Get job status
 
-- **Method**: `GET`
-- **Path**: `/status/{job_id}`
-- **Response**:
+  - **Method**: `GET`
+  - **Path**: `/status/{job_id}`
+  - **Response**:
 
   ```json
   {
@@ -101,15 +107,15 @@ The API supports file upload, audiobook generation jobs, voice previews, library
   }
   ```
 
-- **Notes**:
-  - `status` is one of `pending`, `processing`, `completed`, `failed`, or `cancelled`.
-  - The response includes the last `20` activity log entries.
+  - **Notes**:
+    - `status` is one of `pending`, `processing`, `completed`, `failed`, or `cancelled`.
+    - The response includes the last `20` activity log entries.
 
 #### Cancel job
 
-- **Method**: `POST`
-- **Path**: `/cancel/{job_id}`
-- **Response**:
+  - **Method**: `POST`
+  - **Path**: `/cancel/{job_id}`
+  - **Response**:
 
   ```json
   {
@@ -122,9 +128,9 @@ The API supports file upload, audiobook generation jobs, voice previews, library
 
 #### List voices
 
-- **Method**: `GET`
-- **Path**: `/voices`
-- **Response shape**:
+  - **Method**: `GET`
+  - **Path**: `/voices`
+  - **Response shape**:
 
   ```json
   {
@@ -143,20 +149,20 @@ The API supports file upload, audiobook generation jobs, voice previews, library
 
 #### Get voice sample
 
-- **Method**: `GET`
-- **Path**: `/voice-sample/{voice_id}`
-- **Response**: `audio/mpeg`
-- **Notes**:
-  - Uses cached samples from `static/voices/audio/` when available.
-  - Otherwise synthesizes and encodes a sample on demand, then caches it.
+  - **Method**: `GET`
+  - **Path**: `/voice-sample/{voice_id}`
+  - **Response**: `audio/mpeg`
+  - **Notes**:
+    - Uses cached samples from `static/voices/audio/` when available.
+    - Otherwise synthesizes and encodes a sample on demand, then caches it.
 
 ### Library
 
 #### Get library
 
-- **Method**: `GET`
-- **Path**: `/library`
-- **Response shape**:
+  - **Method**: `GET`
+  - **Path**: `/library`
+  - **Response shape**:
 
   ```json
   {
@@ -168,18 +174,18 @@ The API supports file upload, audiobook generation jobs, voice previews, library
 
 #### Get book details
 
-- **Method**: `GET`
-- **Path**: `/book/{book_id}`
-- **Response**: book metadata plus chapter list.
-- **Notes**:
-  - Chapter entries can include `duration`, `audio_path`, `text_path`, and `completed`.
-  - Books include `cover_url`, `original_filename`, `total_duration`, and `created_at` when available.
+  - **Method**: `GET`
+  - **Path**: `/book/{book_id}`
+  - **Response**: book metadata plus chapter list.
+  - **Notes**:
+    - Chapter entries can include `duration`, `audio_path`, `text_path`, and `completed`.
+    - Books include `cover_url`, `original_filename`, `total_duration`, and `created_at` when available.
 
 #### Update book metadata
 
-- **Method**: `PATCH`
-- **Path**: `/book/{book_id}`
-- **Body**:
+  - **Method**: `PATCH`
+  - **Path**: `/book/{book_id}`
+  - **Body**:
 
   ```json
   {
@@ -188,7 +194,7 @@ The API supports file upload, audiobook generation jobs, voice previews, library
   }
   ```
 
-- **Response**:
+  - **Response**:
 
   ```json
   {
@@ -199,14 +205,14 @@ The API supports file upload, audiobook generation jobs, voice previews, library
   }
   ```
 
-- **Notes**:
-  - Existing chapter MP3 files are retagged after title or author changes so embedded ID3 album and artist metadata stay in sync.
+  - **Notes**:
+    - Existing chapter MP3 files are retagged after title or author changes so embedded ID3 album and artist metadata stay in sync.
 
 #### Delete book
 
-- **Method**: `DELETE`
-- **Path**: `/book/{book_id}`
-- **Response**:
+  - **Method**: `DELETE`
+  - **Path**: `/book/{book_id}`
+  - **Response**:
 
   ```json
   {
@@ -216,28 +222,28 @@ The API supports file upload, audiobook generation jobs, voice previews, library
   }
   ```
 
-- **Notes**:
-  - Deletion can fail with `500` if files are in use; the API asks the caller to stop playback and retry.
+  - **Notes**:
+    - Deletion can fail with `500` if files are in use; the API asks the caller to stop playback and retry.
 
 ### Portability
 
 #### Export audiobook archive
 
-- **Method**: `GET`
-- **Path**: `/book/{book_id}/export`
-- **Response**: `application/zip`
-- **Notes**:
-  - Returns a temporary portability archive for download.
-  - The archive contains `export_manifest.json`, `metadata.json`, chapter MP3 files, chapter text files, and optional `bookmarks.json`, `cover.jpg`/`cover.png`, and original source files.
+  - **Method**: `GET`
+  - **Path**: `/book/{book_id}/export`
+  - **Response**: `application/zip`
+  - **Notes**:
+    - Returns a temporary portability archive for download.
+    - The archive contains `export_manifest.json`, `metadata.json`, chapter MP3 files, chapter text files, and optional `bookmarks.json`, `cover.jpg`/`cover.png`, and original source files.
 
 #### Import audiobook archive
 
-- **Method**: `POST`
-- **Path**: `/library/import`
-- **Body**: `multipart/form-data` with `file`
-- **Supports**: `.zip` archives produced by SimplyNarrated export
-- **Max size**: `1GB`
-- **Response**:
+  - **Method**: `POST`
+  - **Path**: `/library/import`
+  - **Body**: `multipart/form-data` with `file`
+  - **Supports**: `.zip` archives produced by SimplyNarrated export
+  - **Max size**: `1GB`
+  - **Response**:
 
   ```json
   {
@@ -249,23 +255,23 @@ The API supports file upload, audiobook generation jobs, voice previews, library
   }
   ```
 
-- **Notes**:
-  - Rejects non-SimplyNarrated archives, corrupt ZIPs, duplicate/unsafe members, or archives missing required files.
-  - `id_remapped` becomes `true` when the imported archive ID is invalid or already exists locally.
+  - **Notes**:
+    - Rejects non-SimplyNarrated archives, corrupt ZIPs, duplicate/unsafe members, or archives missing required files.
+    - `id_remapped` becomes `true` when the imported archive ID is invalid or already exists locally.
 
 ### Chapter Audio and Text
 
 #### Stream chapter audio
 
-- **Method**: `GET`
-- **Path**: `/audio/{book_id}/{chapter}`
-- **Response**: `audio/mpeg`
+  - **Method**: `GET`
+  - **Path**: `/audio/{book_id}/{chapter}`
+  - **Response**: `audio/mpeg`
 
 #### Get chapter text
 
-- **Method**: `GET`
-- **Path**: `/text/{book_id}/{chapter}`
-- **Response**:
+  - **Method**: `GET`
+  - **Path**: `/text/{book_id}/{chapter}`
+  - **Response**:
 
   ```json
   {
@@ -277,9 +283,9 @@ The API supports file upload, audiobook generation jobs, voice previews, library
 
 #### Update chapter text
 
-- **Method**: `PUT`
-- **Path**: `/book/{book_id}/chapter/{chapter}/text`
-- **Body**:
+  - **Method**: `PUT`
+  - **Path**: `/book/{book_id}/chapter/{chapter}/text`
+  - **Body**:
 
   ```json
   {
@@ -287,7 +293,7 @@ The API supports file upload, audiobook generation jobs, voice previews, library
   }
   ```
 
-- **Response**:
+  - **Response**:
 
   ```json
   {
@@ -298,15 +304,15 @@ The API supports file upload, audiobook generation jobs, voice previews, library
   }
   ```
 
-- **Notes**:
-  - The content is trimmed server-side.
-  - Blank chapter content is rejected with `400`.
+  - **Notes**:
+    - The content is trimmed server-side.
+    - Blank chapter content is rejected with `400`.
 
 #### Reconvert a chapter
 
-- **Method**: `POST`
-- **Path**: `/book/{book_id}/chapter/{chapter}/reconvert`
-- **Body**:
+  - **Method**: `POST`
+  - **Path**: `/book/{book_id}/chapter/{chapter}/reconvert`
+  - **Body**:
 
   ```json
   {
@@ -317,7 +323,7 @@ The API supports file upload, audiobook generation jobs, voice previews, library
   }
   ```
 
-- **Response**:
+  - **Response**:
 
   ```json
   {
@@ -328,20 +334,22 @@ The API supports file upload, audiobook generation jobs, voice previews, library
   }
   ```
 
-- **Notes**:
-  - Uses the saved `chapter_XX.txt` file as the source text.
-  - If a field is omitted, the reconvert job falls back to the book metadata value.
-  - Reconversion is MP3-only and rewrites chapter metadata/duration after replacing the audio file.
-  - Reconverted MP3s receive ID3 title/album/artist/track tags and embedded cover art when present.
+  - **Notes**:
+    - Uses the saved `chapter_XX.txt` file as the source text.
+    - If a field is omitted, the reconvert job falls back to the book metadata value.
+    - If `narrator_voice` is provided, it is validated against known voice IDs (`400` on invalid).
+    - Reconversion is MP3-only and rewrites chapter metadata/duration after replacing the audio file.
+    - Reconverted MP3s receive ID3 title/album/artist/track tags and embedded cover art when present.
+    - The audio file is replaced using an atomic swap with retry logic to handle temporary file locks (e.g. active playback on Windows).
 
 ### Bookmarks
 
 #### Save bookmark
 
-- **Method**: `POST`
-- **Path**: `/bookmark`
-- **Query parameters**: `book_id`, `chapter`, `position`
-- **Response**:
+  - **Method**: `POST`
+  - **Path**: `/bookmark`
+  - **Query parameters**: `book_id`, `chapter`, `position`
+  - **Response**:
 
   ```json
   {
@@ -352,16 +360,16 @@ The API supports file upload, audiobook generation jobs, voice previews, library
   }
   ```
 
-- **Notes**:
-  - `chapter` must be between `1` and the book's `total_chapters`.
-  - `position` must be non-negative.
-  - Invalid bookmark values are rejected with `400`.
+  - **Notes**:
+    - `chapter` must be between `1` and the book's `total_chapters`.
+    - `position` must be non-negative.
+    - Invalid bookmark values are rejected with `400`.
 
 #### Get bookmark
 
-- **Method**: `GET`
-- **Path**: `/bookmark/{book_id}`
-- **Response**:
+  - **Method**: `GET`
+  - **Path**: `/bookmark/{book_id}`
+  - **Response**:
 
   ```json
   {
@@ -371,7 +379,7 @@ The API supports file upload, audiobook generation jobs, voice previews, library
   }
   ```
 
-- **Default when none exists**:
+  - **Default when none exists**:
 
   ```json
   {
@@ -384,12 +392,12 @@ The API supports file upload, audiobook generation jobs, voice previews, library
 
 #### Upload cover
 
-- **Method**: `POST`
-- **Path**: `/book/{book_id}/cover`
-- **Body**: `multipart/form-data` with `file`
-- **Supports**: `image/jpeg`, `image/png`
-- **Max size**: `5MB`
-- **Response**:
+  - **Method**: `POST`
+  - **Path**: `/book/{book_id}/cover`
+  - **Body**: `multipart/form-data` with `file`
+  - **Supports**: `image/jpeg`, `image/png`
+  - **Max size**: `5MB`
+  - **Response**:
 
   ```json
   {
@@ -398,11 +406,11 @@ The API supports file upload, audiobook generation jobs, voice previews, library
   }
   ```
 
-- **Notes**:
-  - Uploading a new cover retags existing chapter MP3 files so embedded artwork stays in sync with the stored cover.
+  - **Notes**:
+    - Uploading a new cover retags existing chapter MP3 files so embedded artwork stays in sync with the stored cover.
 
 #### Get cover
 
-- **Method**: `GET`
-- **Path**: `/book/{book_id}/cover`
-- **Response**: `image/jpeg` or `image/png`
+  - **Method**: `GET`
+  - **Path**: `/book/{book_id}/cover`
+  - **Response**: `image/jpeg` or `image/png`

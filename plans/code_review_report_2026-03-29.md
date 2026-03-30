@@ -4,6 +4,8 @@
 **Scope:** Full backend source (`src/`), test suite (`tests/`), schemas, and supporting modules  
 **Reviewer:** GitHub Copilot (automated review)
 
+> **Resolution Status (2026-03-30):** All 19 findings in this report have been resolved. The corrections were implemented per the companion PRD (`plans/prd_code_review_corrections_2026-03-30.md`). All 5 Major, 9 Minor, and 5 Nit items are addressed. The test suite now contains **164 non-slow tests** covering the new `test_chapter_reconvert.py`, `test_portability.py`, and PDF parsing additions.
+
 ---
 
 ## Summary
@@ -153,24 +155,24 @@ SimplyNarrated is a well-structured local audiobook converter with clean separat
 
 ## Prioritized Findings Summary
 
-| # | Severity | Section | Finding | Effort |
-| - | -------- | ------- | ------- | ------ |
-| 1 | **Major** | Critical Issues | `narrator_voice` not validated against preset list in `/generate` and `/reconvert` | Low |
-| 2 | **Major** | Critical Issues | Internal exception details leaked in voice-sample 500 response | Low |
-| 3 | **Major** | Critical Issues | `_persist_jobs()` called synchronously on every activity log entry during generation | Med |
-| 4 | **Major** | Critical Issues | `parse_file()` blocks event loop in `async def process_book()` | Low |
-| 5 | **Major** | Critical Issues | `_load_book_metadata_or_404()` synchronous I/O in async route handlers | Med |
-| 6 | **Minor** | Logic & Edge Cases | `chunk_text()` potential infinite loop when break point yields empty text | Low |
-| 7 | **Minor** | Logic & Edge Cases | GIF cover images saved with `.png` extension in ZIP extraction | Low |
-| 8 | **Minor** | Logic & Edge Cases | Chapter reconvert metadata write has no file locking (relies on semaphore) | Med |
-| 9 | **Minor** | Logic & Edge Cases | `_replace_with_retry()` uses blocking `time.sleep()` in async context | Low |
-| 10 | **Minor** | Logic & Edge Cases | `flush_bucket()` mutation pattern in `chunk_chapters` is fragile | Low |
-| 11 | **Minor** | Logic & Edge Cases | `_estimate_chapters()` local imports `zipfile`/`io` inside function body | Low |
-| 12 | **Minor** | Simplification | `EncoderSettings.format` / `AudioFormat` unused since MP3 is hard-coded | Low |
-| 13 | **Minor** | Elegance | Duplicate `static_ffmpeg.add_paths()` in both `main.py` and `encoder.py` | Low |
-| 14 | **Minor** | Documentation | No direct unit tests for `chapter_reconvert.py` or `portability.py` | Med |
-| 15 | **Nit** | Simplification | `_configure_ffmpeg_paths()` called on every encode call | Low |
-| 16 | **Nit** | Simplification | Missing `encoding="utf-8"` on metadata JSON write in `pipeline.py` | Low |
-| 17 | **Nit** | Elegance | f-strings in logger calls should use `%s`-style formatting | Low |
-| 18 | **Nit** | Documentation | No PDF parsing test coverage | Med |
-| 19 | **Nit** | Elegance | `_add_activity` persistence pattern (overlaps with #3) | Med |
+| # | Severity | Section | Finding | Effort | Status |
+| - | -------- | ------- | ------- | ------ | ------ |
+| 1 | **Major** | Critical Issues | `narrator_voice` not validated against preset list in `/generate` and `/reconvert` | Low | ✅ Resolved |
+| 2 | **Major** | Critical Issues | Internal exception details leaked in voice-sample 500 response | Low | ✅ Resolved |
+| 3 | **Major** | Critical Issues | `_persist_jobs()` called synchronously on every activity log entry during generation | Med | ✅ Resolved |
+| 4 | **Major** | Critical Issues | `parse_file()` blocks event loop in `async def process_book()` | Low | ✅ Resolved |
+| 5 | **Major** | Critical Issues | `_load_book_metadata_or_404()` synchronous I/O in async route handlers | Med | ✅ Resolved |
+| 6 | **Minor** | Logic & Edge Cases | `chunk_text()` potential infinite loop when break point yields empty text | Low | ✅ Resolved |
+| 7 | **Minor** | Logic & Edge Cases | GIF cover images saved with `.png` extension in ZIP extraction | Low | ✅ Resolved |
+| 8 | **Minor** | Logic & Edge Cases | Chapter reconvert metadata write has no file locking (relies on semaphore) | Med | ✅ Documented |
+| 9 | **Minor** | Logic & Edge Cases | `_replace_with_retry()` uses blocking `time.sleep()` in async context | Low | ✅ Resolved |
+| 10 | **Minor** | Logic & Edge Cases | `flush_bucket()` mutation pattern in `chunk_chapters` is fragile | Low | ✅ Resolved |
+| 11 | **Minor** | Logic & Edge Cases | `_estimate_chapters()` local imports `zipfile`/`io` inside function body | Low | ✅ Resolved |
+| 12 | **Minor** | Simplification | `EncoderSettings.format` / `AudioFormat` unused since MP3 is hard-coded | Low | ✅ Resolved |
+| 13 | **Minor** | Elegance | Duplicate `static_ffmpeg.add_paths()` in both `main.py` and `encoder.py` | Low | ✅ Resolved |
+| 14 | **Minor** | Documentation | No direct unit tests for `chapter_reconvert.py` or `portability.py` | Med | ✅ Resolved |
+| 15 | **Nit** | Simplification | `_configure_ffmpeg_paths()` called on every encode call | Low | ✅ Resolved |
+| 16 | **Nit** | Simplification | Missing `encoding="utf-8"` on metadata JSON write in `pipeline.py` | Low | ✅ Resolved |
+| 17 | **Nit** | Elegance | f-strings in logger calls should use `%s`-style formatting | Low | ✅ Resolved |
+| 18 | **Nit** | Documentation | No PDF parsing test coverage | Med | ✅ Resolved |
+| 19 | **Nit** | Elegance | `_add_activity` persistence pattern (overlaps with #3) | Med | ✅ Resolved |
