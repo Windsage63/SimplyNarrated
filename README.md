@@ -12,33 +12,33 @@ The system uses the **Kokoro-82M** model running locally on GPU for high-quality
 
 ## ✨ Features
 
-- **Local Inference**: Uses Kokoro-82M TTS model running locally. Includes pre-distributed voice tensors for zero-download voice switching.
-- **Dual-Region Support**: Automatic selection of American ('a') or British ('b') G2P rules based on voice selection.
-- **Memory Efficient**: Shares a single base model across multiple language pipelines to save RAM.
-- **Multiple Formats**: Supports uploading TXT, MD, PDF, and Gutenberg ZIP (HTML) files.
-- **Gutenberg Import**: Upload Project Gutenberg HTML ZIP downloads — the app extracts the HTML text and cover image automatically.
-- **Get More Books Shortcut**: Library view includes a `Get More Books` button that links to Project Gutenberg with a quick format tip before opening.
-- **Smart Chunking**: Splits text into natural chapters or segments.
-- **Early Chapter Estimate**: Upload response includes an estimated chapter count before generation starts.
-- **Portable Library Archives**: Export and re-import complete audiobooks as SimplyNarrated ZIP archives, including chapter audio, chapter text, metadata, bookmarks, cover art, and original source files when present.
-- **Chapter Repair Workflow**: Edit generated chapter text and reconvert a single chapter without rerunning the whole book.
-- **Tagged MP3 Output**: Generated and reconverted chapter MP3s include title, album, artist, track number, and embedded cover art when available.
-- **Audiobook Player**: Built-in player with progress tracking and bookmarks.
-- **Library Management**: Dashboard to manage your converted books.
-- **Cover Management**: Upload and serve JPG/PNG cover images per book.
-- **Reliable Jobs**: Persisted job ledger with restart recovery and bounded concurrent processing queue.
-- **Modern UI**: Polished interface with dark mode support.
-- **Offline Frontend Assets**: Main app UI dependencies (Tailwind + fonts) are served locally from `static/vendor`.
+  - **Local Inference**: Uses Kokoro-82M TTS model running locally. Includes pre-distributed voice tensors for zero-download voice switching.
+  - **Dual-Region Support**: Automatic selection of American ('a') or British ('b') G2P rules based on voice selection.
+  - **Memory Efficient**: Shares a single base model across multiple language pipelines to save RAM.
+  - **Multiple Formats**: Supports uploading TXT, MD, PDF, and Gutenberg ZIP (HTML) files.
+  - **Gutenberg Import**: Upload Project Gutenberg HTML ZIP downloads — the app extracts the HTML text and cover image automatically.
+  - **Get More Books Shortcut**: Library view includes a `Get More Books` button that links to Project Gutenberg with a quick format tip before opening.
+  - **Smart Chunking**: Splits text into natural chapters or segments.
+  - **Early Chapter Estimate**: Upload response includes an estimated chapter count before generation starts.
+  - **Portable Library Archives**: Export and re-import complete audiobooks as SimplyNarrated ZIP archives, including chapter audio, chapter text, metadata, bookmarks, cover art, and original source files when present.
+  - **Chapter Repair Workflow**: Edit generated chapter text and reconvert a single chapter without rerunning the whole book.
+  - **Tagged MP3 Output**: Generated and reconverted chapter MP3s include title, album, artist, track number, and embedded cover art when available.
+  - **Audiobook Player**: Built-in player with progress tracking and bookmarks.
+  - **Library Management**: Dashboard to manage your converted books.
+  - **Cover Management**: Upload and serve JPG/PNG cover images per book.
+  - **Reliable Jobs**: Persisted job ledger with restart recovery and bounded concurrent processing queue.
+  - **Modern UI**: Polished interface with dark mode support.
+  - **Offline Frontend Assets**: Main app UI dependencies (Tailwind + fonts) are served locally from `static/vendor`.
 
 ## 📌 Current Product Scope
 
-- Output format is currently **MP3-only**.
-- Voice generation is currently **single-narrator voice** during conversion.
-- For best Gutenberg imports, use **HTML ZIP** downloads; **TXT** downloads are also supported.
-- Portability import accepts **SimplyNarrated export ZIPs** (not arbitrary ZIP bundles).
-- ZIP cover auto-detection currently uses image filenames containing **"cover"**.
-- Landing and dashboard include updated branded UI with Gutenberg-focused onboarding.
-- The app writes **ID3 metadata** to chapter MP3s and embeds cover art when a cover is available.
+  - Output format is currently **MP3-only**.
+  - Voice generation is currently **single-narrator voice** during conversion.
+  - For best Gutenberg imports, use **HTML ZIP** downloads; **TXT** downloads are also supported.
+  - Portability import accepts **SimplyNarrated export ZIPs** (not arbitrary ZIP bundles).
+  - ZIP cover auto-detection currently uses image filenames containing **"cover"**.
+  - Landing and dashboard include updated branded UI with Gutenberg-focused onboarding.
+  - The app writes **ID3 metadata** to chapter MP3s and embeds cover art when a cover is available.
 
 ## 🎮Simple Media Player
 
@@ -62,14 +62,14 @@ The easiest way to get started — no Python installation required. This uses a 
 
 After installation, use `run.bat` to start SimplyNarrated at any time:
 
-- Double-click `run.bat` — it launches the server and opens your browser automatically.
-- The app runs at `http://localhost:8010`.
+  - Double-click `run.bat` — it launches the server and opens your browser automatically.
+  - The app runs at `http://localhost:8010`.
 
 ### Offline Use
 
-- After installation is complete, the main app page is self-contained for offline use when served locally at `http://localhost:8010`.
-- Keep using `run.bat` (or `uvicorn`) to serve the app; opening `static/index.html` directly via `file://` is not supported.
-- The `Get More Books` button intentionally opens Project Gutenberg and requires internet access.
+  - After installation is complete, the main app page is self-contained for offline use when served locally at `http://localhost:8010`.
+  - Keep using `run.bat` (or `uvicorn`) to serve the app; opening `static/index.html` directly via `file://` is not supported.
+  - The `Get More Books` button intentionally opens Project Gutenberg and requires internet access.
 
 ---
 
@@ -79,8 +79,8 @@ For advanced users who prefer to manage their own Python environment.
 
 ### Prerequisites
 
-- Python 3.12
-- NVIDIA GPU with CUDA support (recommended for performance)
+  - Python 3.12
+  - NVIDIA GPU with CUDA support (recommended for performance)
 
 ### Setup Steps
 
@@ -147,26 +147,26 @@ There is currently no dedicated lint or formatter configuration checked into the
 
 ## 📁 Project Structure
 
-- `src/`: Source code
-  - `api/`: FastAPI routes and endpoints
-  - `core/`: Core logic (TTS engine, parser, chunker)
-  - `models/`: Pydantic data models
-- `data/`: Local storage for uploads and library
-- `docs/`: Documentation files
-- `static/`: Frontend assets
-  - `voices/`: Local voice model tensors (`.pt`)
-  - `voices/audio/`: Cached voice sample previews (`.mp3`)
-- `tests/`: Unit and integration tests
+  - `src/`: Source code
+    - `api/`: FastAPI routes and endpoints
+    - `core/`: Core logic (TTS engine, parser, chunker)
+    - `models/`: Pydantic data models
+  - `data/`: Local storage for uploads and library
+  - `docs/`: Documentation files
+  - `static/`: Frontend assets
+    - `voices/`: Local voice model tensors (`.pt`)
+    - `voices/audio/`: Cached voice sample previews (`.mp3`)
+  - `tests/`: Unit and integration tests
 
 ## 📄 Documentation
 
-- [API Reference](docs/API-Reference.md)
-- [Architecture Plan](plans/architect_plan.md)
-- [Landing Page Creative Brief](docs/Landing-Page-Creative-Brief.md)
+  - [API Reference](docs/API-Reference.md)
+  - [Architecture Plan](plans/architect_plan.md)
+  - [Landing Page Creative Brief](docs/Landing-Page-Creative-Brief.md)
 
 ## 📝 Acknowledgements
 
 **SimplyNarrated** uses the Kokoro TTS Engine developed by Hexgrad. This project is built on top of the following resources:
 
-- **Kokoro-82M Model**: A high-quality, lightweight TTS model. Available on [Hugging Face](https://huggingface.co/hexgrad/Kokoro-82M).
-- **Kokoro Inference Library**: The official Python library for Kokoro inference. Available on [GitHub](https://github.com/hexgrad/kokoro).
+  - **Kokoro-82M Model**: A high-quality, lightweight TTS model. Available on [Hugging Face](https://huggingface.co/hexgrad/Kokoro-82M).
+  - **Kokoro Inference Library**: The official Python library for Kokoro inference. Available on [GitHub](https://github.com/hexgrad/kokoro).

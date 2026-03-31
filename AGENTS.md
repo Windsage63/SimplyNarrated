@@ -1,4 +1,4 @@
-# SimplyNarrated — Copilot Instructions
+# SimplyNarrated — Agents Instructions
 
 ## Project Overview
 
@@ -7,6 +7,7 @@ SimplyNarrated is a local web application that converts books and documents (`.t
 ## Commands
 
 ### Run the app
+
 ```bash
 # Using embedded Python (production/normal use)
 python_embedded\python.exe -m uvicorn src.main:app --port 8010
@@ -15,6 +16,7 @@ python_embedded\python.exe -m uvicorn src.main:app --port 8010
 ```
 
 ### Run tests
+
 ```bash
 # All tests (excluding slow TTS model tests)
 python_embedded\python.exe -m pytest tests/ -m "not slow"
@@ -32,22 +34,25 @@ python_embedded\python.exe -m pytest tests/test_chunker.py::test_function_name -
 Tests marked `@pytest.mark.slow` require the Kokoro-82M model loaded in memory (GPU-intensive). Skip with `-m "not slow"` during routine development.
 
 ### Install dependencies
+
 ```bash
 # PyTorch must be installed first (choose CUDA version matching your GPU):
-pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu126  # RTX 30/40
-pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu128  # RTX 50
-pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu    # CPU only
+python_embedded\python.exe -m pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu126  # RTX 30/40
+python_embedded\python.exe -m pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu128  # RTX 50
+python_embedded\python.exe -m pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu    # CPU only
 
-pip install -r requirements.txt
+python_embedded\python.exe -m pip install -r requirements.txt
 ```
 
 ## Python Environment
-- Python 3.12 (python_embedded folder included in the repo)
-- Do not use a global Python installation or virtual environment. The embedded Python is configured with all necessary dependencies and ensures consistency across development and production.
+
+  - Python 3.12 via `python_embedded/` directory (vendored, not a global install)
+  - Do not use a global Python installation or virtual environment. The embedded Python is configured with all necessary dependencies and ensures consistency across development and production.
+  - spaCy `en_core_web_sm` model is vendored under `models/en_core_web_sm/` and added to `sys.path` at runtime by `tts_engine.py`
 
 ## Architecture
 
-```
+```markdown
 src/
 ├── main.py           # FastAPI app init, lifespan (startup/shutdown), static file mounting
 ├── api/
@@ -67,68 +72,64 @@ src/
 ```
 
 **Data layer:** No database. All persistence is file-based under `data/`:
-- `data/library/{book_id}/metadata.json` — Book metadata
-- `data/library/{book_id}/chapter_NN.mp3` — Audio files
-- `data/library/{book_id}/chapter_NN.txt` — Editable chapter text
-- `data/library/{book_id}/bookmarks.json` — Saved playback position
-- `data/jobs.json` — Job ledger (survives restarts)
-- `data/uploads/` — Temporary uploaded files
+
+  - `data/library/{book_id}/metadata.json` — Book metadata
+  - `data/library/{book_id}/chapter_NN.mp3` — Audio files
+  - `data/library/{book_id}/chapter_NN.txt` — Editable chapter text
+  - `data/library/{book_id}/bookmarks.json` — Saved playback position
+  - `data/jobs.json` — Job ledger (survives restarts)
+  - `data/uploads/` — Temporary uploaded files
 
 **Frontend:** SPA in `static/`. All vendor assets (Tailwind, fonts) are bundled in `static/vendor/` for offline use. Routes to pages are handled client-side.
 
 **Voices:** Stored as `.pt` tensor files in `static/voices/`. Prefixed `af_`/`am_` (American female/male), `bf_`/`bm_` (British female/male). The prefix determines the G2P phoneme region passed to Kokoro.
 
-**Portability:** Books can be exported/imported as SimplyNarrated ZIP archives containing `export_manifest.json`, `metadata.json`, chapter MP3/text files, and optional cover/source/bookmark files.
-
-**MP3 metadata:** Generated and reconverted chapters are tagged with ID3 title/album/artist/track data and embedded cover art when a cover is available.
+**Portability:** Books can be exported/imported as SimplyNarrated ZIP archives.
 
 ## Key Conventions
 
 ### Singletons via module-level getters
+
 `TTSEngine`, `JobManager`, and `LibraryManager` are initialized once at app startup (lifespan) and accessed everywhere through module-level getter functions:
+
 ```python
 from src.core.job_manager import get_job_manager
 job_manager = get_job_manager()
 ```
+
 Tests reset these singletons via fixtures in `conftest.py` for isolation.
 
 ### FastAPI route pattern
+
 All routes live in `src/api/routes.py` on a single `APIRouter`. Validation helpers raise `HTTPException` directly:
+
 ```python
 def _validate_book_id_or_400(book_id: str) -> None:
-    if not book_id: raise HTTPException(status_code=400, detail="...")
+    if not BOOK_ID_PATTERN.match(book_id):
+        raise HTTPException(status_code=400, detail="Invalid book ID format")
 
-def _load_book_metadata_or_404(book_id: str) -> dict:
-    metadata = library.get_book(book_id)
-    if not metadata: raise HTTPException(status_code=404, detail="Book not found")
-    return metadata
-```
-
-### Job activity logging
-All significant job events are appended to `job.activity_log` via:
-```python
-job_manager._add_activity(job, "Message", "info")  # levels: info, success, warning, error
+async def _load_book_metadata_or_404(book_dir: str) -> dict:
+    metadata_path = os.path.join(book_dir, "metadata.json")
+    if not os.path.exists(metadata_path):
+        raise HTTPException(status_code=404, detail="Book not found")
+    async with aiofiles.open(metadata_path, "r", encoding="utf-8") as f:
+        return json.loads(await f.read())
 ```
 
 ### Chapter edit + reconvert flow
+
 The player edits chapter text by writing `chapter_NN.txt`, then queues `/api/book/{book_id}/chapter/{chapter}/reconvert` to rebuild only that chapter's MP3 and refresh duration/metadata in `metadata.json`.
 
 ### Async throughout
+
 All route handlers, pipeline stages, and file I/O use `async def` + `aiofiles`. CPU-bound TTS inference runs in a thread pool via `asyncio.get_event_loop().run_in_executor(None, ...)`.
 
 ### File header convention
-Every Python module starts with:
-```python
-"""
-@fileoverview [Description]
-@author Timothy Mallory <windsage@live.com>
-@license Apache-2.0
-@copyright 2026 Timothy Mallory
-"""
-```
 
-### Pydantic models
-All API request/response schemas are in `src/models/schemas.py` using Pydantic v2 with `Field()` for descriptions and validation constraints.
+Every Python module starts with a standard license header as shown in the `license-headers` skill.
 
-### pytest configuration
-`pytest.ini` sets `asyncio_mode = auto` — all async test functions run automatically without `@pytest.mark.asyncio`. Slow tests are gated with `@pytest.mark.slow`.
+### Testing
+
+  - `asyncio_mode = auto` in `pytest.ini` — no `@pytest.mark.asyncio` needed
+  - Tests marked `@pytest.mark.slow` require GPU + model — skip with `-m "not slow"`
+  - Singletons are reset per-test via fixtures in `conftest.py`
