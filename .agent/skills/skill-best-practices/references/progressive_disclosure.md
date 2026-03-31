@@ -18,20 +18,20 @@ Agents load skill content progressively:
 
 ### Extract When
 
-- **Large examples** (50+ lines of code/output)
-- **Complete templates** (full file structures)
-- **Detailed specifications** (API schemas, format specs)
-- **Domain-specific content** (reference docs per domain area)
-- **Variant-specific content** (language-specific instructions)
-- **Historical context** (changelog, migration guides)
+  - **Large examples** (50+ lines of code/output)
+  - **Complete templates** (full file structures)
+  - **Detailed specifications** (API schemas, format specs)
+  - **Domain-specific content** (reference docs per domain area)
+  - **Variant-specific content** (language-specific instructions)
+  - **Historical context** (changelog, migration guides)
 
 ### Keep Inline When
 
-- **Brief examples** (under 20 lines)
-- **Core workflow steps** (always needed)
-- **Quick reference tables** (frequently consulted)
-- **Gotchas** (non-obvious facts the agent needs before encountering the situation)
-- **Stopping rules and checklists** (critical constraints)
+  - **Brief examples** (under 20 lines)
+  - **Core workflow steps** (always needed)
+  - **Quick reference tables** (frequently consulted)
+  - **Gotchas** (non-obvious facts the agent needs before encountering the situation)
+  - **Stopping rules and checklists** (critical constraints)
 
 ## Key Design Principle: Tell the Agent When to Load Each File
 
@@ -53,24 +53,7 @@ This lets the agent load context on demand rather than up front, which is how pr
 
 ## File Organization
 
-### Standard Structure
-
-```markdown
-skill-name/
-├── SKILL.md                      # Core instructions (under 500 lines)
-├── references/                   # Documentation loaded on demand
-│   ├── example_[type].md         # Large examples
-│   ├── spec_[topic].md           # Detailed specifications
-│   └── [domain].md               # Domain-specific reference
-├── scripts/                      # Executable code
-│   ├── script_[purpose].py       # Python scripts
-│   └── script_[purpose].js       # JavaScript scripts
-├── assets/                       # Static resources
-│   ├── template_[type].md        # Templates
-│   └── schema_[type].json        # Data files
-└── templates/                    # Alternative template location
-    └── template_[type].md        # Output templates
-```
+Follow the canonical file organization structure defined in the parent SKILL.md.
 
 ### Naming Conventions
 
@@ -200,28 +183,6 @@ SKILL.md → references/example.md → references/sub/detail.md
 
 **Why:** Agents may only partially read deeply nested references (using `head -100` previews), leading to incomplete context.
 
-## Structure for Long Reference Files
-
-For reference files longer than 100 lines, include a table of contents at the top so the agent can see the full scope even when previewing:
-
-```markdown
-# API Reference
-
-## Contents
-
-- Authentication and setup
-- Core methods (create, read, update, delete)
-- Advanced features (batch operations, webhooks)
-- Error handling patterns
-- Code examples
-
-## Authentication and setup
-...
-
-## Core methods
-...
-```
-
 ## Reference File Structure
 
 Each reference file should be self-contained:
@@ -242,9 +203,9 @@ Content...
 
 **Do NOT include:**
 
-- Frontmatter (not needed for reference files)
-- Links back to SKILL.md (circular)
-- Links to other reference files (creates nesting)
+  - Frontmatter (not needed for reference files)
+  - Links back to SKILL.md (circular)
+  - Links to other reference files (creates nesting)
 
 ## Scripts: Execute vs. Read
 

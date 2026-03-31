@@ -1,6 +1,6 @@
 ---
 name: prd
-description: "**WORKFLOW SKILL** — Creates detailed implementation plans and PRDs with user stories, functional requirements, and phased roadmaps. Use when turning an architect blueprint section into an actionable workplan, planning a new feature, scoping a refactor or improvement, writing requirements, or breaking down a large task into implementable stories. Triggers on: create prd, plan feature, write requirements, spec out, implementation plan, workplan, plan refactor, break down."
+description: "Creates detailed implementation plans and PRDs with user stories, functional requirements, and phased roadmaps, when turning an architect blueprint section into an actionable workplan, planning a new feature, scoping a refactor or improvement, writing requirements, or breaking down a large task into implementable stories. Triggers on: create prd, plan feature, write requirements, spec out, implementation plan, workplan, plan refactor, break down."
 ---
 
 # PRD Generator

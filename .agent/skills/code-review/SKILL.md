@@ -1,6 +1,6 @@
 ---
 name: code-review
-description: "Reviews code changes for correctness, security, and maintainability with severity-ranked actionable feedback. Use when reviewing code, checking a PR, auditing for security issues, or preparing changes for merge. Triggers on: review this code, code review, check this PR, review my changes, audit code."
+description: "Reviews code for correctness, security, and maintainability with severity-ranked actionable feedback, when finalizing code for merge or release. Triggers on: review this code, code review, check this PR, review my changes, audit code."
 ---
 
 # Code Review
@@ -11,12 +11,12 @@ Conduct a high-quality professional review of the provided code or changes. Ever
 
 Every finding in every section of the report **must** carry exactly one of these labels:
 
-| Label       | Meaning | Action Expected |
-|-------------|---------|-----------------|
-| **Blocker** | Prevents correct operation, causes data loss, or opens a security hole. | Must fix before merge. |
-| **Major**   | Significant bug, performance issue, or design flaw that will cause problems in production. | Should fix before merge; defer only with documented justification. |
-| **Minor**   | Suboptimal pattern, missing edge-case handling, or readability issue with limited blast radius. | Fix when convenient; safe to defer. |
-| **Nit**     | Style preference, naming nitpick, or trivial improvement with no functional impact. | Optional; address during routine cleanup. |
+| Label       | Meaning                                                                                         | Action Expected                                                    |
+| ----------- | ----------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| **Blocker** | Prevents correct operation, causes data loss, or opens a security hole.                         | Must fix before merge.                                             |
+| **Major**   | Significant bug, performance issue, or design flaw that will cause problems in production.      | Should fix before merge; defer only with documented justification. |
+| **Minor**   | Suboptimal pattern, missing edge-case handling, or readability issue with limited blast radius. | Fix when convenient; safe to defer.                                |
+| **Nit**     | Style preference, naming nitpick, or trivial improvement with no functional impact.             | Optional; address during routine cleanup.                          |
 
 When uncertain between two levels, choose the higher severity — it is easier to downgrade than to miss a real issue.
 
@@ -113,12 +113,12 @@ Brief overview of the code's quality and main concerns (2–3 sentences). State 
 
 Close the report with a scannable triage table. Sort by severity (Blockers first), then by section. This table is the primary tool for selecting items for partial implementation.
 
-| # | Severity | Section | Finding | Effort |
-|---|----------|---------|---------|--------|
-| 1 | **Blocker** | Critical Issues | [Short description] | [Low/Med/High] |
-| 2 | **Major** | Critical Issues | [Short description] | [Low/Med/High] |
-| 3 | **Major** | Logic & Edge Cases | [Short description] | [Med] |
-| 4 | **Minor** | Simplification | [Short description] | [Low] |
-| … | … | … | … | … |
+| #   | Severity    | Section            | Finding             | Effort         |
+| --- | ----------- | ------------------ | ------------------- | -------------- |
+| 1   | **Blocker** | Critical Issues    | [Short description] | [Low/Med/High] |
+| 2   | **Major**   | Critical Issues    | [Short description] | [Low/Med/High] |
+| 3   | **Major**   | Logic & Edge Cases | [Short description] | [Med]          |
+| 4   | **Minor**   | Simplification     | [Short description] | [Low]          |
+| …   | …           | …                  | …                   | …              |
 
 The **Effort** column estimates implementation complexity: **Low** (< 30 min, localized change), **Med** (hours, touches multiple files), **High** (significant refactor or design change).

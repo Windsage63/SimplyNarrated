@@ -1,6 +1,6 @@
 ---
 name: docs-sync
-description: "Syncs documentation with code changes by detecting mismatches and producing actionable update reports. Use when docs may be stale after a refactor, new endpoints were added, API behavior changed, or before a release. Triggers on: update docs, sync documentation, docs out of date, check docs, docs don't match, API docs wrong, stale docs."
+description: "Syncs documentation with code changes by detecting mismatches and producing actionable update reports, when docs may be stale after code changes or before a release. Triggers on: update docs, sync documentation, docs out of date, check docs, docs don't match, API docs wrong, stale docs."
 ---
 
 # Docs Sync

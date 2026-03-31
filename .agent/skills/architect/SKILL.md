@@ -1,6 +1,6 @@
 ---
 name: architect
-description: "**WORKFLOW SKILL** — Hosts a brainstorming session to evaluate full software stacks and produce comprehensive technical blueprints. Use when designing new applications, planning large features or modules, architecting refactors, evaluating technology stacks, or creating system design specifications. Triggers on: architect, system design, technical blueprint, design the system, plan the architecture, stack evaluation, refactor plan, design this feature, new project architecture."
+description: "Brainstorms with the user to produce technical blueprints for applications or major changes. Triggers on: architect, design a system, create a blueprint, plan the architecture."
 ---
 
 # Architect Skill

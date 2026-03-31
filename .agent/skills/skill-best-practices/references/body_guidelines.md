@@ -16,11 +16,11 @@ Best practices for structuring SKILL.md body content, based on the [Agent Skills
 
 The agent already knows common programming patterns, language syntax, and general engineering principles. **Only add:**
 
-- Project-specific context and conventions
-- Non-obvious workflows and edge cases
-- Custom output formats
-- Explicit constraints and gotchas
-- The particular tools or APIs to use
+  - Project-specific context and conventions
+  - Non-obvious workflows and edge cases
+  - Custom output formats
+  - Explicit constraints and gotchas
+  - The particular tools or APIs to use
 
 **Ask about each piece of content:** "Would the agent get this wrong without this instruction?" If no, cut it.
 
@@ -117,9 +117,9 @@ Join the `orders` table to `customers` on `customer_id`, filter where
 
 Information should exist in exactly one place:
 
-- Core instructions → SKILL.md
-- Large examples → `references/`
-- External schemas → link to source
+  - Core instructions → SKILL.md
+  - Large examples → `references/`
+  - External schemas → link to source
 
 ## Recommended Structure
 
@@ -203,7 +203,7 @@ Use this template, adapting sections as needed:
 
 1. Specific actionable recommendation
 ```
-```
+````
 
 ### Checklist Pattern
 
@@ -307,16 +307,16 @@ The v1 API used: `api.example.com/v1/messages`
 
 Choose one term and use it throughout:
 
-- Always "API endpoint" (not "URL", "API route", "path")
-- Always "field" (not "box", "element", "control")
-- Always "extract" (not "pull", "get", "retrieve")
+  - Always "API endpoint" (not "URL", "API route", "path")
+  - Always "field" (not "box", "element", "control")
+  - Always "extract" (not "pull", "get", "retrieve")
 
 ### Use Forward Slashes in Paths
 
 Always use forward slashes, even on Windows:
 
-- Good: `scripts/helper.py`, `reference/guide.md`
-- Bad: `scripts\helper.py`, `reference\guide.md`
+  - Good: `scripts/helper.py`, `reference/guide.md`
+  - Bad: `scripts\helper.py`, `reference\guide.md`
 
 ## Development Workflow
 
@@ -344,10 +344,10 @@ Work with **Claude A** (the expert) to create skills that **Claude B** (fresh in
 
 Watch for:
 
-- **Unexpected exploration paths** — structure may not be intuitive
-- **Missed connections** — links may need to be more explicit
-- **Overreliance on certain sections** — content may belong in SKILL.md
-- **Ignored content** — files may be unnecessary or poorly signaled
+  - **Unexpected exploration paths** — structure may not be intuitive
+  - **Missed connections** — links may need to be more explicit
+  - **Overreliance on certain sections** — content may belong in SKILL.md
+  - **Ignored content** — files may be unnecessary or poorly signaled
 
 ## What to Avoid
 

@@ -1,6 +1,6 @@
 ---
 name: skill-best-practices
-description: "**WORKFLOW SKILL** — Guides creation of Agent Skills following the open standard and Anthropic best practices. Use whenever creating, reviewing, or improving skills. Triggers on: create skill, new skill, skill guidelines, skill best practices, write a skill."
+description: "Guides the creation of Agent Skills following best practices, when creating, reviewing, or improving skills. Triggers on: create skill, review the skill, new skill, skill guidelines, skill best practices, write a skill."
 ---
 
 # Skill Best Practices
@@ -18,51 +18,18 @@ Build skills that follow the [Agent Skills](https://agentskills.io/) open standa
 
 ## Quick Reference
 
-| Element              | Constraint                                                              |
-| -------------------- | ----------------------------------------------------------------------- |
-| `name`               | Max 64 chars, lowercase letters/numbers/hyphens only, must match folder |
-| `description`        | Max 1024 chars (front-load key use case in first 250 chars)             |
-| Body length          | Under 500 lines / < 5,000 tokens                                        |
-| Reference nesting    | Max 1 level deep from SKILL.md                                          |
-| Reference files 100+ | Include table of contents at top                                        |
+| Element           | Constraint                                                              |
+| ----------------- | ----------------------------------------------------------------------- |
+| `name`            | Max 64 chars, lowercase letters/numbers/hyphens only, must match folder |
+| `description`     | Max 1024 chars (front-load key use case in first 250 chars)             |
+| Body length       | Under 500 lines / < 5,000 tokens                                        |
+| Reference nesting | Max 1 level deep from SKILL.md                                          |
 
 ## Frontmatter Rules
 
-YAML frontmatter between `---` markers. The open standard requires `name` and `description`. Claude Code makes all fields optional (uses directory name if `name` omitted).
+YAML frontmatter between `---` markers. The open standard requires `name` and `description`. Claude Code makes all fields optional (uses directory name if `name` omitted). See the Quick Reference table above for hard constraints on `name` and `description`.
 
-### Name Field
-
-- **Max 64 characters**, lowercase letters, numbers, hyphens only
-- **Cannot** start/end with hyphens or contain consecutive hyphens (`--`)
-- **Forbidden:** XML tags, reserved words ("anthropic", "claude")
-- **Must match** the folder name
-- **Prefer gerund form** (`processing-pdfs`, `analyzing-data`) or noun phrases (`code-review`)
-
-### Description Field
-
-- **Max 1024 characters** (hard limit); **first 250 chars are critical** (truncated in skill listing)
-- **Front-load the key use case** — Claude uses descriptions to decide which skill to load
-- **Imperative phrasing** — "Use when..." rather than "This skill does..."
-- **Be specific and pushy** — list contexts where the skill applies, including non-obvious cases
-- **Include trigger keywords** — terms users would naturally say
-
-**Pattern:**
-
-```yaml
-description: "[What it does]. Use when [specific contexts, including non-obvious ones]. Triggers on: [keyword1], [keyword2], [keyword3]."
-```
-
-**Example:**
-
-```yaml
-description: "Generates PRDs with user stories and acceptance criteria. Use when planning a new feature, writing requirements, or scoping a refactor. Triggers on: create prd, plan feature, write requirements, spec out."
-```
-
-### Additional Frontmatter Fields (Claude Code)
-
-Claude Code extends the open standard with optional fields for invocation control, execution context, and tool restrictions. See [`references/frontmatter_spec.md`](references/frontmatter_spec.md) for the complete reference.
-
-Key fields: `disable-model-invocation`, `user-invocable`, `allowed-tools`, `context`, `agent`, `paths`, `argument-hint`, `model`, `effort`, `hooks`, `shell`.
+Read [`references/frontmatter_spec.md`](references/frontmatter_spec.md) when writing or troubleshooting frontmatter — it covers name validation rules, description writing patterns with good/bad examples, Claude Code extension fields (`allowed-tools`, `context`, `paths`, `hooks`, `$ARGUMENTS`, etc.), and discovery behavior.
 
 ## Skill Types
 
@@ -99,7 +66,7 @@ Key fields: `disable-model-invocation`, `user-invocable`, `allowed-tools`, `cont
 | Plan-validate-execute | Batch or destructive operations                            |
 | Conditional workflow  | Decision points with different paths                       |
 
-See [`references/body_guidelines.md`](references/body_guidelines.md) for detailed patterns and examples.
+Read [`references/body_guidelines.md`](references/body_guidelines.md) when writing body content, choosing a named content pattern, or setting up an evaluation-driven development workflow.
 
 ## Progressive Disclosure
 
@@ -145,14 +112,7 @@ skill-name/
     └── template_[type].md
 ```
 
-See [`references/progressive_disclosure.md`](references/progressive_disclosure.md) for detailed patterns.
-
-## Dynamic Features (Claude Code)
-
-- **`$ARGUMENTS` / `$N`** — String substitution for arguments passed to skills
-- **`!`command``** — Shell command preprocessing (runs before Claude sees content)
-- **`context: fork`** — Run skill in an isolated subagent context
-- **`"ultrathink"`** — Include this word in skill content to enable extended thinking
+Read [`references/progressive_disclosure.md`](references/progressive_disclosure.md) when deciding how to split content across files, choosing between inline vs. extracted content, or organizing domain-specific reference material.
 
 ## Development Workflow
 
@@ -162,7 +122,7 @@ See [`references/progressive_disclosure.md`](references/progressive_disclosure.m
 4. **Test triggering** — verify description activates on the right prompts
 5. **Iterate with execution traces** — observe how Claude navigates the skill, refine accordingly
 
-See [`references/body_guidelines.md`](references/body_guidelines.md) for the full iterative development workflow.
+Read [`references/body_guidelines.md`](references/body_guidelines.md) for the full evaluation-driven development methodology.
 
 ## Checklist
 
@@ -174,7 +134,6 @@ Before finalizing a skill:
 - [ ] SKILL.md under 500 lines / < 5,000 tokens
 - [ ] Large examples extracted to `references/` or `assets/`
 - [ ] Reference files are 1 level deep (no nesting)
-- [ ] Reference files 100+ lines have table of contents
 - [ ] Conditional loading cues tell Claude when to read each file
 - [ ] No time-sensitive information (use "old patterns" sections)
 - [ ] Consistent terminology throughout
@@ -184,4 +143,4 @@ Before finalizing a skill:
 
 ## Template
 
-See [`references/skill_template.md`](references/skill_template.md) for a ready-to-copy starter template.
+Read [`references/skill_template.md`](references/skill_template.md) when creating a new skill from scratch and need a copy-paste starter.

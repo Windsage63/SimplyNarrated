@@ -1,6 +1,6 @@
 ---
 name: license-headers
-description: "Helps to write proper Apache 2.0 license headers into the project files. Triggers on: apply license headers, add license, license header, check license, Apache 2.0 license."
+description: "Writes proper Apache 2.0 license headers into the project files. Triggers on: apply license headers, add license, license header, check license, Apache 2.0 license."
 ---
 
 # License Headers Skill

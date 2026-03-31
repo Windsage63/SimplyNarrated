@@ -4,26 +4,14 @@ Copy this template when creating a new skill. Based on the [Agent Skills specifi
 
 ## Folder Structure
 
-```markdown
-skill-name/
-├── SKILL.md                      # Core instructions (under 500 lines)
-├── references/                   # Documentation loaded on demand
-│   ├── example_[type].md
-│   └── spec_[topic].md
-├── scripts/                      # Executable code
-│   └── script_[purpose].py
-├── assets/                       # Static resources, schemas
-│   └── template_[type].md
-└── templates/                    # Alternative template location
-    └── template_[type].md
-```
+Follow the canonical file organization structure defined in the parent SKILL.md.
 
 ## SKILL.md Template (Minimal)
 
 ````markdown
 ---
 name: skill-name
-description: "[What the skill does]. Use when [specific contexts, including non-obvious ones]. Triggers on: [trigger1], [trigger2], [trigger3]."
+description: "[What the skill does], wwhen [specific contexts, including non-obvious ones]. Triggers on: [trigger1], [trigger2], [trigger3]."
 ---
 
 # [Skill Title]
@@ -74,7 +62,7 @@ Before completing, verify:
 ````markdown
 ---
 name: skill-name
-description: "[What the skill does]. Use when [specific contexts]. Triggers on: [trigger1], [trigger2]."
+description: "[What the skill does], when [specific contexts]. Triggers on: [trigger1], [trigger2]."
 # --- Optional Claude Code fields ---
 # argument-hint: "[required-arg] [optional-arg]"
 # disable-model-invocation: true     # Only user can invoke via /skill-name
@@ -199,19 +187,6 @@ Research $ARGUMENTS thoroughly:
 
 ## Quick Checklist for New Skills
 
-Before publishing:
+Run the verification checklist from the parent SKILL.md before finalizing. Additionally, verify:
 
-- [ ] Folder name = `name` field (lowercase, hyphens)
-- [ ] Description front-loads key use case in first 250 chars
-- [ ] Description includes trigger keywords and specific contexts
-- [ ] SKILL.md under 500 lines / < 5,000 tokens
-- [ ] Large reference material in `references/` or `assets/`
-- [ ] Reference files are 1 level deep
-- [ ] Reference files 100+ lines have TOC
-- [ ] Conditional cues tell agent when to load each file
-- [ ] No time-sensitive information
-- [ ] Consistent terminology throughout
-- [ ] All file paths use forward slashes
-- [ ] Stopping rules defined
-- [ ] Completion checklist included
-- [ ] Tested with representative queries
+  - [ ] Tested with representative queries
