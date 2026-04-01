@@ -1,6 +1,6 @@
 ---
 name: create-instructions
-description: "Study a repo and create the AGENTS.md and .instructions.md files that best suit it. Analyzes codebase structure, conventions, and submodule boundaries to decide what goes in always-on AGENTS.md vs targeted .instructions.md files. Triggers on: create instructions, create AGENTS.md, update AGENTS.md, check instructions, instruction file, study repo."
+description: "Study a repo and create the AGENTS.md and .instructions.md files that best suit it. Analyzes codebase structure, conventions, and submodule boundaries to decide what goes in always-on AGENTS.md vs targeted .instructions.md files. Triggers on: create instructions, create AGENTS.md, update AGENTS.md, check instructions, instruction files, study repo."
 ---
 
 # Create Instructions
