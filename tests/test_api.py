@@ -580,6 +580,36 @@ class TestChapterEditEndpoints:
         )
         assert resp.status_code == 400
 
+    async def test_update_chapter_text_preserves_whitespace(self, app_client, tmp_library_dir):
+        book_id = _populate_book(str(tmp_library_dir))
+        content_with_whitespace = "  Leading spaces and trailing newline.\n"
+
+        update_resp = await app_client.put(
+            f"/api/book/{book_id}/chapter/1/text",
+            json={"content": content_with_whitespace},
+        )
+        assert update_resp.status_code == 200
+        assert update_resp.json()["content_length"] == len(content_with_whitespace)
+
+        text_resp = await app_client.get(f"/api/text/{book_id}/1")
+        assert text_resp.status_code == 200
+        assert text_resp.json()["content"] == content_with_whitespace
+
+    async def test_update_chapter_text_preserves_whitespace(self, app_client, tmp_library_dir):
+        book_id = _populate_book(str(tmp_library_dir))
+        content_with_whitespace = "  Leading spaces and trailing newline.\n"
+
+        update_resp = await app_client.put(
+            f"/api/book/{book_id}/chapter/1/text",
+            json={"content": content_with_whitespace},
+        )
+        assert update_resp.status_code == 200
+        assert update_resp.json()["content_length"] == len(content_with_whitespace)
+
+        text_resp = await app_client.get(f"/api/text/{book_id}/1")
+        assert text_resp.status_code == 200
+        assert text_resp.json()["content"] == content_with_whitespace
+
     async def test_reconvert_chapter_queues_job(self, app_client, tmp_library_dir, monkeypatch):
         book_id = _populate_book(str(tmp_library_dir))
 

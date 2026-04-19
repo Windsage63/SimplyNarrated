@@ -34,6 +34,8 @@ from starlette.background import BackgroundTask
 from src.models.schemas import (
     UploadResponse,
     ImportResponse,
+    StartGenerationResponse,
+    CancelJobResponse,
     GenerateRequest,
     StatusResponse,
     VoicesResponse,
@@ -42,8 +44,16 @@ from src.models.schemas import (
     BookInfo,
     JobStatus,
     UpdateMetadataRequest,
+    UpdateMetadataResponse,
     UpdateChapterTextRequest,
+    ChapterTextResponse,
+    UpdateChapterTextResponse,
     ReconvertChapterRequest,
+    ReconvertChapterResponse,
+    SaveBookmarkResponse,
+    BookmarkResponse,
+    UploadCoverResponse,
+    DeleteBookResponse,
 )
 from src.core.encoder import retag_book_mp3_files
 from src.core.job_manager import get_job_manager
@@ -213,7 +223,7 @@ async def upload_file(file: UploadFile = File(...)):
     )
 
 
-@router.post("/generate")
+@router.post("/generate", response_model=StartGenerationResponse)
 async def start_generation(request: GenerateRequest, background_tasks: BackgroundTasks):
     """
     Start audiobook generation for an uploaded file.
@@ -238,7 +248,6 @@ async def start_generation(request: GenerateRequest, background_tasks: Backgroun
     # Convert request to config dict
     config = {
         "narrator_voice": request.narrator_voice,
-        "dialogue_voice": request.dialogue_voice,
         "speed": request.speed,
         "quality": request.quality.value,
         "format": request.format.value,
@@ -281,7 +290,7 @@ async def get_status(job_id: str):
     )
 
 
-@router.post("/cancel/{job_id}")
+@router.post("/cancel/{job_id}", response_model=CancelJobResponse)
 async def cancel_job(job_id: str):
     """
     Cancel an in-progress conversion job.
@@ -478,8 +487,7 @@ async def import_library_book(file: UploadFile = File(...)):
 @router.get("/audio/{book_id}/{chapter}")
 async def stream_audio(book_id: str, chapter: int):
     """
-    Stream or download a chapter's audio file.
-    Supports both .mp3 and .wav formats.
+    Stream a chapter's MP3 audio file.
     """
     _validate_book_id_or_400(book_id)
 
@@ -518,7 +526,7 @@ async def stream_audio(book_id: str, chapter: int):
     raise HTTPException(status_code=404, detail="Audio file not found")
 
 
-@router.get("/text/{book_id}/{chapter}")
+@router.get("/text/{book_id}/{chapter}", response_model=ChapterTextResponse)
 async def get_chapter_text(book_id: str, chapter: int):
     """
     Get the text content for a specific chapter.
@@ -540,7 +548,10 @@ async def get_chapter_text(book_id: str, chapter: int):
     return {"book_id": book_id, "chapter": chapter, "content": content}
 
 
-@router.put("/book/{book_id}/chapter/{chapter}/text")
+@router.put(
+    "/book/{book_id}/chapter/{chapter}/text",
+    response_model=UpdateChapterTextResponse,
+)
 async def update_chapter_text(book_id: str, chapter: int, request: UpdateChapterTextRequest):
     """
     Update generated text for a specific chapter.
@@ -548,8 +559,7 @@ async def update_chapter_text(book_id: str, chapter: int, request: UpdateChapter
     _validate_book_id_or_400(book_id)
     _validate_chapter_or_400(chapter)
 
-    cleaned_content = request.content.strip()
-    if not cleaned_content:
+    if not request.content.strip():
         raise HTTPException(status_code=400, detail="Chapter content cannot be empty")
 
     library = get_library_manager()
@@ -559,17 +569,20 @@ async def update_chapter_text(book_id: str, chapter: int, request: UpdateChapter
 
     text_path = os.path.join(book_dir, f"chapter_{chapter:02d}.txt")
     async with aiofiles.open(text_path, "w", encoding="utf-8") as chapter_file:
-        await chapter_file.write(cleaned_content)
+        await chapter_file.write(request.content)
 
     return {
         "status": "updated",
         "book_id": book_id,
         "chapter": chapter,
-        "content_length": len(cleaned_content),
+        "content_length": len(request.content),
     }
 
 
-@router.post("/book/{book_id}/chapter/{chapter}/reconvert")
+@router.post(
+    "/book/{book_id}/chapter/{chapter}/reconvert",
+    response_model=ReconvertChapterResponse,
+)
 async def reconvert_chapter(book_id: str, chapter: int, request: ReconvertChapterRequest):
     """
     Queue reconversion for a single chapter using the current chapter text file.
@@ -625,7 +638,7 @@ async def reconvert_chapter(book_id: str, chapter: int, request: ReconvertChapte
     }
 
 
-@router.post("/bookmark")
+@router.post("/bookmark", response_model=SaveBookmarkResponse)
 async def save_bookmark(book_id: str, chapter: int, position: float):
     """
     Save a playback bookmark for a book.
@@ -650,7 +663,7 @@ async def save_bookmark(book_id: str, chapter: int, position: float):
     }
 
 
-@router.get("/bookmark/{book_id}")
+@router.get("/bookmark/{book_id}", response_model=BookmarkResponse)
 async def get_bookmark(book_id: str):
     """
     Get the user's playback position for a book.
@@ -670,7 +683,7 @@ async def get_bookmark(book_id: str):
     }
 
 
-@router.patch("/book/{book_id}")
+@router.patch("/book/{book_id}", response_model=UpdateMetadataResponse)
 async def update_book_metadata(book_id: str, request: UpdateMetadataRequest):
     """
     Update metadata (title, author) for a specific book.
@@ -699,7 +712,7 @@ MAX_COVER_SIZE = 5 * 1024 * 1024  # 5 MB
 ALLOWED_COVER_TYPES = {"image/jpeg": ".jpg", "image/png": ".png"}
 
 
-@router.post("/book/{book_id}/cover")
+@router.post("/book/{book_id}/cover", response_model=UploadCoverResponse)
 async def upload_cover(book_id: str, file: UploadFile = File(...)):
     """
     Upload a cover image for a book.
@@ -782,7 +795,7 @@ async def get_cover(book_id: str):
     raise HTTPException(status_code=404, detail="Cover image not found")
 
 
-@router.delete("/book/{book_id}")
+@router.delete("/book/{book_id}", response_model=DeleteBookResponse)
 async def delete_book(book_id: str):
     """
     Delete a book from the library.

@@ -1,6 +1,6 @@
 # SimplyNarrated API Reference
 
-> **Last synced with codebase:** 2026-03-31
+> **Last synced with codebase:** 2026-04-17
 
 Base URL: `/api`
 
@@ -34,6 +34,7 @@ The API supports file upload, audiobook generation jobs, voice previews, library
     - Selects the largest `.html` or `.htm` member as the narration source.
     - Rejects corrupt archives and oversized/unsafe archives.
     - Removes Gutenberg header/footer boilerplate before chapter splitting.
+    - Reflows soft-wrapped prose paragraphs in the source HTML before Docling conversion. This is a source-level normalization step, not a generic TTS text rewrite.
     - Attempts cover extraction from image filenames whose basename contains `cover`.
   - **Response**:
 
@@ -57,7 +58,6 @@ The API supports file upload, audiobook generation jobs, voice previews, library
   {
     "job_id": "uuid-string",
     "narrator_voice": "af_heart",
-    "dialogue_voice": null,
     "speed": 1.0,
     "quality": "sd",
     "format": "mp3",
@@ -68,7 +68,6 @@ The API supports file upload, audiobook generation jobs, voice previews, library
 
   - **Notes**:
     - `narrator_voice` must be a valid voice ID from the `/voices` endpoint. Invalid IDs are rejected with `400`.
-    - `dialogue_voice` is accepted by the schema but the active pipeline currently uses a single narrator voice.
     - `quality` presets map to MP3 bitrates: `sd=128k`, `hd=192k`, `ultra=320k`.
     - `format` is accepted for forward compatibility but only `"mp3"` is currently supported.
     - `remove_square_bracket_numbers` strips `[N]` references before synthesis.
@@ -305,8 +304,8 @@ The API supports file upload, audiobook generation jobs, voice previews, library
   ```
 
   - **Notes**:
-    - The content is trimmed server-side.
-    - Blank chapter content is rejected with `400`.
+    - Chapter content is stored exactly as submitted.
+    - Blank or whitespace-only content is rejected with `400`.
 
 #### Reconvert a chapter
 

@@ -55,9 +55,6 @@ class GenerateRequest(BaseModel):
 
     job_id: str
     narrator_voice: str = Field(default="af_heart", description="Voice for narration")
-    dialogue_voice: Optional[str] = Field(
-        default=None, description="Voice for dialogue"
-    )
     speed: float = Field(default=1.0, ge=0.5, le=2.0, description="Playback speed")
     quality: AudioQuality = Field(default=AudioQuality.SD)
     format: AudioFormat = Field(default=AudioFormat.MP3)
@@ -112,6 +109,87 @@ class ImportResponse(BaseModel):
     title: str
     total_chapters: int = 0
     id_remapped: bool = False
+
+
+class StartGenerationResponse(BaseModel):
+    """Response from starting audiobook generation."""
+
+    status: str
+    job_id: str
+
+
+class CancelJobResponse(BaseModel):
+    """Response from cancelling a conversion job."""
+
+    status: str
+    job_id: str
+
+
+class ChapterTextResponse(BaseModel):
+    """Response containing stored chapter text."""
+
+    book_id: str
+    chapter: int
+    content: str
+
+
+class UpdateChapterTextResponse(BaseModel):
+    """Response from updating stored chapter text."""
+
+    status: str
+    book_id: str
+    chapter: int
+    content_length: int
+
+
+class ReconvertChapterResponse(BaseModel):
+    """Response from queueing a chapter reconversion job."""
+
+    status: str
+    job_id: str
+    book_id: str
+    chapter: int
+
+
+class SaveBookmarkResponse(BaseModel):
+    """Response from saving a bookmark."""
+
+    status: str
+    book_id: str
+    chapter: int
+    position: float
+
+
+class BookmarkResponse(BaseModel):
+    """Response containing a book bookmark."""
+
+    chapter: int
+    position: float
+    updated_at: Optional[str] = None
+
+
+class UpdateMetadataResponse(BaseModel):
+    """Response from updating book metadata."""
+
+    status: str
+    book_id: str
+    title: Optional[str] = None
+    author: Optional[str] = None
+
+
+class UploadCoverResponse(BaseModel):
+    """Response from uploading a cover image."""
+
+    status: str
+    cover_url: str
+
+
+class DeleteBookResponse(BaseModel):
+    """Response from deleting a book."""
+
+    status: str
+    message: str
+    book_id: str
 
 
 class ActivityLogEntry(BaseModel):

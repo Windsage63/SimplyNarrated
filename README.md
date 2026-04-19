@@ -16,12 +16,12 @@ The system uses the **Kokoro-82M** model running locally on GPU for high-quality
   - **Dual-Region Support**: Automatic selection of American ('a') or British ('b') G2P rules based on voice selection.
   - **Memory Efficient**: Shares a single base model across multiple language pipelines to save RAM.
   - **Multiple Formats**: Supports uploading TXT, MD, PDF, and Gutenberg ZIP (HTML) files.
-  - **Gutenberg Import**: Upload Project Gutenberg HTML ZIP downloads — the app extracts the HTML text and cover image automatically.
+  - **Gutenberg Import**: Upload Project Gutenberg HTML ZIP downloads — the app extracts the HTML text and cover image automatically. Soft-wrapped prose paragraphs are reflowed before conversion so TTS output sounds natural.
   - **Get More Books Shortcut**: Library view includes a `Get More Books` button that links to Project Gutenberg with a quick format tip before opening.
-  - **Smart Chunking**: Splits text into natural chapters or segments.
+  - **Docling Import Pipeline**: Uses a Docling-driven import path that preserves document structure better than the removed legacy parser/chunker path.
   - **Early Chapter Estimate**: Upload response includes an estimated chapter count before generation starts.
   - **Portable Library Archives**: Export and re-import complete audiobooks as SimplyNarrated ZIP archives, including chapter audio, chapter text, metadata, bookmarks, cover art, and original source files when present.
-  - **Chapter Repair Workflow**: Edit generated chapter text and reconvert a single chapter without rerunning the whole book.
+  - **Chapter Repair Workflow**: Edit generated chapter text and reconvert a single chapter without rerunning the whole book. Reconvert uses the saved chapter text directly.
   - **Tagged MP3 Output**: Generated and reconverted chapter MP3s include title, album, artist, track number, and embedded cover art when available.
   - **Audiobook Player**: Built-in player with progress tracking and bookmarks.
   - **Library Management**: Dashboard to manage your converted books.
@@ -149,7 +149,7 @@ There is currently no dedicated lint or formatter configuration checked into the
 
   - `src/`: Source code
     - `api/`: FastAPI routes and endpoints
-    - `core/`: Core logic (TTS engine, parser, chunker)
+    - `core/`: Core logic (TTS engine, import pipeline, library, reconvert)
     - `models/`: Pydantic data models
   - `data/`: Local storage for uploads and library
   - `docs/`: Documentation files
@@ -161,8 +161,15 @@ There is currently no dedicated lint or formatter configuration checked into the
 ## 📄 Documentation
 
   - [API Reference](docs/API-Reference.md)
-  - [Architecture Plan](plans/architect_plan.md)
+  - [Instructions Primer](docs/instructions-primer.md)
   - [Landing Page Creative Brief](docs/Landing-Page-Creative-Brief.md)
+
+## 🧭 Current Refactor Direction
+
+  - Docling is the import-time parser and chunker for all supported source formats.
+  - Saved `chapter_NN.txt` is the canonical speech artifact and the only reconvert input.
+  - Reconvert does not run Docling or rewrite user-corrected text.
+  - No Docling intermediate artifacts are intended to persist in the library.
 
 ## 📝 Acknowledgements
 

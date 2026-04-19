@@ -8,12 +8,12 @@ applyTo: "tests/**"
 
 ## Structure
 
-```markdown
+```tree
 tests/
 ├── conftest.py                 # Shared fixtures: temp dirs, singleton resets, mock audio
 ├── test_api.py                 # Endpoint integration tests (requires ffmpeg)
-├── test_chunker.py             # Chunking logic
-├── test_parser.py              # Text extraction and chapter detection
+├── test_docling_adapter.py     # Import-time conversion and chapter grouping
+├── test_speech_renderer.py     # Docling → plain-text speech rendering
 ├── test_encoder.py             # MP3 encoding
 ├── test_job_manager.py         # Job queue, persistence, recovery
 ├── test_library.py             # Library CRUD and bookmarks
@@ -33,10 +33,17 @@ tests/
 
 - `tmp_data_dir`, `tmp_uploads_dir`, `tmp_library_dir` — temp filesystem, cleaned automatically
 - `job_manager`, `library_manager` — singleton instances against temp dirs; globals reset after each test
-- `tts_engine` — mock engine (GPU tests use real engine with `@pytest.mark.slow`)
-- `async_client` — `httpx.AsyncClient` with `ASGITransport` against the FastAPI app
+- `tts_engine` — real Kokoro engine loaded once per session; use it only in `@pytest.mark.slow` coverage
+- `app_client` — `httpx.AsyncClient` with `ASGITransport` against the FastAPI app
+- `sample_txt_file`, `sample_md_file`, `sample_zip_file`, `sample_pdf_file` — representative source fixtures for import-path tests
 
 Always use these fixtures instead of creating your own setup. Singletons **must** be reset — the fixtures handle this by setting the module-level `_xxx` variable to `None` after yield.
+
+## Refactor Direction
+
+- Parsing/chunking coverage belongs in the Docling adapter and speech renderer tests.
+- Reconvert tests must assert that saved `chapter_NN.txt` is passed directly to TTS with no Docling pass and no text rewriting.
+- Preserve backward-compatibility coverage for existing library books and portability archives.
 
 ## Markers
 

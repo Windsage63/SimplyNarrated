@@ -28,7 +28,7 @@ python_embedded\python.exe -m pytest tests/
 python_embedded\python.exe -m pytest tests/test_api.py
 
 # Single test by name
-python_embedded\python.exe -m pytest tests/test_chunker.py::test_function_name -v
+python_embedded\python.exe -m pytest tests/test_chapter_reconvert.py::test_process_chapter_reconvert_job_updates_audio_and_metadata -v
 ```
 
 Tests marked `@pytest.mark.slow` require the Kokoro-82M model loaded in memory (GPU-intensive). Skip with `-m "not slow"` during routine development.
@@ -55,20 +55,22 @@ python_embedded\python.exe -m pip install -r requirements.txt
 
 ## Architecture
 
-```markdown
+Current architecture: Docling is the only import-time parsing and chunking boundary. Saved `chapter_NN.txt` remains the only reconvert input. Gutenberg ZIP HTML is preprocessed (boilerplate removal and paragraph reflow) before Docling conversion.
+
+```tree
 src/                        # Python backend (FastAPI)
 ├── main.py                     # App init, lifespan (startup/shutdown), static file mounting
 ├── api/
 │   └── routes.py               # All HTTP endpoints on a single APIRouter
 ├── core/
-│   ├── pipeline.py             # Async orchestrator: parse → chunk → TTS → encode → store
+│   ├── pipeline.py             # Async orchestrator: Docling import → render text → TTS → encode → store
+│   ├── docling_adapter.py      # Import-time document conversion, chapter grouping, cover extraction, and Gutenberg HTML normalization
+│   ├── speech_renderer.py      # Docling → plain-text speech renderer
 │   ├── tts_engine.py           # Kokoro-82M wrapper; loads .pt voice tensors from static/voices/
-│   ├── parser.py               # Text extraction from TXT/MD/PDF/ZIP; Gutenberg boilerplate stripping
-│   ├── chunker.py              # Splits text into ~4000-word chunks preserving chapter boundaries
 │   ├── encoder.py              # Raw audio → MP3 with ID3 tags
 │   ├── job_manager.py          # Async job queue with file-based persistence and restart recovery
 │   ├── library.py              # File-based library: JSON metadata per book, bookmark management
-│   ├── chapter_reconvert.py    # Reconvert individual chapters with different settings
+│   ├── chapter_reconvert.py    # Reconvert saved chapter text directly through TTS
 │   └── portability.py          # Export/import books as ZIP archives
 └── models/
     └── schemas.py              # Pydantic request/response models
@@ -88,6 +90,7 @@ data/                       # Runtime data (no database, all file-based)
 
 docs/                       # Project documentation
 ├── API-Reference.md            # Full endpoint reference with request/response examples
+├── instructions-primer.md      # Primer on AGENTS.md and .instructions.md conventions
 ├── Landing-Page-Creative-Brief.md
 └── stitch/                     # Design mockups (5 screens)
 
@@ -116,6 +119,10 @@ Tests reset these singletons via fixtures in `conftest.py` for isolation.
 ### Async throughout
 
 All route handlers, pipeline stages, and file I/O use `async def` + `aiofiles`. CPU-bound TTS inference runs in a thread pool via `asyncio.get_event_loop().run_in_executor(None, ...)`.
+
+### Conversion boundary
+
+Import-time parsing and chunking belongs behind the Docling adapter and speech renderer. Reconvert must read the saved chapter text and send that saved text directly to TTS, with no Docling pass and no text rewriting.
 
 ### API docs
 

@@ -8,7 +8,7 @@ applyTo: "static/**"
 
 ## Structure
 
-```markdown
+```tree
 static/
 ├── index.html                  # Single HTML shell: nav, view container, Tailwind config, styles
 ├── js/
@@ -42,7 +42,8 @@ Each view has two functions in `static/js/views/{name}.js`:
 ## State & API
 
 - Global `state` object holds current view, selected book/job, voice, audio settings, and library list
-- `api` object in `app.js` wraps all `fetch()` calls with async methods — always use `api.xxx()` instead of raw `fetch`
+- `api` object in `app.js` wraps JSON-oriented `fetch()` calls with async methods — use `api.xxx()` for JSON requests
+- Raw `fetch()`, `new Audio()`, and element `src` assignment are acceptable for binary streams such as chapter audio, voice previews, and cover/media URLs
 - View-local state (e.g., `dashboardState`, `playerState`) is a module-level object in the view file
 
 ## DOM Safety

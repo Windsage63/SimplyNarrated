@@ -752,8 +752,8 @@ async function saveChapterTextEdits() {
   if (!playerState.book || playerState.textModalBusy) return;
 
   const editor = document.getElementById("text-modal-editor");
-  const nextContent = editor.value.trim();
-  if (!nextContent) {
+  const nextContent = editor.value;
+  if (!nextContent.trim()) {
     setTextModalStatus("Chapter text cannot be empty.");
     return;
   }
@@ -808,8 +808,8 @@ async function reconvertCurrentChapter() {
   if (!playerState.book || playerState.textModalBusy) return;
 
   const editor = document.getElementById("text-modal-editor");
-  const nextContent = editor.value.trim();
-  if (!nextContent) {
+  const nextContent = editor.value;
+  if (!nextContent.trim()) {
     setTextModalStatus("Chapter text cannot be empty.");
     return;
   }

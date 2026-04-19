@@ -164,24 +164,6 @@ def sample_zip_file(tmp_uploads_dir):
 
 
 @pytest.fixture
-def sample_zip_no_html(tmp_uploads_dir):
-    """Create a ZIP with no HTML files."""
-    path = tmp_uploads_dir / "no_html.zip"
-    with zipfile.ZipFile(str(path), "w") as zf:
-        zf.writestr("readme.txt", "Just a text file.")
-    return str(path)
-
-
-@pytest.fixture
-def sample_zip_no_cover(tmp_uploads_dir):
-    """Create a ZIP with HTML but no cover image."""
-    path = tmp_uploads_dir / "no_cover.zip"
-    with zipfile.ZipFile(str(path), "w") as zf:
-        zf.writestr("book.html", SAMPLE_ZIP_HTML)
-    return str(path)
-
-
-@pytest.fixture
 def sample_library_book(tmp_library_dir):
     """
     Pre-populate a book in the library with metadata and a tiny valid WAV file.

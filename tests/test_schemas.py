@@ -60,7 +60,6 @@ class TestGenerateRequest:
     def test_defaults(self):
         req = GenerateRequest(job_id="abc-123")
         assert req.narrator_voice == "af_heart"
-        assert req.dialogue_voice is None
         assert req.speed == 1.0
         assert req.quality == AudioQuality.SD
         assert req.format == AudioFormat.MP3

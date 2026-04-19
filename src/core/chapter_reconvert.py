@@ -23,10 +23,8 @@ import asyncio
 import logging
 from typing import Any, Dict, List
 
-import numpy as np
 from pydub import AudioSegment
 
-from src.core.chunker import chunk_chapters
 from src.core.tts_engine import get_tts_engine
 from src.core.encoder import (
     embed_mp3_metadata,
@@ -115,9 +113,9 @@ async def process_chapter_reconvert_job(job: Job, config: Dict[str, Any]) -> Non
         metadata = json.load(metadata_file)
 
     with open(text_path, "r", encoding="utf-8") as chapter_file:
-        chapter_text = chapter_file.read().strip()
+        chapter_text = chapter_file.read()
 
-    if not chapter_text:
+    if not chapter_text.strip():
         raise RuntimeError("Chapter text is empty")
 
     voice_id = config.get("narrator_voice") or metadata.get("voice") or "af_heart"
@@ -137,7 +135,7 @@ async def process_chapter_reconvert_job(job: Job, config: Dict[str, Any]) -> Non
         job.id,
         10.0,
         chapter_number,
-        f"Rebuilding chapter {chapter_number} text chunks...",
+        f"Preparing saved text for chapter {chapter_number}...",
     )
 
     chapter_title = f"Chapter {chapter_number}"
@@ -145,8 +143,6 @@ async def process_chapter_reconvert_job(job: Job, config: Dict[str, Any]) -> Non
         if int(chapter_meta.get("number", 0)) == chapter_number:
             chapter_title = chapter_meta.get("title") or chapter_title
             break
-
-    chunks = chunk_chapters([(chapter_title, chapter_text)])
 
     tts_engine = get_tts_engine()
     if not tts_engine.is_initialized():
@@ -161,29 +157,14 @@ async def process_chapter_reconvert_job(job: Job, config: Dict[str, Any]) -> Non
     )
 
     loop = asyncio.get_running_loop()
-    chunk_audio = []
-    sample_rate = 24000
-
-    for index, chunk in enumerate(chunks):
-        progress = 30.0 + (index / max(1, len(chunks))) * 40.0
-        job_manager.update_progress(
-            job.id,
-            progress,
-            chapter_number,
-            f"Synthesizing chapter {chapter_number} segment {index + 1}/{len(chunks)}...",
-        )
-
-        audio, sample_rate = await loop.run_in_executor(
-            None,
-            lambda content=chunk.content, voice=voice_id, rate=speed: tts_engine.generate_speech(
-                content,
-                voice,
-                rate,
-            ),
-        )
-        chunk_audio.append(audio)
-
-    merged_audio = np.concatenate(chunk_audio) if len(chunk_audio) > 1 else chunk_audio[0]
+    audio, sample_rate = await loop.run_in_executor(
+        None,
+        lambda content=chapter_text, voice=voice_id, rate=speed: tts_engine.generate_speech(
+            content,
+            voice,
+            rate,
+        ),
+    )
 
     job_manager.update_progress(
         job.id,
@@ -194,7 +175,7 @@ async def process_chapter_reconvert_job(job: Job, config: Dict[str, Any]) -> Non
 
     await loop.run_in_executor(
         None,
-        lambda: encode_audio(merged_audio, sample_rate, temp_audio_path, encoder_settings),
+        lambda: encode_audio(audio, sample_rate, temp_audio_path, encoder_settings),
     )
 
     cover_path = None
