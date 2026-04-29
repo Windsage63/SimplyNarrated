@@ -31,6 +31,8 @@ from typing import List, Optional, Tuple
 from docling.chunking import HierarchicalChunker
 from docling.document_converter import DocumentConverter
 
+from src.core.text_parser import ParsedTextDocument, parse_text_document
+
 logger = logging.getLogger(__name__)
 
 MAX_WORDS_PER_CHAPTER = 4000
@@ -77,9 +79,16 @@ def convert_source_document(
     file_path: str,
     output_dir: Optional[str] = None,
     max_words_per_chapter: int = MAX_WORDS_PER_CHAPTER,
-) -> ImportedDocument:
+) -> ImportedDocument | ParsedTextDocument:
     """Convert a source file to a Docling-backed imported document."""
     prepared = _prepare_source_for_docling(file_path)
+
+    if prepared.format_type == "txt":
+        return parse_text_document(
+            file_path,
+            output_dir=output_dir,
+            max_words_per_chapter=max_words_per_chapter,
+        )
 
     try:
         converter = DocumentConverter()
@@ -133,18 +142,10 @@ def count_words(text: str) -> int:
 def _prepare_source_for_docling(file_path: str) -> _PreparedSource:
     format_type = detect_format(file_path)
 
-    if format_type in {"md", "pdf"}:
+    if format_type in {"md", "pdf", "txt"}:
         return _PreparedSource(path=file_path, format_type=format_type)
 
     temp_dir = tempfile.mkdtemp(prefix="simplynarrated-docling-")
-
-    if format_type == "txt":
-        prepared_path = os.path.join(temp_dir, f"{os.path.splitext(os.path.basename(file_path))[0]}.md")
-        with open(file_path, "r", encoding="utf-8", errors="ignore") as source_file:
-            content = source_file.read()
-        with open(prepared_path, "w", encoding="utf-8") as prepared_file:
-            prepared_file.write(_txt_to_markdown(content, file_path))
-        return _PreparedSource(path=prepared_path, format_type="txt", cleanup_dir=temp_dir)
 
     if format_type == "zip":
         prepared_path = _extract_html_from_zip_to_temp(file_path, temp_dir)
@@ -152,49 +153,6 @@ def _prepare_source_for_docling(file_path: str) -> _PreparedSource:
 
     shutil.rmtree(temp_dir, ignore_errors=True)
     raise ValueError(f"Unsupported format: {format_type}")
-
-
-def _txt_to_markdown(content: str, file_path: str) -> str:
-    """Wrap plain text as markdown so Docling can process it."""
-    normalized = content.replace("\r\n", "\n").replace("\r", "\n")
-    lines = normalized.split("\n")
-    output_lines: List[str] = []
-
-    first_non_empty = next((line.strip() for line in lines if line.strip()), "")
-    title_used = False
-    fallback_title = os.path.splitext(os.path.basename(file_path))[0].replace("_", " ").strip()
-
-    for line in lines:
-        stripped = line.strip()
-        if not stripped:
-            output_lines.append("")
-            continue
-
-        if not title_used and stripped == first_non_empty and len(stripped) <= 120:
-            output_lines.append(f"# {stripped or fallback_title}")
-            title_used = True
-            continue
-
-        if _looks_like_txt_heading(stripped):
-            output_lines.append(f"## {stripped}")
-            continue
-
-        output_lines.append(stripped)
-
-    if not title_used and fallback_title:
-        output_lines.insert(0, f"# {fallback_title}")
-        output_lines.insert(1, "")
-
-    return "\n".join(output_lines).strip() + "\n"
-
-
-def _looks_like_txt_heading(value: str) -> bool:
-    chapter_patterns = (
-        r"^(chapter|part)\s+\d+\b.*$",
-        r"^\d+\.\s+.+$",
-        r"^[A-Z][A-Z0-9 ,;:'\-?!]{2,120}$",
-    )
-    return any(re.match(pattern, value, re.IGNORECASE) for pattern in chapter_patterns)
 
 
 def _extract_html_from_zip_to_temp(file_path: str, temp_dir: str) -> str:

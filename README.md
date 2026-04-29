@@ -119,26 +119,6 @@ For advanced users who prefer to manage their own Python environment.
 
 ---
 
-## ✅ Testing
-
-After installation, run tests with the embedded Python runtime:
-
-```bash
-# Fast suite for routine work
-python_embedded\python.exe -m pytest tests/ -m "not slow"
-
-# Full suite
-python_embedded\python.exe -m pytest tests/
-
-# Single test file
-python_embedded\python.exe -m pytest tests/test_api.py
-
-# Single test by name
-python_embedded\python.exe -m pytest tests/test_api.py::TestChapterEditEndpoints::test_reconvert_chapter_end_to_end -v
-```
-
-`pytest.ini` configures `asyncio_mode = auto`, and tests marked `slow` require the Kokoro model runtime.
-
 ## 🧹 Linting
 
 There is currently no dedicated lint or formatter configuration checked into the repository.
@@ -156,12 +136,10 @@ There is currently no dedicated lint or formatter configuration checked into the
   - `static/`: Frontend assets
     - `voices/`: Local voice model tensors (`.pt`)
     - `voices/audio/`: Cached voice sample previews (`.mp3`)
-  - `tests/`: Unit and integration tests
 
 ## 📄 Documentation
 
   - [API Reference](docs/API-Reference.md)
-  - [Instructions Primer](docs/instructions-primer.md)
   - [Landing Page Creative Brief](docs/Landing-Page-Creative-Brief.md)
 
 ## 🧭 Current Refactor Direction

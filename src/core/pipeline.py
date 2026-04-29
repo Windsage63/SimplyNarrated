@@ -32,6 +32,7 @@ from src.core.speech_renderer import (
     format_total_duration,
     render_chapter_text,
 )
+from src.core.text_parser import ParsedTextChapter
 from src.core.tts_engine import get_tts_engine
 from src.core.encoder import (
     embed_mp3_metadata,
@@ -101,7 +102,10 @@ async def process_book(job: Job, config: Dict[str, Any]) -> None:
 
         rendered_chapters = []
         for chapter in document.chapters:
-            chapter_text = render_chapter_text(chapter)
+            if isinstance(chapter, ParsedTextChapter):
+                chapter_text = chapter.content
+            else:
+                chapter_text = render_chapter_text(chapter)
             if strip_square:
                 chapter_text = re.sub(r"\[\d+\]", "", chapter_text)
             if strip_paren:

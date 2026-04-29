@@ -1,263 +1,119 @@
-"""
-Shared test fixtures for SimplyNarrated test suite.
-"""
-
+import struct
+import zlib
 import json
-import zipfile
+
+import fitz
 import pytest
-import numpy as np
-from datetime import datetime
+from fastapi.testclient import TestClient
 
-import src.core.job_manager as jm_module
-import src.core.library as lib_module
-import src.core.tts_engine as tts_module
+import src.main as main_module
 
 
-# ---------------------------------------------------------------------------
-# Filesystem fixtures
-# ---------------------------------------------------------------------------
+def _png_chunk(chunk_type, data):
+    return (
+        struct.pack("!I", len(data))
+        + chunk_type
+        + data
+        + struct.pack("!I", zlib.crc32(chunk_type + data) & 0xFFFFFFFF)
+    )
 
 
-@pytest.fixture
-def tmp_data_dir(tmp_path):
-    """Create a temporary data directory with uploads/ and library/ subdirs."""
-    uploads = tmp_path / "uploads"
-    library = tmp_path / "library"
-    uploads.mkdir()
-    library.mkdir()
-    return tmp_path
+def _png_1x1_bytes():
+    ihdr = struct.pack("!2I5B", 1, 1, 8, 2, 0, 0, 0)
+    raw_scanline = b"\x00\xff\x00\x00"
+    idat = zlib.compress(raw_scanline)
+    return b"\x89PNG\r\n\x1a\n" + _png_chunk(b"IHDR", ihdr) + _png_chunk(b"IDAT", idat) + _png_chunk(b"IEND", b"")
 
 
-@pytest.fixture
-def tmp_uploads_dir(tmp_data_dir):
-    return tmp_data_dir / "uploads"
+def create_pdf(path, *, author=None, title="Sample PDF", include_cover=False):
+    document = fitz.open()
+    page = document.new_page()
+    page.insert_text((72, 72), title)
+    page.insert_text((72, 100), "Chapter 1")
+    page.insert_text((72, 130), "This is a sample paragraph for PDF flow testing.")
 
+    if include_cover:
+        image_rect = fitz.Rect(72, 150, 144, 222)
+        page.insert_image(image_rect, stream=_png_1x1_bytes())
 
-@pytest.fixture
-def tmp_library_dir(tmp_data_dir):
-    return tmp_data_dir / "library"
-
-
-# ---------------------------------------------------------------------------
-# Singleton-safe manager fixtures (reset globals after each test)
-# ---------------------------------------------------------------------------
-
-
-@pytest.fixture
-def job_manager(tmp_data_dir):
-    """Initialise a JobManager against a temp directory and reset after test."""
-    manager = jm_module.init_job_manager(str(tmp_data_dir))
-    yield manager
-    jm_module._job_manager = None
+    metadata = {"title": title}
+    if author is not None:
+        metadata["author"] = author
+    document.set_metadata(metadata)
+    document.save(path)
+    document.close()
+    return path
 
 
 @pytest.fixture
-def library_manager(tmp_library_dir):
-    """Initialise a LibraryManager against a temp directory and reset after test."""
-    manager = lib_module.init_library_manager(str(tmp_library_dir))
-    yield manager
-    lib_module._library_manager = None
-
-
-# ---------------------------------------------------------------------------
-# TTS engine fixture (session-scoped to avoid reloading model)
-# ---------------------------------------------------------------------------
-
-
-@pytest.fixture(scope="session")
-def tts_engine():
-    """
-    Provide the real Kokoro TTS engine, loaded once per session.
-    """
-    engine = tts_module.get_tts_engine()
-    engine.initialize()
-    yield engine
-    # Don't cleanup — let the process end naturally
-    tts_module._tts_engine = None
-
-
-# ---------------------------------------------------------------------------
-# Sample file fixtures
-# ---------------------------------------------------------------------------
-
-SAMPLE_TXT_CONTENT = """\
-My Test Book
-
-Chapter 1
-This is the first chapter of the book. It contains several sentences.
-The quick brown fox jumps over the lazy dog. Testing paragraph flow.
-
-This is a second paragraph in chapter one.
-
-Chapter 2
-This is the second chapter. It is shorter but still valid.
-Another sentence here for good measure.
-"""
-
-SAMPLE_MD_CONTENT = """\
-# My Markdown Book
-
-## Chapter One
-
-This is **bold** text and *italic* text.
-Here is a [link](https://example.com) to somewhere.
-
-## Chapter Two
-
-Some `inline code` and a list:
-
-- Item one
-- Item two
-"""
-
-
-@pytest.fixture
-def sample_txt_file(tmp_uploads_dir):
-    """Write a sample .txt file into the uploads dir and return its path."""
-    path = tmp_uploads_dir / "sample.txt"
-    path.write_text(SAMPLE_TXT_CONTENT, encoding="utf-8")
-    return str(path)
-
-
-@pytest.fixture
-def sample_md_file(tmp_uploads_dir):
-    """Write a sample .md file into the uploads dir and return its path."""
-    path = tmp_uploads_dir / "sample.md"
-    path.write_text(SAMPLE_MD_CONTENT, encoding="utf-8")
-    return str(path)
-
-
-SAMPLE_ZIP_HTML = """\
-<!DOCTYPE html>
-<html lang="en"><head><meta charset="utf-8">
-<title>The Test Book | Project Gutenberg</title>
-</head><body>
-<section id="pg-header"><div>*** START OF THE PROJECT GUTENBERG EBOOK ***</div></section>
-<div class="chapter"><h2>Chapter 1</h2>
-<p>It was a bright cold day in April, and the clocks were striking thirteen.</p>
-<p>Winston Smith hurried through the glass doors of Victory Mansions.</p>
-</div>
-<div class="chapter"><h2>Chapter 2</h2>
-<p>He took a twenty-five cent piece out of his pocket.</p>
-<p>The hallway smelt of boiled cabbage and old rag mats.</p>
-</div>
-<section id="pg-footer"><div>*** END OF THE PROJECT GUTENBERG EBOOK ***</div></section>
-</body></html>
-"""
-
-
-@pytest.fixture
-def sample_zip_file(tmp_uploads_dir):
-    """Create a Gutenberg-style ZIP with HTML content and a fake cover image."""
-    path = tmp_uploads_dir / "test_book.zip"
-    with zipfile.ZipFile(str(path), "w") as zf:
-        zf.writestr("pg12345-images.html", SAMPLE_ZIP_HTML)
-        # Minimal PNG: 1x1 pixel
-        png_data = (
-            b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01"
-            b"\x00\x00\x00\x01\x08\x02\x00\x00\x00\x90wS\xde\x00"
-            b"\x00\x00\x0cIDATx\x9cc\xf8\x0f\x00\x00\x01\x01\x00"
-            b"\x05\x18\xd8N\x00\x00\x00\x00IEND\xaeB`\x82"
+def pdf_factory(tmp_path):
+    def _create(name="sample.pdf", *, author=None, title="Sample PDF", include_cover=False):
+        path = tmp_path / name
+        create_pdf(
+            path,
+            author=author,
+            title=title,
+            include_cover=include_cover,
         )
-        zf.writestr("12345-cover.png", png_data)
-    return str(path)
+        return path
+
+    return _create
 
 
-@pytest.fixture
-def sample_library_book(tmp_library_dir):
-    """
-    Pre-populate a book in the library with metadata and a tiny valid WAV file.
-    Returns (book_id, book_dir_path).
-    """
-    book_id = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
-    book_dir = tmp_library_dir / book_id
-    book_dir.mkdir()
+def create_library_book(
+    library_dir,
+    *,
+    book_id="11111111-1111-1111-1111-111111111111",
+    title="Test Book",
+    author="Test Author",
+    chapter_text="Original chapter text.",
+    voice="af_heart",
+    quality="sd",
+    fmt="mp3",
+):
+    book_dir = library_dir / book_id
+    book_dir.mkdir(parents=True, exist_ok=True)
 
     metadata = {
         "id": book_id,
-        "title": "Test Book",
-        "author": "Test Author",
-        "source_file": "source.txt",
-        "original_filename": "my_book.txt",
-        "voice": "af_heart",
+        "title": title,
+        "author": author,
+        "cover_url": None,
+        "source_file": "source.pdf",
+        "original_filename": "source.pdf",
+        "voice": voice,
         "total_chapters": 1,
-        "total_duration": "0m",
-        "created_at": datetime.now().isoformat(),
-        "format": "wav",
-        "quality": "sd",
+        "total_duration": "0:00",
+        "created_at": "2026-04-28T00:00:00",
+        "format": fmt,
+        "quality": quality,
         "chapters": [
             {
                 "number": 1,
                 "title": "Chapter 1",
-                "duration": "0:02",
-                "audio_path": "chapter_01.wav",
+                "duration": "0:00",
+                "audio_path": "chapter_01.mp3",
+                "text_path": "chapter_01.txt",
                 "completed": True,
             }
         ],
     }
 
-    with open(book_dir / "metadata.json", "w") as f:
-        json.dump(metadata, f)
-
-    # Write a tiny valid WAV via scipy
-    from scipy.io import wavfile
-
-    sr = 24000
-    duration = 0.5  # half a second
-    t = np.linspace(0, duration, int(sr * duration), endpoint=False)
-    tone = (np.sin(2 * np.pi * 440 * t) * 32767).astype(np.int16)
-    wavfile.write(str(book_dir / "chapter_01.wav"), sr, tone)
-
-    return book_id, str(book_dir)
+    (book_dir / "chapter_01.txt").write_text(chapter_text, encoding="utf-8")
+    (book_dir / "metadata.json").write_text(json.dumps(metadata, indent=2), encoding="utf-8")
+    return book_id, book_dir, metadata
 
 
 @pytest.fixture
-def sample_pdf_file(tmp_uploads_dir):
-    """Create a minimal PDF with text for parser testing using PyMuPDF."""
-    import fitz  # PyMuPDF
+def app_client(tmp_path, monkeypatch):
+    data_dir = tmp_path / "data"
+    library_dir = data_dir / "library"
+    uploads_dir = data_dir / "uploads"
+    library_dir.mkdir(parents=True, exist_ok=True)
+    uploads_dir.mkdir(parents=True, exist_ok=True)
 
-    doc = fitz.open()
-    page = doc.new_page()
-    page.insert_text(
-        (72, 72),
-        "My Test PDF Book\n\n"
-        "Chapter 1\n\n"
-        "This is the first chapter of the PDF. "
-        "It has several sentences for testing.\n\n"
-        "Chapter 2\n\n"
-        "This is the second chapter of the PDF book.",
-    )
+    monkeypatch.setattr(main_module, "DATA_DIR", str(data_dir))
+    monkeypatch.setattr(main_module, "LIBRARY_DIR", str(library_dir))
 
-    path = tmp_uploads_dir / "sample.pdf"
-    doc.save(str(path))
-    doc.close()
-    return str(path)
-
-
-# ---------------------------------------------------------------------------
-# FastAPI test client
-# ---------------------------------------------------------------------------
-
-
-@pytest.fixture
-async def app_client(tmp_data_dir, tmp_library_dir):
-    """
-    Async httpx client wired to the FastAPI app with temp directories.
-    Resets all singletons after the test.
-    """
-    import httpx
-    from httpx import ASGITransport
-    from src.main import app
-
-    # Initialise singletons with temp paths
-    jm_module.init_job_manager(str(tmp_data_dir))
-    lib_module.init_library_manager(str(tmp_library_dir))
-
-    transport = ASGITransport(app=app)
-    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
-        yield client
-
-    # Teardown
-    jm_module._job_manager = None
-    lib_module._library_manager = None
-    tts_module._tts_engine = None
+    with TestClient(main_module.app) as client:
+        yield client, data_dir, library_dir

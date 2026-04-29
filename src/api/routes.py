@@ -65,7 +65,7 @@ from src.core.tts_engine import PRESET_VOICES
 router = APIRouter()
 
 # Supported file extensions
-SUPPORTED_EXTENSIONS = {".txt", ".md", ".pdf", ".zip"}
+SUPPORTED_EXTENSIONS = {".txt", ".pdf", ".zip"}
 MAX_FILE_SIZE = 50 * 1024 * 1024  # 50 MB
 MAX_IMPORT_ARCHIVE_SIZE = 1024 * 1024 * 1024  # 1 GB
 
@@ -147,7 +147,7 @@ def _cleanup_file(path: str) -> None:
 def _estimate_chapters(file_ext: str, content: bytes, file_size: int) -> int:
     """Estimate likely chapter count during upload for early UX feedback."""
     try:
-        if file_ext in {".txt", ".md"}:
+        if file_ext == ".txt":
             text = content.decode("utf-8", errors="ignore")
             words = len(text.split())
             return max(1, math.ceil(words / 4000))
