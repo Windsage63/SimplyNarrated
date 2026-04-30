@@ -21,7 +21,7 @@ import asyncio
 import uuid
 import os
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Dict, Optional, Callable, Any
 from dataclasses import dataclass, field
 
@@ -58,6 +58,7 @@ class JobManager:
         self.library_dir = os.path.join(data_dir, "library")
         self.jobs_file = os.path.join(data_dir, "jobs.json")
         self._jobs: Dict[str, Job] = {}
+        self.job_retention_days = max(0, int(os.getenv("JOB_RETENTION_DAYS", "3")))
         self.max_concurrent_jobs = max(1, max_concurrent_jobs)
         self._semaphore = asyncio.Semaphore(self.max_concurrent_jobs)
 
@@ -65,6 +66,8 @@ class JobManager:
         os.makedirs(self.library_dir, exist_ok=True)
         self._load_jobs()
         self._recover_jobs_after_restart()
+        if self._prune_jobs():
+            self._persist_jobs()
 
     @staticmethod
     def _serialize_activity(entry: ActivityLogEntry) -> dict:
@@ -132,6 +135,7 @@ class JobManager:
 
     def _persist_jobs(self) -> None:
         """Synchronous persist — used during startup/shutdown and sync paths."""
+        self._prune_jobs()
         payload = {"jobs": [self._serialize_job(job) for job in self._jobs.values()]}
         with open(self.jobs_file, "w", encoding="utf-8") as f:
             json.dump(payload, f, indent=2)
@@ -166,6 +170,28 @@ class JobManager:
 
         if changed:
             self._persist_jobs()
+
+    def _prune_jobs(self) -> bool:
+        """Remove terminal jobs that have aged past the retention window."""
+        if not self._jobs:
+            return False
+
+        cutoff = datetime.now() - timedelta(days=self.job_retention_days)
+        active_statuses = {JobStatus.PENDING, JobStatus.PROCESSING}
+        expired_job_ids = []
+
+        for job_id, job in self._jobs.items():
+            if job.status in active_statuses:
+                continue
+
+            reference_time = job.completed_at or job.created_at
+            if reference_time <= cutoff:
+                expired_job_ids.append(job_id)
+
+        for job_id in expired_job_ids:
+            del self._jobs[job_id]
+
+        return bool(expired_job_ids)
 
     def create_job(self, filename: str, file_path: str) -> Job:
         """Create a new conversion job."""
