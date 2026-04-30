@@ -1,44 +1,45 @@
-from src.core.docling_adapter import _extract_cover_from_pdf, _prepare_source_for_docling, _resolve_author
+from pathlib import Path
+
+import pytest
+
+from src.core.docling_adapter import ImportedDocument, convert_pdf_document
 
 
-def test_prepare_source_for_docling_keeps_pdf_unchanged(pdf_factory):
-    pdf_path = pdf_factory("identity.pdf")
-
-    prepared = _prepare_source_for_docling(str(pdf_path))
-
-    assert prepared.path == str(pdf_path)
-    assert prepared.format_type == "pdf"
-    assert prepared.cleanup_dir is None
+FIXTURE_PDF = Path(__file__).with_name("fixtures") / "The GeoPilotical Chess Game.pdf"
 
 
-def test_resolve_author_reads_real_pdf_metadata(pdf_factory):
-    pdf_path = pdf_factory("author.pdf", author="Jane PDF")
+def test_convert_pdf_document_rejects_non_pdf(tmp_path):
+    source_path = tmp_path / "identity.txt"
+    source_path.write_text("not a pdf", encoding="utf-8")
 
-    author = _resolve_author(str(pdf_path), "pdf")
-
-    assert author == "Jane PDF"
-
-
-def test_resolve_author_returns_none_for_non_pdf(pdf_factory):
-    pdf_path = pdf_factory("author.pdf", author="Ignored")
-
-    author = _resolve_author(str(pdf_path), "txt")
-
-    assert author is None
+    with pytest.raises(ValueError, match="PDF"):
+        convert_pdf_document(str(source_path))
 
 
-def test_extract_cover_from_pdf_writes_cover_file(pdf_factory, tmp_path):
-    pdf_path = pdf_factory("cover.pdf", include_cover=True)
+def test_convert_pdf_document_returns_no_author_or_cover(monkeypatch, tmp_path):
+    pdf_path = FIXTURE_PDF
 
-    cover_filename = _extract_cover_from_pdf(str(pdf_path), str(tmp_path))
+    class FakeResult:
+        def __init__(self, document):
+            self.document = document
 
-    assert cover_filename in {"cover.png", "cover.jpg"}
-    assert (tmp_path / cover_filename).exists()
+    class FakeDoclingDocument:
+        def export_to_markdown(self):
+            return "# Sample PDF\n\nHello world"
 
+    class FakeConverter:
+        def convert(self, file_path):
+            assert file_path == str(pdf_path)
+            return FakeResult(FakeDoclingDocument())
 
-def test_extract_cover_from_pdf_returns_none_without_images(pdf_factory, tmp_path):
-    pdf_path = pdf_factory("no-cover.pdf", include_cover=False)
+    monkeypatch.setattr("src.core.docling_adapter.DocumentConverter", lambda: FakeConverter())
+    monkeypatch.setattr(
+        "src.core.docling_adapter._extract_docling_chunks",
+        lambda document: [],
+    )
 
-    cover_filename = _extract_cover_from_pdf(str(pdf_path), str(tmp_path))
+    result = convert_pdf_document(str(pdf_path), output_dir=str(tmp_path))
 
-    assert cover_filename is None
+    assert isinstance(result, ImportedDocument)
+    assert result.author is None
+    assert result.cover_filename is None

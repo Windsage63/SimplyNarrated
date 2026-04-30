@@ -24,6 +24,7 @@ from datetime import datetime
 from typing import List, Optional, Dict, Any
 from dataclasses import dataclass, field, asdict
 
+from src.core.metadata_store import read_metadata_file, update_metadata_file, write_metadata_file
 from src.models.schemas import BookInfo, ChapterInfo
 
 logger = logging.getLogger(__name__)
@@ -96,8 +97,7 @@ class LibraryManager:
             return None
 
         try:
-            with open(metadata_path, "r", encoding="utf-8") as f:
-                data = json.load(f)
+            data = read_metadata_file(metadata_path)
 
             # Parse chapters
             chapters = []
@@ -139,8 +139,7 @@ class LibraryManager:
 
         try:
             data = asdict(metadata)
-            with open(metadata_path, "w", encoding="utf-8") as f:
-                json.dump(data, f, indent=2, default=str)
+            write_metadata_file(metadata_path, data)
             return True
         except Exception as e:
             logger.error("Error saving metadata for %s: %s", book_id, e)
@@ -154,13 +153,7 @@ class LibraryManager:
             return False
 
         try:
-            with open(metadata_path, "r", encoding="utf-8") as f:
-                data = json.load(f)
-
-            data.update(updates)
-
-            with open(metadata_path, "w", encoding="utf-8") as f:
-                json.dump(data, f, indent=2, default=str)
+            update_metadata_file(metadata_path, lambda data: data.update(updates))
             return True
         except Exception as e:
             logger.error("Error updating metadata for %s: %s", book_id, e)

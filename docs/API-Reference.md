@@ -1,6 +1,6 @@
 # SimplyNarrated API Reference
 
-> **Last synced with codebase:** 2026-04-17
+> **Last synced with codebase:** 2026-04-29
 
 Base URL: `/api`
 
@@ -27,15 +27,16 @@ The API supports file upload, audiobook generation jobs, voice previews, library
   - **Method**: `POST`
   - **Path**: `/upload`
   - **Body**: `multipart/form-data` with `file`
-  - **Supports**: `.txt`, `.md`, `.pdf`, `.zip`
+  - **Supports**: `.txt`, `.pdf`, `.zip`
   - **Max size**: `50MB`
   - **ZIP behavior**:
-    - Treats the upload as a Gutenberg-style HTML ZIP.
-    - Selects the largest `.html` or `.htm` member as the narration source.
-    - Rejects corrupt archives and oversized/unsafe archives.
-    - Removes Gutenberg header/footer boilerplate before chapter splitting.
-    - Reflows soft-wrapped prose paragraphs in the source HTML before Docling conversion. This is a source-level normalization step, not a generic TTS text rewrite.
-    - Attempts cover extraction from image filenames whose basename contains `cover`.
+    - Upload accepts `.zip` files as source documents; Gutenberg-specific parsing happens during generation.
+    - Generation treats the source as a Gutenberg-style HTML ZIP.
+    - The parser scores `.html` and `.htm` members and chooses the best candidate, preferring stronger Gutenberg signals and then larger files.
+    - Unsafe archive member paths are ignored during HTML and cover extraction.
+    - Boilerplate sections, table-of-contents blocks, footnote blocks, inline footnote references, and image elements are removed before chapter extraction.
+    - A cleaned source transcript is written to `source.cleaned.txt`, and parser diagnostics are written to `parse-report.json` in the book folder.
+    - Cover extraction prefers image filenames whose basename contains `cover`, then falls back to the largest image asset.
   - **Response**:
 
   ```json

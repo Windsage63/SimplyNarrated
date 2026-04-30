@@ -1,10 +1,11 @@
 from __future__ import annotations
 
-import json
 import os
 import re
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Tuple
+
+from src.core.parser_artifacts import write_parser_artifacts
 
 
 @dataclass(frozen=True)
@@ -41,11 +42,7 @@ def parse_text_document(
     chapters, parse_report = _build_chapters(body_blocks, max_words_per_chapter=max_words_per_chapter)
 
     if output_dir:
-        os.makedirs(output_dir, exist_ok=True)
         cleaned_text = _render_cleaned_text(title, author, body_blocks)
-        with open(os.path.join(output_dir, "source.cleaned.txt"), "w", encoding="utf-8") as cleaned_file:
-            cleaned_file.write(cleaned_text)
-
         report_payload = {
             "title": title,
             "title_source": title_source,
@@ -56,8 +53,7 @@ def parse_text_document(
             "fallback_split_used": parse_report["fallback_split_used"],
             "warnings": parse_report["warnings"],
         }
-        with open(os.path.join(output_dir, "parse-report.json"), "w", encoding="utf-8") as report_file:
-            json.dump(report_payload, report_file, indent=2)
+        write_parser_artifacts(output_dir, cleaned_text, report_payload)
 
     return ParsedTextDocument(
         title=title,

@@ -23,10 +23,13 @@ import json
 import shutil
 import asyncio
 import logging
+from functools import partial
 from typing import Dict, Any
 from datetime import datetime
 
-from src.core.docling_adapter import convert_source_document
+import aiofiles
+
+from src.core.document_router import convert_source_document
 from src.core.speech_renderer import (
     estimate_duration_seconds,
     format_total_duration,
@@ -43,6 +46,21 @@ from src.core.encoder import (
 from src.core.job_manager import Job, JobStatus
 
 logger = logging.getLogger(__name__)
+
+
+async def _run_blocking(function, *args, **kwargs):
+    loop = asyncio.get_running_loop()
+    return await loop.run_in_executor(None, partial(function, *args, **kwargs))
+
+
+async def _write_text_file(path: str, content: str) -> None:
+    async with aiofiles.open(path, "w", encoding="utf-8") as handle:
+        await handle.write(content)
+
+
+async def _write_json_file(path: str, payload: Dict[str, Any]) -> None:
+    async with aiofiles.open(path, "w", encoding="utf-8") as handle:
+        await handle.write(json.dumps(payload, indent=2))
 
 
 async def process_book(job: Job, config: Dict[str, Any]) -> None:
@@ -65,7 +83,7 @@ async def process_book(job: Job, config: Dict[str, Any]) -> None:
         new_source_path = os.path.join(job.output_dir, f"source{source_ext}")
 
         try:
-            shutil.move(job.file_path, new_source_path)
+            await _run_blocking(shutil.move, job.file_path, new_source_path)
             job.file_path = new_source_path
             job_manager._add_activity(job, "Source file moved to library", "info")
         except Exception as e:
@@ -77,14 +95,10 @@ async def process_book(job: Job, config: Dict[str, Any]) -> None:
         speed = config.get("speed", 1.0)
 
         # Phase 1: Convert the file
-        job_manager._add_activity(job, "Converting document with Docling...")
+        job_manager._add_activity(job, "Importing source document...")
         await asyncio.sleep(0.1)  # Yield to event loop
 
-        loop = asyncio.get_running_loop()
-        document = await loop.run_in_executor(
-            None,
-            lambda: convert_source_document(job.file_path, job.output_dir),
-        )
+        document = await _run_blocking(convert_source_document, job.file_path, job.output_dir)
         job_manager._add_activity(
             job,
             f"Found {len(document.chapters)} chapters in '{document.title}'",
@@ -158,8 +172,7 @@ async def process_book(job: Job, config: Dict[str, Any]) -> None:
         tts_engine = get_tts_engine()
         if not tts_engine.is_initialized():
             # Run initialization in thread pool to not block
-            loop = asyncio.get_running_loop()
-            await loop.run_in_executor(None, tts_engine.initialize)
+            await _run_blocking(tts_engine.initialize)
 
         job_manager._add_activity(job, "TTS model ready", "success")
 
@@ -186,45 +199,35 @@ async def process_book(job: Job, config: Dict[str, Any]) -> None:
 
             # Generate speech (run in thread pool)
             # Use default args to capture values, avoiding lambda closure bug
-            loop = asyncio.get_running_loop()
             chapter_content = chapter["content"]
-            audio, sample_rate = await loop.run_in_executor(
-                None,
-                lambda c=chapter_content, v=voice_id, s=speed: tts_engine.generate_speech(
-                    c, v, s
-                ),
+            audio, sample_rate = await _run_blocking(
+                tts_engine.generate_speech,
+                chapter_content,
+                voice_id,
+                speed,
             )
 
             # Encode and save
             output_filename = f"chapter_{chapter_num:02d}.mp3"
             output_path = os.path.join(job.output_dir, output_filename)
 
-            await loop.run_in_executor(
-                None,
-                lambda a=audio, sr=sample_rate, op=output_path, es=encoder_settings: (
-                    encode_audio(a, sr, op, es)
-                ),
-            )
+            await _run_blocking(encode_audio, audio, sample_rate, output_path, encoder_settings)
 
-            await loop.run_in_executor(
-                None,
-                lambda op=output_path, title=chapter["title"], album=document.title, author=document.author,
-                chapter_num=chapter_num, total=len(rendered_chapters), cp=cover_path: embed_mp3_metadata(
-                    op,
-                    title=title,
-                    album=album,
-                    artist=author,
-                    track_number=chapter_num,
-                    total_tracks=total,
-                    cover_path=cp,
-                ),
+            await _run_blocking(
+                embed_mp3_metadata,
+                output_path,
+                title=chapter["title"],
+                album=document.title,
+                artist=document.author,
+                track_number=chapter_num,
+                total_tracks=len(rendered_chapters),
+                cover_path=cover_path,
             )
 
             # Save chapter text
             text_filename = f"chapter_{chapter_num:02d}.txt"
             text_path = os.path.join(job.output_dir, text_filename)
-            with open(text_path, "w", encoding="utf-8") as tf:
-                tf.write(chapter_content)
+            await _write_text_file(text_path, chapter_content)
 
             job_manager._add_activity(
                 job, f"Chapter {chapter_num} complete: {chapter['title']}", "success"
@@ -269,8 +272,7 @@ async def process_book(job: Job, config: Dict[str, Any]) -> None:
         }
 
         metadata_path = os.path.join(job.output_dir, "metadata.json")
-        with open(metadata_path, "w", encoding="utf-8") as f:
-            json.dump(metadata, f, indent=2)
+        await _write_json_file(metadata_path, metadata)
 
         job.progress = 100.0
         job_manager._add_activity(

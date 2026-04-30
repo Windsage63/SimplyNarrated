@@ -21,8 +21,10 @@ import os
 import json
 import asyncio
 import logging
+from functools import partial
 from typing import Any, Dict, List
 
+import aiofiles
 from pydub import AudioSegment
 
 from src.core.tts_engine import get_tts_engine
@@ -33,8 +35,24 @@ from src.core.encoder import (
     format_duration,
 )
 from src.core.job_manager import Job
+from src.core.metadata_store import update_metadata_file
 
 logger = logging.getLogger(__name__)
+
+
+async def _run_blocking(function, *args, **kwargs):
+    loop = asyncio.get_running_loop()
+    return await loop.run_in_executor(None, partial(function, *args, **kwargs))
+
+
+async def _read_json_file(path: str) -> Dict[str, Any]:
+    async with aiofiles.open(path, "r", encoding="utf-8") as handle:
+        return json.loads(await handle.read())
+
+
+async def _read_text_file(path: str) -> str:
+    async with aiofiles.open(path, "r", encoding="utf-8") as handle:
+        return await handle.read()
 
 
 def _parse_duration_to_seconds(value: str) -> float:
@@ -60,13 +78,40 @@ def _format_total_duration_from_chapters(chapters: List[Dict[str, Any]]) -> str:
     return format_duration(total_seconds)
 
 
+def _apply_reconvert_metadata_update(
+    metadata: Dict[str, Any],
+    *,
+    chapter_number: int,
+    chapter_duration: str,
+    voice_id: str,
+    quality: str,
+) -> None:
+    chapter_found = False
+    for chapter_meta in metadata.get("chapters", []):
+        if int(chapter_meta.get("number", 0)) == chapter_number:
+            chapter_meta["duration"] = chapter_duration
+            chapter_meta["audio_path"] = f"chapter_{chapter_number:02d}.mp3"
+            chapter_meta["text_path"] = f"chapter_{chapter_number:02d}.txt"
+            chapter_meta["completed"] = True
+            chapter_found = True
+            break
+
+    if not chapter_found:
+        raise RuntimeError(f"Chapter {chapter_number} metadata not found")
+
+    metadata["voice"] = voice_id
+    metadata["quality"] = quality
+    metadata["format"] = "mp3"
+    metadata["total_duration"] = _format_total_duration_from_chapters(metadata.get("chapters", []))
+
+
 async def _replace_with_retry(source_path: str, destination_path: str, retries: int = 6) -> None:
     retry_delay_seconds = 0.5
     last_error = None
 
     for _ in range(retries):
         try:
-            os.replace(source_path, destination_path)
+            await _run_blocking(os.replace, source_path, destination_path)
             return
         except (PermissionError, OSError) as error:
             last_error = error
@@ -74,7 +119,7 @@ async def _replace_with_retry(source_path: str, destination_path: str, retries: 
 
     if os.path.exists(source_path):
         try:
-            os.remove(source_path)
+            await _run_blocking(os.remove, source_path)
         except OSError:
             pass
 
@@ -104,16 +149,9 @@ async def process_chapter_reconvert_job(job: Job, config: Dict[str, Any]) -> Non
     if not os.path.exists(text_path):
         raise RuntimeError("Chapter text not found")
 
-    # NOTE: metadata.json is read once at the start and written at the end with no
-    # file-level locking. Concurrent writes for different chapters of the same book
-    # would cause data loss. This is safe only because JobManager's semaphore
-    # (max_concurrent_jobs=1) serialises all jobs. Do not increase concurrency
-    # without adding proper file-level locking (e.g. filelock) here.
-    with open(metadata_path, "r", encoding="utf-8") as metadata_file:
-        metadata = json.load(metadata_file)
+    metadata = await _read_json_file(metadata_path)
 
-    with open(text_path, "r", encoding="utf-8") as chapter_file:
-        chapter_text = chapter_file.read()
+    chapter_text = await _read_text_file(text_path)
 
     if not chapter_text.strip():
         raise RuntimeError("Chapter text is empty")
@@ -146,8 +184,7 @@ async def process_chapter_reconvert_job(job: Job, config: Dict[str, Any]) -> Non
 
     tts_engine = get_tts_engine()
     if not tts_engine.is_initialized():
-        loop = asyncio.get_running_loop()
-        await loop.run_in_executor(None, tts_engine.initialize)
+        await _run_blocking(tts_engine.initialize)
 
     job_manager.update_progress(
         job.id,
@@ -156,14 +193,11 @@ async def process_chapter_reconvert_job(job: Job, config: Dict[str, Any]) -> Non
         f"Generating audio for chapter {chapter_number}...",
     )
 
-    loop = asyncio.get_running_loop()
-    audio, sample_rate = await loop.run_in_executor(
-        None,
-        lambda content=chapter_text, voice=voice_id, rate=speed: tts_engine.generate_speech(
-            content,
-            voice,
-            rate,
-        ),
+    audio, sample_rate = await _run_blocking(
+        tts_engine.generate_speech,
+        chapter_text,
+        voice_id,
+        speed,
     )
 
     job_manager.update_progress(
@@ -173,10 +207,7 @@ async def process_chapter_reconvert_job(job: Job, config: Dict[str, Any]) -> Non
         f"Encoding chapter {chapter_number} to MP3...",
     )
 
-    await loop.run_in_executor(
-        None,
-        lambda: encode_audio(audio, sample_rate, temp_audio_path, encoder_settings),
-    )
+    await _run_blocking(encode_audio, audio, sample_rate, temp_audio_path, encoder_settings)
 
     cover_path = None
     for candidate in ("cover.jpg", "cover.jpeg", "cover.png"):
@@ -185,17 +216,15 @@ async def process_chapter_reconvert_job(job: Job, config: Dict[str, Any]) -> Non
             cover_path = candidate_path
             break
 
-    await loop.run_in_executor(
-        None,
-        lambda: embed_mp3_metadata(
-            temp_audio_path,
-            title=chapter_title,
-            album=metadata.get("title"),
-            artist=metadata.get("author"),
-            track_number=chapter_number,
-            total_tracks=len(metadata.get("chapters", [])) or None,
-            cover_path=cover_path,
-        ),
+    await _run_blocking(
+        embed_mp3_metadata,
+        temp_audio_path,
+        title=chapter_title,
+        album=metadata.get("title"),
+        artist=metadata.get("author"),
+        track_number=chapter_number,
+        total_tracks=len(metadata.get("chapters", [])) or None,
+        cover_path=cover_path,
     )
 
     job_manager.update_progress(
@@ -207,24 +236,22 @@ async def process_chapter_reconvert_job(job: Job, config: Dict[str, Any]) -> Non
 
     await _replace_with_retry(temp_audio_path, audio_path)
 
-    chapter_audio = AudioSegment.from_file(audio_path)
-    chapter_duration = format_duration(chapter_audio.duration_seconds)
+    chapter_duration_seconds = await _run_blocking(
+        lambda: AudioSegment.from_file(audio_path).duration_seconds
+    )
+    chapter_duration = format_duration(chapter_duration_seconds)
 
-    for chapter_meta in metadata.get("chapters", []):
-        if int(chapter_meta.get("number", 0)) == chapter_number:
-            chapter_meta["duration"] = chapter_duration
-            chapter_meta["audio_path"] = f"chapter_{chapter_number:02d}.mp3"
-            chapter_meta["text_path"] = f"chapter_{chapter_number:02d}.txt"
-            chapter_meta["completed"] = True
-            break
-
-    metadata["voice"] = voice_id
-    metadata["quality"] = quality
-    metadata["format"] = "mp3"
-    metadata["total_duration"] = _format_total_duration_from_chapters(metadata.get("chapters", []))
-
-    with open(metadata_path, "w", encoding="utf-8") as metadata_file:
-        json.dump(metadata, metadata_file, indent=2)
+    await _run_blocking(
+        update_metadata_file,
+        metadata_path,
+        partial(
+            _apply_reconvert_metadata_update,
+            chapter_number=chapter_number,
+            chapter_duration=chapter_duration,
+            voice_id=voice_id,
+            quality=quality,
+        ),
+    )
 
     job_manager.update_progress(
         job.id,

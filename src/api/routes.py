@@ -26,6 +26,7 @@ import re
 import tempfile
 import uuid
 import zipfile
+from functools import partial
 import aiofiles
 from fastapi import APIRouter, UploadFile, File, HTTPException, BackgroundTasks
 from fastapi.responses import FileResponse
@@ -89,6 +90,18 @@ def _get_available_voices() -> list:
 
 # Cache the converted list
 AVAILABLE_VOICES = _get_available_voices()
+
+
+async def _run_blocking(function, *args, **kwargs):
+    loop = asyncio.get_running_loop()
+    return await loop.run_in_executor(None, partial(function, *args, **kwargs))
+
+
+def _remove_existing_cover_files(book_dir: str) -> None:
+    for old_cover in ("cover.jpg", "cover.png"):
+        old_path = os.path.join(book_dir, old_cover)
+        if os.path.exists(old_path):
+            os.remove(old_path)
 
 
 def _validate_book_id_or_400(book_id: str) -> None:
@@ -697,13 +710,13 @@ async def update_book_metadata(book_id: str, request: UpdateMetadataRequest):
     library = get_library_manager()
     book_dir = library.get_book_dir(book_id)
     await _load_book_metadata_or_404(book_dir)
-    success = library.update_book_metadata(book_id, updates)
+    success = await _run_blocking(library.update_book_metadata, book_id, updates)
 
     if not success:
         raise HTTPException(status_code=404, detail="Book not found")
 
     metadata = await _load_book_metadata_or_404(book_dir)
-    retag_book_mp3_files(book_dir, metadata)
+    await _run_blocking(retag_book_mp3_files, book_dir, metadata)
 
     return {"status": "updated", "book_id": book_id, **updates}
 
@@ -750,10 +763,7 @@ async def upload_cover(book_id: str, file: UploadFile = File(...)):
         raise HTTPException(status_code=404, detail="Book not found")
 
     # Remove any existing cover files
-    for old_cover in ("cover.jpg", "cover.png"):
-        old_path = os.path.join(book_dir, old_cover)
-        if os.path.exists(old_path):
-            os.remove(old_path)
+    await _run_blocking(_remove_existing_cover_files, book_dir)
 
     # Determine save extension from content type
     save_ext = ALLOWED_COVER_TYPES[file.content_type]
@@ -765,9 +775,9 @@ async def upload_cover(book_id: str, file: UploadFile = File(...)):
 
     # Update metadata
     cover_url = f"/api/book/{book_id}/cover"
-    library.update_book_metadata(book_id, {"cover_url": cover_url})
+    await _run_blocking(library.update_book_metadata, book_id, {"cover_url": cover_url})
     metadata = await _load_book_metadata_or_404(book_dir)
-    retag_book_mp3_files(book_dir, metadata)
+    await _run_blocking(retag_book_mp3_files, book_dir, metadata)
 
     return {"status": "uploaded", "cover_url": cover_url}
 
@@ -809,7 +819,7 @@ async def delete_book(book_id: str):
     if not os.path.exists(book_dir):
         raise HTTPException(status_code=404, detail="Book not found")
 
-    success = library.delete_book(book_id)
+    success = await _run_blocking(library.delete_book, book_id)
 
     if not success:
         raise HTTPException(

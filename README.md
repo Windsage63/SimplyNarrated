@@ -2,7 +2,7 @@
 
 ![SimplyNarrated](docs/img/Landing-page.png)
 
-A local web application that converts books and text documents (`.txt`, `.md`, `.pdf`, `.zip`) into audiobooks saved as MP3 chapter files. Designed for non-technical users, it provides a polished multi-page interface with a landing page, file upload/configuration screen, conversion progress tracker, audiobook player, and user dashboard.
+A local web application that converts books and text documents (`.txt`, `.pdf`, `.zip`) into audiobooks saved as MP3 chapter files. Designed for non-technical users, it provides a polished multi-page interface with a landing page, file upload/configuration screen, conversion progress tracker, audiobook player, and user dashboard.
 
 The system uses the **Kokoro-82M** model running locally on GPU for high-quality, expressive speech synthesis.
 
@@ -15,10 +15,10 @@ The system uses the **Kokoro-82M** model running locally on GPU for high-quality
   - **Local Inference**: Uses Kokoro-82M TTS model running locally. Includes pre-distributed voice tensors for zero-download voice switching.
   - **Dual-Region Support**: Automatic selection of American ('a') or British ('b') G2P rules based on voice selection.
   - **Memory Efficient**: Shares a single base model across multiple language pipelines to save RAM.
-  - **Multiple Formats**: Supports uploading TXT, MD, PDF, and Gutenberg ZIP (HTML) files.
+  - **Multiple Formats**: Supports uploading TXT, PDF, and Gutenberg ZIP (HTML) files.
   - **Gutenberg Import**: Upload Project Gutenberg HTML ZIP downloads — the app extracts the HTML text and cover image automatically. Soft-wrapped prose paragraphs are reflowed before conversion so TTS output sounds natural.
   - **Get More Books Shortcut**: Library view includes a `Get More Books` button that links to Project Gutenberg with a quick format tip before opening.
-  - **Docling Import Pipeline**: Uses a Docling-driven import path that preserves document structure better than the removed legacy parser/chunker path.
+  - **Hybrid Import Pipeline**: TXT and Gutenberg ZIP use parser-backed ingestion paths, while PDF uses a dedicated Docling conversion path for structure preservation.
   - **Early Chapter Estimate**: Upload response includes an estimated chapter count before generation starts.
   - **Portable Library Archives**: Export and re-import complete audiobooks as SimplyNarrated ZIP archives, including chapter audio, chapter text, metadata, bookmarks, cover art, and original source files when present.
   - **Chapter Repair Workflow**: Edit generated chapter text and reconvert a single chapter without rerunning the whole book. Reconvert uses the saved chapter text directly.
@@ -34,7 +34,7 @@ The system uses the **Kokoro-82M** model running locally on GPU for high-quality
 
   - Output format is currently **MP3-only**.
   - Voice generation is currently **single-narrator voice** during conversion.
-  - For best Gutenberg imports, use **HTML ZIP** downloads; **TXT** downloads are also supported.
+  - For best Gutenberg imports, use **HTML ZIP** downloads.
   - Portability import accepts **SimplyNarrated export ZIPs** (not arbitrary ZIP bundles).
   - ZIP cover auto-detection currently uses image filenames containing **"cover"**.
   - Landing and dashboard include updated branded UI with Gutenberg-focused onboarding.
@@ -144,7 +144,9 @@ There is currently no dedicated lint or formatter configuration checked into the
 
 ## 🧭 Current Refactor Direction
 
-  - Docling is the import-time parser and chunker for all supported source formats.
+  - The document router dispatches TXT, PDF, and Gutenberg ZIP sources to their format-specific import paths.
+  - PDF remains the Docling-backed structural import path.
+  - TXT and Gutenberg ZIP produce parser-backed `source.cleaned.txt` and `parse-report.json` artifacts in the book folder.
   - Saved `chapter_NN.txt` is the canonical speech artifact and the only reconvert input.
   - Reconvert does not run Docling or rewrite user-corrected text.
   - No Docling intermediate artifacts are intended to persist in the library.

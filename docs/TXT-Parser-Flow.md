@@ -13,8 +13,8 @@ TXT files do not have the same structural richness as PDFs. Instead of convertin
 3. The uploaded TXT file is stored in `data/uploads/{uuid}.txt`.
 4. Generation starts in [src/api/routes.py](src/api/routes.py#L227) at `start_generation()`.
 5. The job manager queues work and [src/core/pipeline.py](src/core/pipeline.py#L47) moves the source file to `data/library/{book_id}/source.txt`.
-6. The pipeline calls [src/core/docling_adapter.py](src/core/docling_adapter.py#L76) `convert_source_document()`.
-7. For TXT input, the adapter dispatches to [src/core/text_parser.py](src/core/text_parser.py) instead of Docling.
+6. The pipeline calls [src/core/document_router.py](src/core/document_router.py#L18) `convert_source_document()`.
+7. The router dispatches TXT input directly to [src/core/text_parser.py](src/core/text_parser.py#L30) `parse_text_document()` instead of Docling.
 8. The TXT parser normalizes text, repairs wrapped prose conservatively, detects title and optional author, finds chapter markers when possible, and falls back to word-budget splitting when explicit chapters are missing.
 9. The parser writes `source.cleaned.txt` and `parse-report.json` into the book folder so parser behavior is visible and tunable.
 10. The parser returns speech-ready chapter text through `ParsedTextDocument` and `ParsedTextChapter`.
@@ -39,7 +39,7 @@ TXT files do not have the same structural richness as PDFs. Instead of convertin
 ## Out Of Scope
 
   - PDF ingestion changes
-  - ZIP/HTML parser replacement
+  - ZIP/HTML parser behavior beyond the shared router boundary
   - Reintroducing a dedicated Markdown path
   - UI redesign
 

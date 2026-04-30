@@ -96,3 +96,78 @@ def test_process_book_uses_parsed_txt_content_without_speech_renderer(monkeypatc
     assert metadata["author"] == "Parser"
     assert metadata["source_file"] == "source.txt"
     assert fake_tts.calls == [("Speech-ready chapter text from the parser.", "af_heart", 1.0)]
+
+
+def test_process_book_offloads_blocking_steps(monkeypatch, tmp_path):
+    data_dir = tmp_path / "data"
+    job_manager = init_job_manager(str(data_dir))
+
+    uploads_dir = data_dir / "uploads"
+    uploads_dir.mkdir(parents=True, exist_ok=True)
+    source_txt = uploads_dir / "input.txt"
+    source_txt.write_text("Raw source text", encoding="utf-8")
+
+    job = job_manager.create_job("input.txt", str(source_txt))
+    job.output_dir = str(data_dir / "library" / job.id)
+    (data_dir / "library" / job.id).mkdir(parents=True, exist_ok=True)
+
+    parsed_document = ParsedTextDocument(
+        title="Parsed TXT",
+        author="Parser",
+        format="txt",
+        chapters=[
+            ParsedTextChapter(
+                number=1,
+                title="Chapter 1",
+                content="Speech-ready chapter text from the parser.",
+            )
+        ],
+    )
+    fake_tts = _FakeTTSEngine()
+    offloaded_names = []
+
+    def fake_convert_source_document(file_path, output_dir):
+        assert file_path.endswith("source.txt")
+        assert output_dir == job.output_dir
+        return parsed_document
+
+    def fake_encode_audio(_audio, _sample_rate, output_path, _settings):
+        with open(output_path, "wb") as handle:
+            handle.write(b"mp3")
+        return output_path
+
+    def fake_embed_mp3_metadata(file_path, **kwargs):
+        return file_path
+
+    async def fake_run_blocking(function, *args, **kwargs):
+        offloaded_names.append(getattr(function, "__name__", type(function).__name__))
+        return function(*args, **kwargs)
+
+    async def fake_sleep(_seconds):
+        return None
+
+    monkeypatch.setattr("src.core.pipeline._run_blocking", fake_run_blocking)
+    monkeypatch.setattr("src.core.pipeline.convert_source_document", fake_convert_source_document)
+    monkeypatch.setattr("src.core.pipeline.get_tts_engine", lambda: fake_tts)
+    monkeypatch.setattr("src.core.pipeline.render_chapter_text", lambda chapter: chapter.content)
+    monkeypatch.setattr("src.core.pipeline.encode_audio", fake_encode_audio)
+    monkeypatch.setattr("src.core.pipeline.embed_mp3_metadata", fake_embed_mp3_metadata)
+    monkeypatch.setattr("src.core.pipeline.asyncio.sleep", fake_sleep)
+
+    asyncio.run(
+        process_book(
+            job,
+            {
+                "narrator_voice": "af_heart",
+                "speed": 1.0,
+                "quality": "sd",
+            },
+        )
+    )
+
+    assert "move" in offloaded_names
+    assert "fake_convert_source_document" in offloaded_names
+    assert "initialize" in offloaded_names
+    assert "generate_speech" in offloaded_names
+    assert "fake_encode_audio" in offloaded_names
+    assert "fake_embed_mp3_metadata" in offloaded_names
