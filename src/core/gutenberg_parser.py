@@ -15,6 +15,10 @@ MAX_WORDS_PER_CHAPTER = 4000
 BLOCK_TAGS = ("h1", "h2", "h3", "h4", "h5", "h6", "p", "blockquote", "li", "pre")
 GUTENBERG_TITLE_PREFIX = "the project gutenberg ebook of"
 FRONT_MATTER_MIN_WORDS = 40
+MAX_GUTENBERG_ARCHIVE_MEMBERS = 500
+MAX_GUTENBERG_ARCHIVE_UNCOMPRESSED_SIZE = 100 * 1024 * 1024
+MAX_GUTENBERG_HTML_SIZE = 50 * 1024 * 1024
+MAX_GUTENBERG_COVER_SIZE = 20 * 1024 * 1024
 
 
 @dataclass(frozen=True)
@@ -76,6 +80,7 @@ def parse_gutenberg_zip(
 
 def _load_gutenberg_assets(file_path: str, output_dir: Optional[str]) -> Tuple[_HtmlCandidate, Optional[str]]:
     with zipfile.ZipFile(file_path) as archive:
+        _validate_archive_members(archive)
         html_candidates = _read_html_candidates(archive)
         if not html_candidates:
             raise ValueError("ZIP does not contain any Gutenberg HTML files")
@@ -83,6 +88,35 @@ def _load_gutenberg_assets(file_path: str, output_dir: Optional[str]) -> Tuple[_
         best_candidate = max(html_candidates, key=lambda candidate: (candidate.score, candidate.size))
         cover_filename = _extract_cover_from_zip(archive, output_dir) if output_dir else None
         return best_candidate, cover_filename
+
+
+def _validate_archive_members(archive: zipfile.ZipFile) -> None:
+    members = [member for member in archive.infolist() if not member.is_dir()]
+    if len(members) > MAX_GUTENBERG_ARCHIVE_MEMBERS:
+        raise ValueError(f"ZIP contains too many members ({len(members)})")
+
+    total_uncompressed = sum(member.file_size for member in members)
+    if total_uncompressed > MAX_GUTENBERG_ARCHIVE_UNCOMPRESSED_SIZE:
+        raise ValueError("ZIP content exceeds size limit")
+
+
+def _read_zip_member_bytes(
+    archive: zipfile.ZipFile,
+    member: zipfile.ZipInfo,
+    *,
+    size_limit: int,
+    label: str,
+) -> bytes:
+    if member.file_size > size_limit:
+        raise ValueError(f"{label} '{member.filename}' exceeds size limit")
+
+    with archive.open(member) as source_file:
+        data = source_file.read(size_limit + 1)
+
+    if len(data) > size_limit:
+        raise ValueError(f"{label} '{member.filename}' exceeds size limit")
+
+    return data
 
 
 def _read_html_candidates(archive: zipfile.ZipFile) -> List[_HtmlCandidate]:
@@ -93,7 +127,12 @@ def _read_html_candidates(archive: zipfile.ZipFile) -> List[_HtmlCandidate]:
         if not member.filename.lower().endswith((".html", ".htm")):
             continue
 
-        html_text = archive.read(member.filename).decode("utf-8", errors="ignore")
+        html_text = _read_zip_member_bytes(
+            archive,
+            member,
+            size_limit=MAX_GUTENBERG_HTML_SIZE,
+            label="HTML member",
+        ).decode("utf-8", errors="ignore")
         score = _score_html_candidate(member.filename, html_text)
         candidates.append(
             _HtmlCandidate(
@@ -433,12 +472,18 @@ def _extract_cover_from_zip(archive: zipfile.ZipFile, output_dir: Optional[str])
         (member for member in image_members if "cover" in os.path.basename(member.filename).lower()),
         max(image_members, key=lambda member: member.file_size),
     )
+    cover_bytes = _read_zip_member_bytes(
+        archive,
+        preferred,
+        size_limit=MAX_GUTENBERG_COVER_SIZE,
+        label="Cover image",
+    )
 
     extension = os.path.splitext(preferred.filename)[1].lower()
     cover_filename = "cover.jpg" if extension in {".jpg", ".jpeg"} else "cover.png"
     cover_path = os.path.join(output_dir, cover_filename)
-    with archive.open(preferred.filename) as source_file, open(cover_path, "wb") as cover_file:
-        cover_file.write(source_file.read())
+    with open(cover_path, "wb") as cover_file:
+        cover_file.write(cover_bytes)
     return cover_filename
 
 

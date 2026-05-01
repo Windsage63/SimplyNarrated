@@ -1,6 +1,7 @@
 from src.core.job_manager import get_job_manager
 from src.core.job_manager import init_job_manager
 from src.core.chapter_reconvert import process_chapter_reconvert_job
+from src.models.schemas import JobStatus
 
 from tests.conftest import create_library_book
 
@@ -66,6 +67,45 @@ def test_reconvert_chapter_endpoint_rejects_invalid_voice(app_client):
 
     assert response.status_code == 400
     assert response.json()["detail"] == "Invalid narrator voice"
+
+
+def test_reconvert_chapter_endpoint_reuses_active_job_for_same_book_and_chapter(
+    app_client,
+    monkeypatch,
+):
+    client, _data_dir, library_dir = app_client
+    book_id, book_dir, _metadata = create_library_book(library_dir, chapter_text="Ready for reconvert")
+    job_manager = get_job_manager()
+    existing_job = job_manager.create_job("chapter_01_reconvert", str(book_dir / "chapter_01.txt"))
+    existing_job.status = JobStatus.PROCESSING
+    existing_job.config = {
+        "job_type": "chapter_reconvert",
+        "book_id": book_id,
+        "chapter_number": 1,
+    }
+
+    async def fail_if_called(*args, **kwargs):
+        raise AssertionError("start_job should not be called for duplicate reconvert requests")
+
+    monkeypatch.setattr(job_manager, "start_job", fail_if_called)
+
+    response = client.post(
+        f"/api/book/{book_id}/chapter/1/reconvert",
+        json={
+            "narrator_voice": "af_heart",
+            "speed": 1.0,
+            "quality": "sd",
+            "format": "mp3",
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "status": "processing",
+        "job_id": existing_job.id,
+        "book_id": book_id,
+        "chapter": 1,
+    }
 
 
 def test_update_book_metadata_endpoint_offloads_sync_work(app_client, monkeypatch):
@@ -172,3 +212,64 @@ def test_process_chapter_reconvert_job_offloads_blocking_steps(tmp_path, monkeyp
     assert "fake_encode_audio" in offloaded_names
     assert "fake_embed_mp3_metadata" in offloaded_names
     assert "update_metadata_file" in offloaded_names
+
+
+def test_process_chapter_reconvert_job_stops_when_cancelled_after_tts_returns(
+    tmp_path,
+    monkeypatch,
+):
+    import asyncio
+
+    import numpy as np
+
+    data_dir = tmp_path / "data"
+    library_dir = data_dir / "library"
+    library_dir.mkdir(parents=True, exist_ok=True)
+    job_manager = init_job_manager(str(data_dir))
+
+    book_id, book_dir, _metadata = create_library_book(
+        library_dir,
+        chapter_text="Edited chapter text for reconvert.",
+    )
+    job = job_manager.create_job("chapter_01_reconvert", str(book_dir / "chapter_01.txt"))
+    job.status = JobStatus.PROCESSING
+
+    class FakeTTSEngine:
+        def is_initialized(self):
+            return True
+
+        def generate_speech(self, text, voice_id, speed):
+            job.status = JobStatus.CANCELLED
+            return np.zeros(32, dtype=np.float32), 24000
+
+    async def fake_run_blocking(function, *args, **kwargs):
+        return function(*args, **kwargs)
+
+    def fail_encode_audio(*args, **kwargs):
+        raise AssertionError("encode_audio should not run after cancellation")
+
+    def fail_update_metadata_file(*args, **kwargs):
+        raise AssertionError("metadata update should not run after cancellation")
+
+    monkeypatch.setattr("src.core.chapter_reconvert._run_blocking", fake_run_blocking)
+    monkeypatch.setattr("src.core.chapter_reconvert.get_tts_engine", lambda: FakeTTSEngine())
+    monkeypatch.setattr("src.core.chapter_reconvert.encode_audio", fail_encode_audio)
+    monkeypatch.setattr("src.core.chapter_reconvert.update_metadata_file", fail_update_metadata_file)
+
+    asyncio.run(
+        process_chapter_reconvert_job(
+            job,
+            {
+                "book_id": book_id,
+                "chapter_number": 1,
+                "book_dir": str(book_dir),
+                "output_dir": str(book_dir),
+                "narrator_voice": "af_heart",
+                "speed": 1.0,
+                "quality": "sd",
+                "format": "mp3",
+            },
+        )
+    )
+
+    assert not list(book_dir.glob("chapter_01.*.tmp.mp3"))

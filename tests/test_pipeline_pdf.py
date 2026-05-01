@@ -119,3 +119,71 @@ def test_process_book_preserves_pdf_output_contract(monkeypatch, tmp_path):
     assert fake_tts.calls == [(expected_chapter_text, "af_heart", 1.0)]
     assert job.total_chapters == 1
     assert job.status == JobStatus.PENDING
+
+
+def test_process_book_stops_after_cancelled_tts_return(monkeypatch, tmp_path):
+    data_dir = tmp_path / "data"
+    job_manager = init_job_manager(str(data_dir))
+
+    uploads_dir = data_dir / "uploads"
+    uploads_dir.mkdir(parents=True, exist_ok=True)
+    source_pdf = uploads_dir / "input.pdf"
+    source_pdf.write_bytes(b"%PDF-1.4 test")
+
+    job = job_manager.create_job("input.pdf", str(source_pdf))
+    job.output_dir = str(data_dir / "library" / job.id)
+    (data_dir / "library" / job.id).mkdir(parents=True, exist_ok=True)
+
+    imported_document = ImportedDocument(
+        title="Cancelled PDF",
+        author="Jane PDF",
+        format="pdf",
+        chapters=[
+            ImportedChapter(
+                number=1,
+                title="Chapter 1",
+                chunks=[ImportedChunk(text="Original chunk text", headings=[])],
+            )
+        ],
+        cover_filename=None,
+    )
+
+    class CancelledTTSEngine:
+        def is_initialized(self):
+            return True
+
+        def generate_speech(self, text, voice_id, speed):
+            job.status = JobStatus.CANCELLED
+            return np.zeros(32, dtype=np.float32), 24000
+
+    async def fake_sleep(_seconds):
+        return None
+
+    def fail_encode_audio(*args, **kwargs):
+        raise AssertionError("encode_audio should not run after cancellation")
+
+    monkeypatch.setattr(
+        "src.core.pipeline.convert_source_document",
+        lambda file_path, output_dir: imported_document,
+    )
+    monkeypatch.setattr("src.core.pipeline.get_tts_engine", lambda: CancelledTTSEngine())
+    monkeypatch.setattr(
+        "src.core.pipeline.render_chapter_text",
+        lambda chapter: f"{chapter.title}\n\nNarrated text",
+    )
+    monkeypatch.setattr("src.core.pipeline.encode_audio", fail_encode_audio)
+    monkeypatch.setattr("src.core.pipeline.asyncio.sleep", fake_sleep)
+
+    asyncio.run(
+        process_book(
+            job,
+            {
+                "narrator_voice": "af_heart",
+                "speed": 1.0,
+                "quality": "sd",
+            },
+        )
+    )
+
+    assert not (data_dir / "library" / job.id / "chapter_01.mp3").exists()
+    assert not (data_dir / "library" / job.id / "chapter_01.txt").exists()

@@ -26,6 +26,122 @@ const dashboardState = {
   exportingBookIds: new Set(),
 };
 
+function createMaterialIcon(name, extraClass = "") {
+  const icon = document.createElement("span");
+  icon.className = `material-symbols-outlined ${extraClass}`.trim();
+  icon.textContent = name;
+  return icon;
+}
+
+function createActivityCard(title, statusText, pct, indeterminate = false) {
+  const card = document.createElement("div");
+  card.className = "glass rounded-xl p-4";
+
+  const header = document.createElement("div");
+  header.className = "flex justify-between items-start mb-3";
+
+  const textWrap = document.createElement("div");
+
+  const titleEl = document.createElement("h4");
+  titleEl.className = "font-semibold text-sm";
+  titleEl.textContent = title;
+
+  const statusEl = document.createElement("p");
+  statusEl.className = "text-xs text-gray-400 mt-0.5";
+  statusEl.textContent = statusText;
+
+  textWrap.append(titleEl, statusEl);
+
+  const pctEl = document.createElement("span");
+  pctEl.className = "text-primary text-sm font-bold";
+  pctEl.textContent = indeterminate ? "--" : `${pct}%`;
+
+  header.append(textWrap, pctEl);
+
+  const progressTrack = document.createElement("div");
+  progressTrack.className = "w-full bg-dark-600 h-2 rounded-full overflow-hidden";
+
+  const progressFill = document.createElement("div");
+  progressFill.className = indeterminate
+    ? "bg-primary h-full animate-pulse"
+    : "bg-primary h-full transition-all";
+  progressFill.style.width = indeterminate ? "50%" : `${pct}%`;
+
+  progressTrack.appendChild(progressFill);
+  card.append(header, progressTrack);
+  return card;
+}
+
+function createLibraryBookCard(book) {
+  const title = book.title || "Untitled";
+  const totalChapters = Number.isFinite(book.total_chapters)
+    ? book.total_chapters
+    : "--";
+
+  const card = document.createElement("div");
+  card.className =
+    "glass rounded-xl p-4 cursor-pointer hover:border-primary transition relative group/card";
+  card.addEventListener("click", () => {
+    showPlayer(book.id);
+  });
+
+  const exportButton = document.createElement("button");
+  exportButton.className =
+    "absolute top-2 left-2 z-10 w-8 h-8 rounded-full bg-primary/10 hover:bg-primary text-primary hover:text-white flex items-center justify-center opacity-0 group-hover/card:opacity-100 transition duration-200";
+  exportButton.title = "Export audiobook";
+  exportButton.dataset.exportBookId = book.id;
+  exportButton.appendChild(createMaterialIcon("download", "text-sm"));
+  exportButton.addEventListener("click", (event) => {
+    exportBook(event, book.id);
+  });
+
+  const deleteButton = document.createElement("button");
+  deleteButton.className =
+    "absolute top-2 right-2 z-10 w-8 h-8 rounded-full bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white flex items-center justify-center opacity-0 group-hover/card:opacity-100 transition duration-200";
+  deleteButton.title = "Delete audiobook";
+  deleteButton.appendChild(createMaterialIcon("delete", "text-sm"));
+  deleteButton.addEventListener("click", (event) => {
+    deleteBook(event, book.id, title);
+  });
+
+  const coverWrap = document.createElement("div");
+  coverWrap.className =
+    "aspect-[3/4] bg-gradient-to-br from-primary/30 via-dark-600 to-primary/10 rounded-lg mb-3 flex items-center justify-center relative group overflow-hidden";
+
+  if (book.cover_url) {
+    const coverImage = document.createElement("img");
+    coverImage.src = book.cover_url;
+    coverImage.alt = "Book cover";
+    coverImage.className = "w-full h-full object-cover";
+    coverWrap.appendChild(coverImage);
+  } else {
+    coverWrap.appendChild(
+      createMaterialIcon("menu_book", "text-4xl text-gray-500"),
+    );
+  }
+
+  const coverOverlay = document.createElement("div");
+  coverOverlay.className =
+    "absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center rounded-lg";
+  const playWrap = document.createElement("div");
+  playWrap.className =
+    "w-12 h-12 rounded-full bg-primary flex items-center justify-center";
+  playWrap.appendChild(createMaterialIcon("play_arrow", "text-2xl"));
+  coverOverlay.appendChild(playWrap);
+  coverWrap.appendChild(coverOverlay);
+
+  const titleEl = document.createElement("h4");
+  titleEl.className = "font-medium truncate";
+  titleEl.textContent = title;
+
+  const metaEl = document.createElement("p");
+  metaEl.className = "text-sm text-gray-400";
+  metaEl.textContent = `${totalChapters} chapters • ${book.total_duration || "--"}`;
+
+  card.append(exportButton, deleteButton, coverWrap, titleEl, metaEl);
+  return card;
+}
+
 function renderDashboardView() {
   return `
         <div class="space-y-8">
@@ -165,42 +281,24 @@ async function renderActivityCards() {
   if (!cards) return;
 
   if (!state.currentJob?.job_id) {
-    cards.innerHTML = `
-      <div class="glass rounded-xl p-4">
-        <div class="flex justify-between items-start mb-3">
-          <div>
-            <h4 class="font-semibold text-sm">Processing...</h4>
-            <p class="text-xs text-gray-400 mt-0.5">A conversion is running</p>
-          </div>
-          <span class="text-primary text-sm font-bold">--</span>
-        </div>
-        <div class="w-full bg-dark-600 h-2 rounded-full overflow-hidden">
-          <div class="bg-primary h-full animate-pulse" style="width: 50%;"></div>
-        </div>
-      </div>
-    `;
+    cards.replaceChildren(
+      createActivityCard("Processing...", "A conversion is running", 50, true),
+    );
     return;
   }
 
   try {
     const status = await api.getStatus(state.currentJob.job_id);
     const pct = Math.max(0, Math.min(100, Math.round(status.progress || 0)));
-    cards.innerHTML = `
-      <div class="glass rounded-xl p-4">
-        <div class="flex justify-between items-start mb-3">
-          <div>
-            <h4 class="font-semibold text-sm">${state.currentJob.filename || "Current conversion"}</h4>
-            <p class="text-xs text-gray-400 mt-0.5">${status.status} • Chapter ${status.current_chapter}/${status.total_chapters || "?"}</p>
-          </div>
-          <span class="text-primary text-sm font-bold">${pct}%</span>
-        </div>
-        <div class="w-full bg-dark-600 h-2 rounded-full overflow-hidden">
-          <div class="bg-primary h-full transition-all" style="width: ${pct}%;"></div>
-        </div>
-      </div>
-    `;
+    cards.replaceChildren(
+      createActivityCard(
+        state.currentJob.filename || "Current conversion",
+        `${status.status} • Chapter ${status.current_chapter}/${status.total_chapters || "?"}`,
+        pct,
+      ),
+    );
   } catch {
-    cards.innerHTML = "";
+    cards.replaceChildren();
   }
 }
 
@@ -209,46 +307,7 @@ async function renderActivityCards() {
  */
 function renderLibraryGrid(books) {
   const grid = document.getElementById("library-grid");
-  grid.innerHTML = books
-    .map(
-      (book) => `
-        <div class="glass rounded-xl p-4 cursor-pointer hover:border-primary transition relative group/card"
-             onclick="showPlayer('${book.id}')">
-            <button onclick="exportBook(event, '${book.id}')"
-                    class="absolute top-2 left-2 z-10 w-8 h-8 rounded-full bg-primary/10 hover:bg-primary text-primary hover:text-white
-                           flex items-center justify-center opacity-0 group-hover/card:opacity-100 transition duration-200"
-                    title="Export audiobook"
-                    data-export-book-id="${book.id}">
-                <span class="material-symbols-outlined text-sm">download</span>
-            </button>
-            <!-- Delete Button -->
-            <button onclick="deleteBook(event, '${book.id}', '${book.title.replace(/'/g, "\\'")}')"
-                    class="absolute top-2 right-2 z-10 w-8 h-8 rounded-full bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white 
-                           flex items-center justify-center opacity-0 group-hover/card:opacity-100 transition duration-200"
-                    title="Delete audiobook">
-                <span class="material-symbols-outlined text-sm">delete</span>
-            </button>
-
-            <div class="aspect-[3/4] bg-gradient-to-br from-primary/30 via-dark-600 to-primary/10 
-                        rounded-lg mb-3 flex items-center justify-center relative group overflow-hidden">
-                ${
-                  book.cover_url
-                    ? `<img src="${book.cover_url}" alt="Book cover" class="w-full h-full object-cover">`
-                    : '<span class="material-symbols-outlined text-4xl text-gray-500">menu_book</span>'
-                }
-                <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 
-                            transition flex items-center justify-center rounded-lg">
-                    <div class="w-12 h-12 rounded-full bg-primary flex items-center justify-center">
-                        <span class="material-symbols-outlined text-2xl">play_arrow</span>
-                    </div>
-                </div>
-            </div>
-            <h4 class="font-medium truncate">${book.title}</h4>
-            <p class="text-sm text-gray-400">${book.total_chapters} chapters • ${book.total_duration || "--"}</p>
-        </div>
-    `,
-    )
-    .join("");
+  grid.replaceChildren(...books.map((book) => createLibraryBookCard(book)));
 }
 
 function triggerAudiobookImport() {

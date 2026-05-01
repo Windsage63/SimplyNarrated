@@ -619,6 +619,15 @@ async def reconvert_chapter(book_id: str, chapter: int, request: ReconvertChapte
         raise HTTPException(status_code=404, detail="Chapter text not found")
 
     job_manager = get_job_manager()
+    existing_job = job_manager.find_active_reconvert_job(book_id, chapter)
+    if existing_job:
+        return {
+            "status": "processing" if existing_job.status == JobStatus.PROCESSING else "queued",
+            "job_id": existing_job.id,
+            "book_id": book_id,
+            "chapter": chapter,
+        }
+
     chapter_job = job_manager.create_job(
         filename=f"chapter_{chapter:02d}_reconvert",
         file_path=text_path,
@@ -722,7 +731,15 @@ async def update_book_metadata(book_id: str, request: UpdateMetadataRequest):
 
 
 MAX_COVER_SIZE = 5 * 1024 * 1024  # 5 MB
-ALLOWED_COVER_TYPES = {"image/jpeg": ".jpg", "image/png": ".png"}
+ALLOWED_COVER_EXTENSIONS = {".jpg", ".jpeg", ".png"}
+
+
+def _detect_cover_extension(content: bytes) -> str | None:
+    if content.startswith(b"\x89PNG\r\n\x1a\n"):
+        return ".png"
+    if content.startswith(b"\xff\xd8\xff"):
+        return ".jpg"
+    return None
 
 
 @router.post("/book/{book_id}/cover", response_model=UploadCoverResponse)
@@ -733,17 +750,10 @@ async def upload_cover(book_id: str, file: UploadFile = File(...)):
     """
     _validate_book_id_or_400(book_id)
 
-    # Validate content type
-    if file.content_type not in ALLOWED_COVER_TYPES:
-        raise HTTPException(
-            status_code=400,
-            detail="Invalid file type. Only JPG and PNG images are allowed.",
-        )
-
     # Validate file extension
     filename = file.filename or "cover"
     ext = os.path.splitext(filename)[1].lower()
-    if ext not in (".jpg", ".jpeg", ".png"):
+    if ext not in ALLOWED_COVER_EXTENSIONS:
         raise HTTPException(
             status_code=400,
             detail="Invalid file extension. Only .jpg and .png are allowed.",
@@ -757,6 +767,13 @@ async def upload_cover(book_id: str, file: UploadFile = File(...)):
             detail=f"File too large. Maximum size: {MAX_COVER_SIZE // (1024 * 1024)}MB",
         )
 
+    save_ext = _detect_cover_extension(content)
+    if save_ext is None:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid image file. Only JPG and PNG images are allowed.",
+        )
+
     library = get_library_manager()
     book_dir = library.get_book_dir(book_id)
     if not os.path.exists(os.path.join(book_dir, "metadata.json")):
@@ -765,8 +782,6 @@ async def upload_cover(book_id: str, file: UploadFile = File(...)):
     # Remove any existing cover files
     await _run_blocking(_remove_existing_cover_files, book_dir)
 
-    # Determine save extension from content type
-    save_ext = ALLOWED_COVER_TYPES[file.content_type]
     cover_filename = f"cover{save_ext}"
     cover_path = os.path.join(book_dir, cover_filename)
 

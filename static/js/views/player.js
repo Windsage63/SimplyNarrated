@@ -328,38 +328,50 @@ async function initPlayerView(bookId) {
 function renderChapterList() {
   const container = document.getElementById("chapter-list");
   if (!playerState.book || !playerState.book.chapters) {
-    container.innerHTML = '<p class="text-gray-500 p-4">No chapters found</p>';
+    const emptyState = document.createElement("p");
+    emptyState.className = "text-gray-500 p-4";
+    emptyState.textContent = "No chapters found";
+    container.replaceChildren(emptyState);
     return;
   }
 
-  container.innerHTML = playerState.book.chapters
-    .map(
-      (chapter) => `
-        <button onclick="loadChapter(${chapter.number})" 
-                class="chapter-item w-full flex items-center gap-3 p-3 rounded-xl transition
-                       ${chapter.number === playerState.currentChapter ? "bg-primary/20 border border-primary/30" : "hover:bg-dark-700"}">
-            <div class="w-8 h-8 rounded-lg flex items-center justify-center
-                        ${chapter.number === playerState.currentChapter ? "bg-primary" : "bg-dark-600"}">
-                <span class="material-symbols-outlined text-sm">
-                    ${
-                      chapter.number === playerState.currentChapter
-                        ? "equalizer"
-                        : chapter.completed
-                          ? "check_circle"
-                          : "play_arrow"
-                    }
-                </span>
-            </div>
-            <div class="flex-1 text-left">
-                <p class="text-sm font-medium ${chapter.number === playerState.currentChapter ? "text-white" : "text-gray-300"}">
-                    ${chapter.title || `Chapter ${chapter.number}`}
-                </p>
-                <p class="text-xs text-gray-500">${chapter.duration || "--"}</p>
-            </div>
-        </button>
-    `,
-    )
-    .join("");
+  const chapterButtons = playerState.book.chapters.map((chapter) => {
+    const isActive = chapter.number === playerState.currentChapter;
+    const button = document.createElement("button");
+    button.className = `chapter-item w-full flex items-center gap-3 p-3 rounded-xl transition ${isActive ? "bg-primary/20 border border-primary/30" : "hover:bg-dark-700"}`;
+    button.addEventListener("click", () => {
+      loadChapter(chapter.number);
+    });
+
+    const iconWrap = document.createElement("div");
+    iconWrap.className = `w-8 h-8 rounded-lg flex items-center justify-center ${isActive ? "bg-primary" : "bg-dark-600"}`;
+
+    const icon = document.createElement("span");
+    icon.className = "material-symbols-outlined text-sm";
+    icon.textContent = isActive
+      ? "equalizer"
+      : chapter.completed
+        ? "check_circle"
+        : "play_arrow";
+    iconWrap.appendChild(icon);
+
+    const textWrap = document.createElement("div");
+    textWrap.className = "flex-1 text-left";
+
+    const titleEl = document.createElement("p");
+    titleEl.className = `text-sm font-medium ${isActive ? "text-white" : "text-gray-300"}`;
+    titleEl.textContent = chapter.title || `Chapter ${chapter.number}`;
+
+    const durationEl = document.createElement("p");
+    durationEl.className = "text-xs text-gray-500";
+    durationEl.textContent = chapter.duration || "--";
+
+    textWrap.append(titleEl, durationEl);
+    button.append(iconWrap, textWrap);
+    return button;
+  });
+
+  container.replaceChildren(...chapterButtons);
 }
 
 /**

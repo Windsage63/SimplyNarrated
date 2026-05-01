@@ -210,6 +210,26 @@ class JobManager:
         """Get a job by ID."""
         return self._jobs.get(job_id)
 
+    def find_active_reconvert_job(self, book_id: str, chapter_number: int) -> Optional[Job]:
+        """Find an active reconvert job for the same book/chapter pair."""
+        for job in self._jobs.values():
+            if job.status not in {JobStatus.PENDING, JobStatus.PROCESSING}:
+                continue
+            if job.config.get("job_type") != "chapter_reconvert":
+                continue
+            if job.config.get("book_id") != book_id:
+                continue
+
+            try:
+                active_chapter_number = int(job.config.get("chapter_number", 0))
+            except (TypeError, ValueError):
+                continue
+
+            if active_chapter_number == chapter_number:
+                return job
+
+        return None
+
     def _add_activity(self, job: Job, message: str, status: str = "info") -> None:
         """Add an activity log entry to a job. Does NOT persist — caller must flush."""
         entry = ActivityLogEntry(

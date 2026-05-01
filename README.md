@@ -140,6 +140,7 @@ There is currently no dedicated lint or formatter configuration checked into the
 ## 📄 Documentation
 
   - [API Reference](docs/API-Reference.md)
+  - [Testing Guide](docs/Testing.md)
   - [Landing Page Creative Brief](docs/Landing-Page-Creative-Brief.md)
 
 ## 🧭 Current Refactor Direction

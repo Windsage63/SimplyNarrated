@@ -1,6 +1,6 @@
 # SimplyNarrated API Reference
 
-> **Last synced with codebase:** 2026-04-29
+> **Last synced with codebase:** 2026-04-30
 
 Base URL: `/api`
 
@@ -32,11 +32,14 @@ The API supports file upload, audiobook generation jobs, voice previews, library
   - **ZIP behavior**:
     - Upload accepts `.zip` files as source documents; Gutenberg-specific parsing happens during generation.
     - Generation treats the source as a Gutenberg-style HTML ZIP.
+    - Gutenberg ZIP parsing rejects archives with more than `500` file members or more than `100 MB` of total uncompressed content.
     - The parser scores `.html` and `.htm` members and chooses the best candidate, preferring stronger Gutenberg signals and then larger files.
+    - Individual HTML members larger than `50 MB` are rejected before being loaded into memory.
     - Unsafe archive member paths are ignored during HTML and cover extraction.
     - Boilerplate sections, table-of-contents blocks, footnote blocks, inline footnote references, and image elements are removed before chapter extraction.
     - A cleaned source transcript is written to `source.cleaned.txt`, and parser diagnostics are written to `parse-report.json` in the book folder.
     - Cover extraction prefers image filenames whose basename contains `cover`, then falls back to the largest image asset.
+    - Extracted ZIP cover images larger than `20 MB` are rejected before they are written to disk.
   - **Response**:
 
   ```json
@@ -123,6 +126,10 @@ The API supports file upload, audiobook generation jobs, voice previews, library
     "job_id": "uuid-string"
   }
   ```
+
+  - **Notes**:
+    - Cancellation is cooperative. Long-running TTS or encoding work already in progress is allowed to finish its current blocking step.
+    - Once that blocking step returns, the pipeline stops before later write or finalize steps continue.
 
 ### Voices
 
@@ -338,6 +345,7 @@ The API supports file upload, audiobook generation jobs, voice previews, library
     - Uses the saved `chapter_XX.txt` file as the source text.
     - If a field is omitted, the reconvert job falls back to the book metadata value.
     - If `narrator_voice` is provided, it is validated against known voice IDs (`400` on invalid).
+    - If another reconvert job for the same `book_id` and `chapter` is already pending or processing, the endpoint returns that existing job ID instead of queueing a duplicate job.
     - Reconversion is MP3-only and rewrites chapter metadata/duration after replacing the audio file.
     - Reconverted MP3s receive ID3 title/album/artist/track tags and embedded cover art when present.
     - The audio file is replaced using an atomic swap with retry logic to handle temporary file locks (e.g. active playback on Windows).
@@ -395,7 +403,7 @@ The API supports file upload, audiobook generation jobs, voice previews, library
   - **Method**: `POST`
   - **Path**: `/book/{book_id}/cover`
   - **Body**: `multipart/form-data` with `file`
-  - **Supports**: `image/jpeg`, `image/png`
+  - **Supports**: `.jpg`, `.jpeg`, `.png` uploads whose file bytes identify as JPEG or PNG
   - **Max size**: `5MB`
   - **Response**:
 
@@ -407,6 +415,8 @@ The API supports file upload, audiobook generation jobs, voice previews, library
   ```
 
   - **Notes**:
+    - The server validates the uploaded bytes and rejects files that only spoof the extension or multipart MIME type.
+    - The saved filename is chosen from the detected image bytes (`cover.jpg` for JPEG, `cover.png` for PNG), not from the client-provided MIME type.
     - Uploading a new cover retags existing chapter MP3 files so embedded artwork stays in sync with the stored cover.
 
 #### Get cover

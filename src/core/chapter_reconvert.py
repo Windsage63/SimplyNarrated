@@ -36,6 +36,7 @@ from src.core.encoder import (
 )
 from src.core.job_manager import Job
 from src.core.metadata_store import update_metadata_file
+from src.models.schemas import JobStatus
 
 logger = logging.getLogger(__name__)
 
@@ -53,6 +54,11 @@ async def _read_json_file(path: str) -> Dict[str, Any]:
 async def _read_text_file(path: str) -> str:
     async with aiofiles.open(path, "r", encoding="utf-8") as handle:
         return await handle.read()
+
+
+async def _remove_file_if_exists(path: str) -> None:
+    if os.path.exists(path):
+        await _run_blocking(os.remove, path)
 
 
 def _parse_duration_to_seconds(value: str) -> float:
@@ -200,6 +206,10 @@ async def process_chapter_reconvert_job(job: Job, config: Dict[str, Any]) -> Non
         speed,
     )
 
+    if job.status == JobStatus.CANCELLED:
+        await _remove_file_if_exists(temp_audio_path)
+        return
+
     job_manager.update_progress(
         job.id,
         75.0,
@@ -208,6 +218,10 @@ async def process_chapter_reconvert_job(job: Job, config: Dict[str, Any]) -> Non
     )
 
     await _run_blocking(encode_audio, audio, sample_rate, temp_audio_path, encoder_settings)
+
+    if job.status == JobStatus.CANCELLED:
+        await _remove_file_if_exists(temp_audio_path)
+        return
 
     cover_path = None
     for candidate in ("cover.jpg", "cover.jpeg", "cover.png"):
@@ -226,6 +240,10 @@ async def process_chapter_reconvert_job(job: Job, config: Dict[str, Any]) -> Non
         total_tracks=len(metadata.get("chapters", [])) or None,
         cover_path=cover_path,
     )
+
+    if job.status == JobStatus.CANCELLED:
+        await _remove_file_if_exists(temp_audio_path)
+        return
 
     job_manager.update_progress(
         job.id,

@@ -3,6 +3,7 @@ import zipfile
 
 import pytest
 
+import src.core.gutenberg_parser as gutenberg_parser
 from src.core.gutenberg_parser import parse_gutenberg_zip
 
 
@@ -120,3 +121,55 @@ def test_parse_gutenberg_zip_uses_word_budget_fallback_without_chapter_markers(t
     assert report["explicit_chapter_markers"] == 0
     assert report["fallback_split_used"] is True
     assert report["warnings"] == ["No explicit chapter markers found; fallback word-budget splitting used."]
+
+
+def test_parse_gutenberg_zip_rejects_too_many_members(tmp_path, monkeypatch):
+    source_zip = tmp_path / "too-many-members.zip"
+    monkeypatch.setattr(gutenberg_parser, "MAX_GUTENBERG_ARCHIVE_MEMBERS", 2)
+
+    with zipfile.ZipFile(source_zip, "w") as archive:
+        archive.writestr("pg1232-images.html", "<html><body><h1>Book</h1></body></html>")
+        archive.writestr("notes.txt", "notes")
+        archive.writestr("cover.jpg", b"cover")
+
+    with pytest.raises(ValueError, match="too many members"):
+        parse_gutenberg_zip(str(source_zip))
+
+
+def test_parse_gutenberg_zip_rejects_excessive_uncompressed_size(tmp_path, monkeypatch):
+    source_zip = tmp_path / "too-large-total.zip"
+    monkeypatch.setattr(gutenberg_parser, "MAX_GUTENBERG_ARCHIVE_UNCOMPRESSED_SIZE", 40)
+
+    with zipfile.ZipFile(source_zip, "w") as archive:
+        archive.writestr(
+            "pg1232-images.html",
+            "<html><body><h1>Book</h1><p>1234567890</p></body></html>",
+        )
+        archive.writestr("notes.txt", "x" * 20)
+
+    with pytest.raises(ValueError, match="size limit"):
+        parse_gutenberg_zip(str(source_zip))
+
+
+def test_parse_gutenberg_zip_rejects_oversized_html_member(tmp_path, monkeypatch):
+    source_zip = tmp_path / "oversized-html.zip"
+    monkeypatch.setattr(gutenberg_parser, "MAX_GUTENBERG_HTML_SIZE", 20)
+
+    with zipfile.ZipFile(source_zip, "w") as archive:
+        archive.writestr("pg1232-images.html", "<html><body>this html is too large</body></html>")
+
+    with pytest.raises(ValueError, match="HTML member 'pg1232-images.html' exceeds size limit"):
+        parse_gutenberg_zip(str(source_zip))
+
+
+def test_parse_gutenberg_zip_rejects_oversized_cover_image(tmp_path, monkeypatch):
+    source_zip = tmp_path / "oversized-cover.zip"
+    output_dir = tmp_path / "book"
+    monkeypatch.setattr(gutenberg_parser, "MAX_GUTENBERG_COVER_SIZE", 5)
+
+    with zipfile.ZipFile(source_zip, "w") as archive:
+        archive.writestr("pg1232-images.html", "<html><body><h1>Book</h1></body></html>")
+        archive.writestr("cover.jpg", b"123456")
+
+    with pytest.raises(ValueError, match="Cover image 'cover.jpg' exceeds size limit"):
+        parse_gutenberg_zip(str(source_zip), str(output_dir))

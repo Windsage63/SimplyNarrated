@@ -266,6 +266,14 @@ function showView(viewName) {
     teardownPlayerView();
   }
 
+  if (
+    state.currentView === "progress" &&
+    viewName !== "progress" &&
+    typeof teardownProgressView === "function"
+  ) {
+    teardownProgressView();
+  }
+
   state.currentView = viewName;
 
   // Update nav active state

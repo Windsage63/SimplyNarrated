@@ -63,6 +63,11 @@ async def _write_json_file(path: str, payload: Dict[str, Any]) -> None:
         await handle.write(json.dumps(payload, indent=2))
 
 
+async def _remove_file_if_exists(path: str) -> None:
+    if os.path.exists(path):
+        await _run_blocking(os.remove, path)
+
+
 async def process_book(job: Job, config: Dict[str, Any]) -> None:
     """
     Main processing pipeline for converting a book to audiobook.
@@ -99,6 +104,9 @@ async def process_book(job: Job, config: Dict[str, Any]) -> None:
         await asyncio.sleep(0.1)  # Yield to event loop
 
         document = await _run_blocking(convert_source_document, job.file_path, job.output_dir)
+        if job.status == JobStatus.CANCELLED:
+            return
+
         job_manager._add_activity(
             job,
             f"Found {len(document.chapters)} chapters in '{document.title}'",
@@ -173,6 +181,8 @@ async def process_book(job: Job, config: Dict[str, Any]) -> None:
         if not tts_engine.is_initialized():
             # Run initialization in thread pool to not block
             await _run_blocking(tts_engine.initialize)
+            if job.status == JobStatus.CANCELLED:
+                return
 
         job_manager._add_activity(job, "TTS model ready", "success")
 
@@ -206,12 +216,17 @@ async def process_book(job: Job, config: Dict[str, Any]) -> None:
                 voice_id,
                 speed,
             )
+            if job.status == JobStatus.CANCELLED:
+                return
 
             # Encode and save
             output_filename = f"chapter_{chapter_num:02d}.mp3"
             output_path = os.path.join(job.output_dir, output_filename)
 
             await _run_blocking(encode_audio, audio, sample_rate, output_path, encoder_settings)
+            if job.status == JobStatus.CANCELLED:
+                await _remove_file_if_exists(output_path)
+                return
 
             await _run_blocking(
                 embed_mp3_metadata,
@@ -223,6 +238,9 @@ async def process_book(job: Job, config: Dict[str, Any]) -> None:
                 total_tracks=len(rendered_chapters),
                 cover_path=cover_path,
             )
+            if job.status == JobStatus.CANCELLED:
+                await _remove_file_if_exists(output_path)
+                return
 
             # Save chapter text
             text_filename = f"chapter_{chapter_num:02d}.txt"

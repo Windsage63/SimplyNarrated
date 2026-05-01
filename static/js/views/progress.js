@@ -61,7 +61,7 @@ function renderProgressView() {
             </div>
             
             <!-- Cancel Button -->
-            <button id="cancel-btn" onclick="cancelConversion()" 
+            <button id="cancel-btn"
                 class="w-full mt-6 py-3 rounded-xl bg-red-600 hover:bg-red-700 font-semibold transition">
                 <span class="material-symbols-outlined align-middle mr-2">cancel</span>
                 Cancel Conversion
@@ -73,9 +73,64 @@ function renderProgressView() {
 let progressInterval = null;
 
 function initProgressView() {
+  teardownProgressView();
+
+  const cancelButton = document.getElementById("cancel-btn");
+  if (cancelButton) {
+    cancelButton.onclick = cancelConversion;
+  }
+
   // Start polling for status
   pollStatus();
   progressInterval = setInterval(pollStatus, 5000);
+}
+
+function teardownProgressView() {
+  if (progressInterval) {
+    clearInterval(progressInterval);
+    progressInterval = null;
+  }
+}
+
+function renderActivityLog(entries) {
+  const logContainer = document.getElementById("activity-log");
+  if (!logContainer) {
+    return;
+  }
+
+  const rows = entries.map((entry) => {
+    const row = document.createElement("div");
+    row.className = "flex items-start gap-2";
+
+    const icon = document.createElement("span");
+    icon.className = `material-symbols-outlined text-sm ${
+      entry.status === "success"
+        ? "text-green-400"
+        : entry.status === "error"
+          ? "text-red-400"
+          : entry.status === "warning"
+            ? "text-yellow-400"
+            : "text-gray-400"
+    }`;
+    icon.textContent =
+      entry.status === "success"
+        ? "check_circle"
+        : entry.status === "error"
+          ? "error"
+          : entry.status === "warning"
+            ? "warning"
+            : "info";
+
+    const message = document.createElement("span");
+    message.className = "text-gray-300";
+    message.textContent = entry.message || "";
+
+    row.append(icon, message);
+    return row;
+  });
+
+  logContainer.replaceChildren(...rows);
+  logContainer.scrollTop = logContainer.scrollHeight;
 }
 
 async function pollStatus() {
@@ -88,6 +143,13 @@ async function pollStatus() {
     const circle = document.getElementById("progress-circle");
     const percent = document.getElementById("progress-percent");
     const chapter = document.getElementById("progress-chapter");
+    const timeRemaining = document.getElementById("time-remaining");
+    const processingRate = document.getElementById("processing-rate");
+
+    if (!circle || !percent || !chapter || !timeRemaining || !processingRate) {
+      teardownProgressView();
+      return;
+    }
 
     const circumference = 553;
     const offset = circumference - (status.progress / 100) * circumference;
@@ -99,44 +161,15 @@ async function pollStatus() {
     }
 
     // Update stats
-    document.getElementById("time-remaining").textContent =
-      status.time_remaining || "Calculating...";
-    document.getElementById("processing-rate").textContent =
-      status.processing_rate || "--";
+    timeRemaining.textContent = status.time_remaining || "Calculating...";
+    processingRate.textContent = status.processing_rate || "--";
 
     // Update activity log
-    const logContainer = document.getElementById("activity-log");
-    logContainer.innerHTML = status.activity_log
-      .map((entry) => {
-        const icon =
-          entry.status === "success"
-            ? "check_circle"
-            : entry.status === "error"
-              ? "error"
-              : entry.status === "warning"
-                ? "warning"
-                : "info";
-        const color =
-          entry.status === "success"
-            ? "text-green-400"
-            : entry.status === "error"
-              ? "text-red-400"
-              : entry.status === "warning"
-                ? "text-yellow-400"
-                : "text-gray-400";
-        return `
-                <div class="flex items-start gap-2">
-                    <span class="material-symbols-outlined ${color} text-sm">${icon}</span>
-                    <span class="text-gray-300">${entry.message}</span>
-                </div>
-            `;
-      })
-      .join("");
-    logContainer.scrollTop = logContainer.scrollHeight;
+    renderActivityLog(status.activity_log || []);
 
     // Check if completed
     if (status.status === "completed") {
-      clearInterval(progressInterval);
+      teardownProgressView();
       document.getElementById("cancel-btn").classList.add("hidden");
 
       // Show completion UI
@@ -152,7 +185,7 @@ async function pollStatus() {
         showPlayer(state.currentJob.job_id);
       }, 1500);
     } else if (status.status === "failed" || status.status === "cancelled") {
-      clearInterval(progressInterval);
+      teardownProgressView();
       alert("Conversion " + status.status);
       showView("upload");
     }
@@ -167,7 +200,7 @@ async function cancelConversion() {
   if (confirm("Are you sure you want to cancel this conversion?")) {
     try {
       await api.cancel(state.currentJob.job_id);
-      clearInterval(progressInterval);
+      teardownProgressView();
       showView("upload");
     } catch (error) {
       alert("Failed to cancel: " + error.message);
