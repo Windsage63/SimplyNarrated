@@ -26,14 +26,8 @@ const state = {
   currentJob: null,
   currentBook: null,
   selectedFile: null,
-  selectedVoice: "af_heart",
-  audioSettings: {
-    speed: 1.0,
-    quality: "sd",
-    format: "mp3",
-    removeSquareBracketNumbers: false,
-    removeParenNumbers: false,
-  },
+  selectedModel: null,
+  selectedVoice: null,
   voices: [],
   library: [],
 };
@@ -68,13 +62,8 @@ const api = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         job_id: jobId,
+        model: config.model,
         narrator_voice: config.voice,
-        speed: config.speed,
-        quality: config.quality,
-        format: config.format,
-        remove_square_bracket_numbers:
-          config.removeSquareBracketNumbers || false,
-        remove_paren_numbers: config.removeParenNumbers || false,
       }),
     });
 
@@ -101,8 +90,33 @@ const api = {
     return response.json();
   },
 
-  async getVoices() {
-    const response = await fetch(`${this.baseUrl}/voices`);
+  async getModels() {
+    const response = await fetch(`${this.baseUrl}/models`);
+    if (!response.ok) {
+      throw new Error("Failed to load models");
+    }
+    return response.json();
+  },
+
+  async switchModel(model) {
+    const response = await fetch(`${this.baseUrl}/models/switch`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ model }),
+    });
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      throw new Error(error.detail || "Failed to switch model");
+    }
+    return response.json();
+  },
+
+  async getVoices(model) {
+    const query = model ? `?model=${encodeURIComponent(model)}` : "";
+    const response = await fetch(`${this.baseUrl}/voices${query}`);
+    if (!response.ok) {
+      throw new Error("Failed to load voices");
+    }
     return response.json();
   },
 

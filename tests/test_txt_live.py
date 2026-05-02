@@ -40,9 +40,8 @@ def test_process_book_with_live_txt_parser_writes_audio_and_parser_artifacts(mon
             process_book(
                 job,
                 {
+                    "model": "kokoro",
                     "narrator_voice": "af_heart",
-                    "speed": 1.0,
-                    "quality": "sd",
                 },
             )
         )
@@ -88,6 +87,7 @@ def test_process_book_with_live_txt_parser_writes_audio_and_parser_artifacts(mon
     metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
     assert metadata["title"] == "Live TXT Book"
     assert metadata["author"] == "Live Author"
+    assert metadata["model"] == "kokoro"
     assert metadata["source_file"] == "source.txt"
     assert metadata["cover_url"] is None
     assert metadata["chapters"][0]["title"] == "CHAPTER 1"

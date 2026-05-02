@@ -20,6 +20,18 @@ def test_update_chapter_text_endpoint_persists_changes(app_client):
     assert (book_dir / "chapter_01.txt").read_text(encoding="utf-8") == "Edited chapter text for reconvert."
 
 
+def test_models_endpoint_returns_kokoro_only_in_phase_1(app_client):
+    client, _data_dir, _library_dir = app_client
+
+    response = client.get("/api/models")
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "models": ["kokoro"],
+        "active_model": "kokoro",
+    }
+
+
 def test_reconvert_chapter_endpoint_queues_job_with_frontend_expected_config(app_client, monkeypatch):
     client, _data_dir, library_dir = app_client
     book_id, book_dir, _metadata = create_library_book(library_dir, chapter_text="Ready for reconvert")
@@ -37,10 +49,8 @@ def test_reconvert_chapter_endpoint_queues_job_with_frontend_expected_config(app
     response = client.post(
         f"/api/book/{book_id}/chapter/1/reconvert",
         json={
+            "model": "kokoro",
             "narrator_voice": "af_heart",
-            "speed": 1.1,
-            "quality": "sd",
-            "format": "mp3",
         },
     )
 
@@ -50,10 +60,8 @@ def test_reconvert_chapter_endpoint_queues_job_with_frontend_expected_config(app
     assert captured["config"]["book_id"] == book_id
     assert captured["config"]["chapter_number"] == 1
     assert captured["config"]["book_dir"] == str(book_dir)
+    assert captured["config"]["model"] == "kokoro"
     assert captured["config"]["narrator_voice"] == "af_heart"
-    assert captured["config"]["speed"] == 1.1
-    assert captured["config"]["quality"] == "sd"
-    assert captured["config"]["format"] == "mp3"
 
 
 def test_reconvert_chapter_endpoint_rejects_invalid_voice(app_client):
@@ -92,10 +100,8 @@ def test_reconvert_chapter_endpoint_reuses_active_job_for_same_book_and_chapter(
     response = client.post(
         f"/api/book/{book_id}/chapter/1/reconvert",
         json={
+            "model": "kokoro",
             "narrator_voice": "af_heart",
-            "speed": 1.0,
-            "quality": "sd",
-            "format": "mp3",
         },
     )
 
@@ -106,6 +112,22 @@ def test_reconvert_chapter_endpoint_reuses_active_job_for_same_book_and_chapter(
         "book_id": book_id,
         "chapter": 1,
     }
+
+
+def test_book_endpoint_exposes_model_and_voice(app_client):
+    client, _data_dir, library_dir = app_client
+    book_id, _book_dir, _metadata = create_library_book(
+        library_dir,
+        model="kokoro",
+        voice="af_heart",
+    )
+
+    response = client.get(f"/api/book/{book_id}")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["model"] == "kokoro"
+    assert payload["voice"] == "af_heart"
 
 
 def test_update_book_metadata_endpoint_offloads_sync_work(app_client, monkeypatch):
@@ -156,16 +178,28 @@ def test_process_chapter_reconvert_job_offloads_blocking_steps(tmp_path, monkeyp
 
     class FakeTTSEngine:
         def __init__(self):
-            self.initialized = False
+            self.loaded = False
 
-        def is_initialized(self):
-            return self.initialized
+        def is_loaded(self):
+            return self.loaded
 
-        def initialize(self):
-            self.initialized = True
+        def load(self):
+            self.loaded = True
 
-        def generate_speech(self, text, voice_id, speed):
+        def unload(self):
+            self.loaded = False
+
+        def generate_speech(self, text, voice_id):
             return np.zeros(32, dtype=np.float32), 24000
+
+    class FakeTTSManager:
+        def __init__(self):
+            self.model = FakeTTSEngine()
+
+        def switch_model(self, _model_name):
+            if not self.model.is_loaded():
+                self.model.load()
+            return self.model
 
     def fake_encode_audio(_audio, _sample_rate, output_path, _settings):
         with open(output_path, "wb") as handle:
@@ -183,7 +217,7 @@ def test_process_chapter_reconvert_job_offloads_blocking_steps(tmp_path, monkeyp
         return function(*args, **kwargs)
 
     monkeypatch.setattr("src.core.chapter_reconvert._run_blocking", fake_run_blocking)
-    monkeypatch.setattr("src.core.chapter_reconvert.get_tts_engine", lambda: FakeTTSEngine())
+    monkeypatch.setattr("src.core.chapter_reconvert.get_tts_manager", lambda: FakeTTSManager())
     monkeypatch.setattr("src.core.chapter_reconvert.encode_audio", fake_encode_audio)
     monkeypatch.setattr("src.core.chapter_reconvert.embed_mp3_metadata", fake_embed_mp3_metadata)
     monkeypatch.setattr(
@@ -199,15 +233,13 @@ def test_process_chapter_reconvert_job_offloads_blocking_steps(tmp_path, monkeyp
                 "chapter_number": 1,
                 "book_dir": str(book_dir),
                 "output_dir": str(book_dir),
+                "model": "kokoro",
                 "narrator_voice": "af_heart",
-                "speed": 1.0,
-                "quality": "sd",
-                "format": "mp3",
             },
         )
     )
 
-    assert "initialize" in offloaded_names
+    assert "switch_model" in offloaded_names
     assert "generate_speech" in offloaded_names
     assert "fake_encode_audio" in offloaded_names
     assert "fake_embed_mp3_metadata" in offloaded_names
@@ -235,12 +267,22 @@ def test_process_chapter_reconvert_job_stops_when_cancelled_after_tts_returns(
     job.status = JobStatus.PROCESSING
 
     class FakeTTSEngine:
-        def is_initialized(self):
+        def is_loaded(self):
             return True
 
-        def generate_speech(self, text, voice_id, speed):
+        def load(self):
+            return None
+
+        def unload(self):
+            return None
+
+        def generate_speech(self, text, voice_id):
             job.status = JobStatus.CANCELLED
             return np.zeros(32, dtype=np.float32), 24000
+
+    class FakeTTSManager:
+        def switch_model(self, _model_name):
+            return FakeTTSEngine()
 
     async def fake_run_blocking(function, *args, **kwargs):
         return function(*args, **kwargs)
@@ -252,7 +294,7 @@ def test_process_chapter_reconvert_job_stops_when_cancelled_after_tts_returns(
         raise AssertionError("metadata update should not run after cancellation")
 
     monkeypatch.setattr("src.core.chapter_reconvert._run_blocking", fake_run_blocking)
-    monkeypatch.setattr("src.core.chapter_reconvert.get_tts_engine", lambda: FakeTTSEngine())
+    monkeypatch.setattr("src.core.chapter_reconvert.get_tts_manager", lambda: FakeTTSManager())
     monkeypatch.setattr("src.core.chapter_reconvert.encode_audio", fail_encode_audio)
     monkeypatch.setattr("src.core.chapter_reconvert.update_metadata_file", fail_update_metadata_file)
 
@@ -264,10 +306,8 @@ def test_process_chapter_reconvert_job_stops_when_cancelled_after_tts_returns(
                 "chapter_number": 1,
                 "book_dir": str(book_dir),
                 "output_dir": str(book_dir),
+                "model": "kokoro",
                 "narrator_voice": "af_heart",
-                "speed": 1.0,
-                "quality": "sd",
-                "format": "mp3",
             },
         )
     )

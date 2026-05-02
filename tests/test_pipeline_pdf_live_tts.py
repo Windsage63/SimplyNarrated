@@ -62,9 +62,8 @@ def test_process_book_with_live_tts_writes_real_audio(monkeypatch, tmp_path):
             process_book(
                 job,
                 {
+                    "model": "kokoro",
                     "narrator_voice": "af_heart",
-                    "speed": 1.0,
-                    "quality": "sd",
                 },
             )
         )
@@ -84,6 +83,7 @@ def test_process_book_with_live_tts_writes_real_audio(monkeypatch, tmp_path):
     metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
     assert metadata["title"] == "Live PDF Preservation"
     assert metadata["author"] == "Live Test Author"
+    assert metadata["model"] == "kokoro"
     assert metadata["cover_url"] is None
     assert metadata["chapters"][0]["audio_path"] == "chapter_01.mp3"
     assert metadata["chapters"][0]["text_path"] == "chapter_01.txt"

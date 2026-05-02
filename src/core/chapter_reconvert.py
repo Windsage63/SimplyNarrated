@@ -27,7 +27,7 @@ from typing import Any, Dict, List
 import aiofiles
 from pydub import AudioSegment
 
-from src.core.tts_engine import get_tts_engine
+from src.core.tts_engine import get_tts_manager
 from src.core.encoder import (
     embed_mp3_metadata,
     encode_audio,
@@ -89,8 +89,8 @@ def _apply_reconvert_metadata_update(
     *,
     chapter_number: int,
     chapter_duration: str,
+    model_name: str,
     voice_id: str,
-    quality: str,
 ) -> None:
     chapter_found = False
     for chapter_meta in metadata.get("chapters", []):
@@ -105,8 +105,9 @@ def _apply_reconvert_metadata_update(
     if not chapter_found:
         raise RuntimeError(f"Chapter {chapter_number} metadata not found")
 
+    metadata["model"] = model_name
     metadata["voice"] = voice_id
-    metadata["quality"] = quality
+    metadata["quality"] = "sd"
     metadata["format"] = "mp3"
     metadata["total_duration"] = _format_total_duration_from_chapters(metadata.get("chapters", []))
 
@@ -162,15 +163,9 @@ async def process_chapter_reconvert_job(job: Job, config: Dict[str, Any]) -> Non
     if not chapter_text.strip():
         raise RuntimeError("Chapter text is empty")
 
+    model_name = config.get("model") or metadata.get("model") or "kokoro"
     voice_id = config.get("narrator_voice") or metadata.get("voice") or "af_heart"
-    speed = float(config.get("speed") if config.get("speed") is not None else 1.0)
-    quality = config.get("quality") or metadata.get("quality") or "sd"
-
-    requested_format = config.get("format") or metadata.get("format") or "mp3"
-    if requested_format != "mp3":
-        raise RuntimeError("Only MP3 chapter reconversion is supported")
-
-    encoder_settings = get_encoder_settings(quality=quality)
+    encoder_settings = get_encoder_settings(quality="sd")
 
     job.total_chapters = 1
     job.current_chapter = chapter_number
@@ -188,9 +183,8 @@ async def process_chapter_reconvert_job(job: Job, config: Dict[str, Any]) -> Non
             chapter_title = chapter_meta.get("title") or chapter_title
             break
 
-    tts_engine = get_tts_engine()
-    if not tts_engine.is_initialized():
-        await _run_blocking(tts_engine.initialize)
+    tts_model = await _run_blocking(get_tts_manager().switch_model, model_name)
+    active_model_name = getattr(tts_model, "name", model_name)
 
     job_manager.update_progress(
         job.id,
@@ -200,10 +194,9 @@ async def process_chapter_reconvert_job(job: Job, config: Dict[str, Any]) -> Non
     )
 
     audio, sample_rate = await _run_blocking(
-        tts_engine.generate_speech,
+        tts_model.generate_speech,
         chapter_text,
         voice_id,
-        speed,
     )
 
     if job.status == JobStatus.CANCELLED:
@@ -266,8 +259,8 @@ async def process_chapter_reconvert_job(job: Job, config: Dict[str, Any]) -> Non
             _apply_reconvert_metadata_update,
             chapter_number=chapter_number,
             chapter_duration=chapter_duration,
+            model_name=active_model_name,
             voice_id=voice_id,
-            quality=quality,
         ),
     )
 

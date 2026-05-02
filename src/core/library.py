@@ -39,6 +39,7 @@ class BookMetadata:
     author: Optional[str] = None
     source_file: Optional[str] = None
     original_filename: Optional[str] = None
+    model: Optional[str] = None
     voice: Optional[str] = None
     total_chapters: int = 0
     total_duration: Optional[str] = None
@@ -124,6 +125,8 @@ class LibraryManager:
                 created_at=datetime.fromisoformat(
                     data.get("created_at", datetime.now().isoformat())
                 ),
+                model=data.get("model") or "kokoro",
+                voice=data.get("voice"),
                 chapters=chapters,
             )
         except Exception as e:

@@ -38,10 +38,8 @@ def test_process_chapter_reconvert_job_generates_real_audio_and_updates_metadata
                     "chapter_number": 1,
                     "book_dir": str(book_dir),
                     "output_dir": str(book_dir),
+                    "model": "kokoro",
                     "narrator_voice": "af_heart",
-                    "speed": 1.0,
-                    "quality": "sd",
-                    "format": "mp3",
                 },
             )
         )
@@ -55,6 +53,7 @@ def test_process_chapter_reconvert_job_generates_real_audio_and_updates_metadata
     assert audio_path.stat().st_size > 0
 
     metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+    assert metadata["model"] == "kokoro"
     assert metadata["voice"] == "af_heart"
     assert metadata["quality"] == "sd"
     assert metadata["format"] == "mp3"

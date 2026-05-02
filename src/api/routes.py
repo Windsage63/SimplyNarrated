@@ -60,7 +60,7 @@ from src.core.encoder import retag_book_mp3_files
 from src.core.job_manager import get_job_manager
 from src.core.library import get_library_manager
 from src.core.portability import export_book_archive, import_book_archive
-from src.core.tts_engine import PRESET_VOICES
+from src.core.tts_engine import get_tts_manager
 
 
 router = APIRouter()
@@ -75,21 +75,28 @@ SAMPLE_QUOTE = "Welcome to your audiobook library, where every story is unique a
 BOOK_ID_PATTERN = re.compile(r"^[a-f0-9-]{36}$")
 
 
-def _get_available_voices() -> list:
-    """Convert PRESET_VOICES to VoiceInfo objects for API responses."""
+def _voice_info_list(voices: list) -> list:
+    """Convert model voice definitions to VoiceInfo response objects."""
     return [
         VoiceInfo(
             id=v.id,
             name=v.name,
             description=v.description,
             gender=v.gender,
+            model=v.model,
         )
-        for v in PRESET_VOICES
+        for v in voices
     ]
 
 
-# Cache the converted list
-AVAILABLE_VOICES = _get_available_voices()
+def _get_model_or_400(model_name: str | None = None):
+    manager = get_tts_manager()
+    try:
+        if model_name:
+            return manager.switch_model(model_name)
+        return manager.get_active_model()
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 async def _run_blocking(function, *args, **kwargs):
@@ -253,19 +260,17 @@ async def start_generation(request: GenerateRequest, background_tasks: Backgroun
             detail=f"Job cannot be started. Current status: {job.status}",
         )
 
-    # Validate narrator_voice against known voices
-    valid_voice_ids = {v.id for v in AVAILABLE_VOICES}
+    model = _get_model_or_400(request.model)
+
+    # Validate narrator_voice against the selected model
+    valid_voice_ids = {v.id for v in model.get_voices()}
     if request.narrator_voice not in valid_voice_ids:
         raise HTTPException(status_code=400, detail="Invalid narrator voice")
 
     # Convert request to config dict
     config = {
+        "model": model.name,
         "narrator_voice": request.narrator_voice,
-        "speed": request.speed,
-        "quality": request.quality.value,
-        "format": request.format.value,
-        "remove_square_bracket_numbers": request.remove_square_bracket_numbers,
-        "remove_paren_numbers": request.remove_paren_numbers,
     }
 
     # Import process function here to avoid circular imports
@@ -319,37 +324,63 @@ async def cancel_job(job_id: str):
     return {"status": "cancelled", "job_id": job_id}
 
 
+@router.get("/models")
+async def list_models():
+    """List registered TTS models and the currently active model."""
+    manager = get_tts_manager()
+    active_model = manager.get_active_model()
+    return {
+        "models": manager.get_available_model_names(),
+        "active_model": active_model.name,
+    }
+
+
+@router.post("/models/switch")
+async def switch_model(payload: dict):
+    """Switch the active TTS model."""
+    model_name = payload.get("model") if isinstance(payload, dict) else None
+    if not model_name or not isinstance(model_name, str):
+        raise HTTPException(status_code=400, detail="Model is required")
+
+    model = _get_model_or_400(model_name)
+    return {"status": "ok", "active_model": model.name}
+
+
 @router.get("/voices", response_model=VoicesResponse)
-async def list_voices():
+async def list_voices(model: str | None = None):
     """
     List all available voices for TTS.
     """
+    tts_model = _get_model_or_400(model)
+    voices = _voice_info_list(tts_model.get_voices())
     return VoicesResponse(
-        voices=AVAILABLE_VOICES,
-        total=len(AVAILABLE_VOICES),
+        voices=voices,
+        total=len(voices),
     )
 
 
 @router.get("/voice-sample/{voice_id}")
-async def get_voice_sample(voice_id: str):
+async def get_voice_sample(voice_id: str, model: str | None = None):
     """
     Generate or retrieve a voice sample for preview.
     Uses cached samples if available, otherwise generates on-demand.
     """
-    from src.core.tts_engine import get_tts_engine
     from src.core.encoder import encode_audio, EncoderSettings
     import logging
 
     logger = logging.getLogger(__name__)
 
+    tts_model = _get_model_or_400(model)
+    model_name = tts_model.name
+
     # Validate voice_id
-    valid_voice_ids = [v.id for v in AVAILABLE_VOICES]
+    valid_voice_ids = [v.id for v in tts_model.get_voices()]
     if voice_id not in valid_voice_ids:
         raise HTTPException(status_code=400, detail="Invalid voice ID")
 
     # Check for cached sample (mp3 only)
     cache_dir = os.path.join(
-        os.path.dirname(__file__), "..", "..", "static", "voices", "audio"
+        os.path.dirname(__file__), "..", "..", "static", "voices", "audio", model_name
     )
     os.makedirs(cache_dir, exist_ok=True)
 
@@ -363,14 +394,13 @@ async def get_voice_sample(voice_id: str):
 
     # Generate new sample
     try:
-        tts_engine = get_tts_engine()
         quote = SAMPLE_QUOTE
         logger.info("Generating voice sample for %s: '%.50s...'", voice_id, quote)
 
         # Run TTS in thread pool to not block
         loop = asyncio.get_running_loop()
         audio, sample_rate = await loop.run_in_executor(
-            None, lambda: tts_engine.generate_speech(quote, voice_id, speed=1.0)
+            None, lambda: tts_model.generate_sample(voice_id)
         )
 
         if audio is None or len(audio) == 0:
@@ -610,9 +640,13 @@ async def reconvert_chapter(book_id: str, chapter: int, request: ReconvertChapte
 
     # Validate narrator_voice if provided
     if request.narrator_voice is not None:
-        valid_voice_ids = {v.id for v in AVAILABLE_VOICES}
+        selected_model = request.model or metadata.get("model") or "kokoro"
+        model = _get_model_or_400(selected_model)
+        valid_voice_ids = {v.id for v in model.get_voices()}
         if request.narrator_voice not in valid_voice_ids:
             raise HTTPException(status_code=400, detail="Invalid narrator voice")
+    else:
+        model = _get_model_or_400(request.model or metadata.get("model") or "kokoro")
 
     text_path = os.path.join(book_dir, f"chapter_{chapter:02d}.txt")
     if not os.path.exists(text_path):
@@ -641,10 +675,8 @@ async def reconvert_chapter(book_id: str, chapter: int, request: ReconvertChapte
         "chapter_number": chapter,
         "book_dir": book_dir,
         "output_dir": book_dir,
+        "model": model.name,
         "narrator_voice": request.narrator_voice,
-        "speed": request.speed,
-        "quality": request.quality.value if request.quality else None,
-        "format": request.format.value if request.format else None,
     }
 
     success = await job_manager.start_job(chapter_job.id, config, process_chapter_reconvert_job)

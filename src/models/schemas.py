@@ -54,16 +54,8 @@ class GenerateRequest(BaseModel):
     """Request to start audiobook generation."""
 
     job_id: str
+    model: str = Field(default="kokoro", description="TTS model ID")
     narrator_voice: str = Field(default="af_heart", description="Voice for narration")
-    speed: float = Field(default=1.0, ge=0.5, le=2.0, description="Playback speed")
-    quality: AudioQuality = Field(default=AudioQuality.SD)
-    format: AudioFormat = Field(default=AudioFormat.MP3)
-    remove_square_bracket_numbers: bool = Field(
-        default=False, description="Remove [N] footnote references from text"
-    )
-    remove_paren_numbers: bool = Field(
-        default=False, description="Remove (N) footnote references from text"
-    )
 
 
 class UpdateMetadataRequest(BaseModel):
@@ -82,10 +74,8 @@ class UpdateChapterTextRequest(BaseModel):
 class ReconvertChapterRequest(BaseModel):
     """Request to reconvert a specific chapter to audio."""
 
+    model: Optional[str] = Field(default=None, max_length=100)
     narrator_voice: Optional[str] = Field(default=None, max_length=100)
-    speed: Optional[float] = Field(default=None, ge=0.5, le=2.0)
-    quality: Optional[AudioQuality] = Field(default=None)
-    format: Optional[AudioFormat] = Field(default=None)
 
 
 # --- Response Schemas ---
@@ -221,6 +211,7 @@ class VoiceInfo(BaseModel):
     description: str
     sample_url: Optional[str] = None
     gender: str = "neutral"
+    model: str = "kokoro"
 
 
 class VoicesResponse(BaseModel):
@@ -252,6 +243,8 @@ class BookInfo(BaseModel):
     total_duration: Optional[str] = None
     created_at: datetime
     original_filename: Optional[str] = None
+    model: Optional[str] = None
+    voice: Optional[str] = None
     chapters: List[ChapterInfo] = []
 
 

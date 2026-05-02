@@ -62,4 +62,7 @@ def test_upload_view_no_longer_advertises_markdown_support(app_client):
     assert response.status_code == 200
     assert "Supports: TXT, PDF, ZIP" in response.text
     assert 'accept=".txt,.pdf,.zip"' in response.text
+    assert 'id="model-select"' in response.text
+    assert "Select a model to load available voices." in response.text
+    assert "Audio Settings" not in response.text
     assert "TXT, MD, PDF, or ZIP" not in response.text

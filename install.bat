@@ -188,7 +188,7 @@ REM  Step 7: Preload English TTS runtime assets
 REM -------------------------------------------------------
 echo.
 echo Preloading Kokoro-82M base model and English voice pipelines...
-"%PY_EXE%" -c "from src.core.tts_engine import TTSEngine; TTSEngine().preload_runtime_assets()"
+"%PY_EXE%" -c "from src.core.tts_engine import get_tts_manager; get_tts_manager().switch_model('kokoro').preload_runtime_assets()"
 if errorlevel 1 (
     echo ERROR: TTS runtime asset preload failed.
     pause

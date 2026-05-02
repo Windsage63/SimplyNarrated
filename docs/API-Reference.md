@@ -1,6 +1,6 @@
 # SimplyNarrated API Reference
 
-> **Last synced with codebase:** 2026-04-30
+> **Last synced with codebase:** 2026-05-02
 
 Base URL: `/api`
 
@@ -12,8 +12,9 @@ The API supports file upload, audiobook generation jobs, voice previews, library
 
   - `book_id` must match the UUID-like format `xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx` on book-scoped routes.
   - Chapter numbers must be integers greater than or equal to `1`.
-  - Audio output is currently MP3-only. The `format` field is accepted in request schemas for forward compatibility but only `"mp3"` is supported.
-  - `narrator_voice` is validated against the set of known local voice IDs on both the `/generate` and `/reconvert` endpoints. Invalid voice IDs are rejected with `400`.
+  - Audio output is currently MP3-only.
+  - TTS model selection is model-aware in Phase 1, but only `kokoro` is currently registered.
+  - `narrator_voice` is validated against the selected model's voice IDs on both the `/generate` and `/reconvert` endpoints. Invalid voice IDs are rejected with `400`.
   - Common error codes: `400` validation, `404` not found, `413` payload too large, `500` internal state/runtime failure.
   - Internal error details are never exposed in `500` responses; generic messages are returned and full diagnostics are logged server-side.
   - The dashboard UI includes a `Get More Books` action that opens Project Gutenberg after showing a quick format tip.
@@ -61,21 +62,14 @@ The API supports file upload, audiobook generation jobs, voice previews, library
   ```json
   {
     "job_id": "uuid-string",
-    "narrator_voice": "af_heart",
-    "speed": 1.0,
-    "quality": "sd",
-    "format": "mp3",
-    "remove_square_bracket_numbers": false,
-    "remove_paren_numbers": false
+    "model": "kokoro",
+    "narrator_voice": "af_heart"
   }
   ```
 
   - **Notes**:
-    - `narrator_voice` must be a valid voice ID from the `/voices` endpoint. Invalid IDs are rejected with `400`.
-    - `quality` presets map to MP3 bitrates: `sd=128k`, `hd=192k`, `ultra=320k`.
-    - `format` is accepted for forward compatibility but only `"mp3"` is currently supported.
-    - `remove_square_bracket_numbers` strips `[N]` references before synthesis.
-    - `remove_paren_numbers` strips `(N)` references before synthesis.
+    - `model` must be a registered TTS model. Phase 1 currently exposes only `kokoro`.
+    - `narrator_voice` must be a valid voice ID from the selected model's `/voices?model=...` response. Invalid IDs are rejected with `400`.
   - **Response**:
 
   ```json
@@ -131,12 +125,50 @@ The API supports file upload, audiobook generation jobs, voice previews, library
     - Cancellation is cooperative. Long-running TTS or encoding work already in progress is allowed to finish its current blocking step.
     - Once that blocking step returns, the pipeline stops before later write or finalize steps continue.
 
+### Models
+
+#### List models
+
+  - **Method**: `GET`
+  - **Path**: `/models`
+  - **Response shape**:
+
+  ```json
+  {
+    "models": ["kokoro"],
+    "active_model": "kokoro"
+  }
+  ```
+
+#### Switch model
+
+  - **Method**: `POST`
+  - **Path**: `/models/switch`
+  - **Body**:
+
+  ```json
+  {
+    "model": "kokoro"
+  }
+  ```
+
+  - **Response shape**:
+
+  ```json
+  {
+    "status": "ok",
+    "active_model": "kokoro"
+  }
+  ```
+
 ### Voices
 
 #### List voices
 
   - **Method**: `GET`
   - **Path**: `/voices`
+  - **Query params**:
+    - `model` optional; when provided, switches/uses that model before returning voices.
   - **Response shape**:
 
   ```json
@@ -147,7 +179,8 @@ The API supports file upload, audiobook generation jobs, voice previews, library
         "name": "Heart",
         "description": "American female voice",
         "sample_url": null,
-        "gender": "female"
+        "gender": "female",
+        "model": "kokoro"
       }
     ],
     "total": 28
@@ -158,9 +191,11 @@ The API supports file upload, audiobook generation jobs, voice previews, library
 
   - **Method**: `GET`
   - **Path**: `/voice-sample/{voice_id}`
+  - **Query params**:
+    - `model` optional; when provided, uses that model for validation, synthesis, and cache scoping.
   - **Response**: `audio/mpeg`
   - **Notes**:
-    - Uses cached samples from `static/voices/audio/` when available.
+    - Uses cached samples from `static/voices/audio/{model_name}/` when available.
     - Otherwise synthesizes and encodes a sample on demand, then caches it.
 
 ### Library
@@ -323,10 +358,8 @@ The API supports file upload, audiobook generation jobs, voice previews, library
 
   ```json
   {
-    "narrator_voice": "af_heart",
-    "speed": 1.0,
-    "quality": "sd",
-    "format": "mp3"
+    "model": "kokoro",
+    "narrator_voice": "af_heart"
   }
   ```
 
@@ -343,7 +376,7 @@ The API supports file upload, audiobook generation jobs, voice previews, library
 
   - **Notes**:
     - Uses the saved `chapter_XX.txt` file as the source text.
-    - If a field is omitted, the reconvert job falls back to the book metadata value.
+    - If `model` or `narrator_voice` is omitted, the reconvert job falls back to the book metadata value.
     - If `narrator_voice` is provided, it is validated against known voice IDs (`400` on invalid).
     - If another reconvert job for the same `book_id` and `chapter` is already pending or processing, the endpoint returns that existing job ID instead of queueing a duplicate job.
     - Reconversion is MP3-only and rewrites chapter metadata/duration after replacing the audio file.

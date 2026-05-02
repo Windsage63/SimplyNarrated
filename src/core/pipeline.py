@@ -18,7 +18,6 @@ limitations under the License.
 """
 
 import os
-import re
 import json
 import shutil
 import asyncio
@@ -36,7 +35,7 @@ from src.core.speech_renderer import (
     render_chapter_text,
 )
 from src.core.text_parser import ParsedTextChapter
-from src.core.tts_engine import get_tts_engine
+from src.core.tts_engine import get_tts_manager
 from src.core.encoder import (
     embed_mp3_metadata,
     encode_audio,
@@ -76,7 +75,7 @@ async def process_book(job: Job, config: Dict[str, Any]) -> None:
 
     Args:
         job: The job object with file path and state
-        config: Processing configuration (voice, speed, quality, format)
+        config: Processing configuration (voice and model)
     """
     from src.core.job_manager import get_job_manager
 
@@ -96,8 +95,8 @@ async def process_book(job: Job, config: Dict[str, Any]) -> None:
                 job, f"Note: Source file already in place or move failed: {e}", "info"
             )
 
+        model_name = config.get("model", "kokoro")
         voice_id = config.get("narrator_voice", "af_heart")
-        speed = config.get("speed", 1.0)
 
         # Phase 1: Convert the file
         job_manager._add_activity(job, "Importing source document...")
@@ -118,44 +117,25 @@ async def process_book(job: Job, config: Dict[str, Any]) -> None:
         if cover_filename:
             job_manager._add_activity(job, "Cover image extracted from source file", "success")
 
-        # Phase 1a: Render final speech text and apply optional cleanup
-        strip_square = config.get("remove_square_bracket_numbers", False)
-        strip_paren = config.get("remove_paren_numbers", False)
-
+        # Phase 1a: Render final speech text
         rendered_chapters = []
         for chapter in document.chapters:
             if isinstance(chapter, ParsedTextChapter):
                 chapter_text = chapter.content
             else:
                 chapter_text = render_chapter_text(chapter)
-            if strip_square:
-                chapter_text = re.sub(r"\[\d+\]", "", chapter_text)
-            if strip_paren:
-                chapter_text = re.sub(r"\(\d+\)", "", chapter_text)
 
             if chapter_text.strip():
                 rendered_chapters.append(
                     {
                         "title": chapter.title,
                         "content": chapter_text,
-                        "estimated_duration": estimate_duration_seconds(chapter_text, speed=speed),
+                        "estimated_duration": estimate_duration_seconds(chapter_text),
                     }
                 )
 
         if not rendered_chapters:
             raise RuntimeError("No speech-ready chapters were produced from the source file")
-
-        if strip_square or strip_paren:
-            removed = []
-            if strip_square:
-                removed.append("[N]")
-            if strip_paren:
-                removed.append("(N)")
-            job_manager._add_activity(
-                job,
-                f"Removed {' and '.join(removed)} footnote references from text",
-                "success",
-            )
 
         # Phase 2: Prepare rendered chapters for audio generation
         job_manager._add_activity(job, "Preparing chapters for audio generation...")
@@ -163,10 +143,7 @@ async def process_book(job: Job, config: Dict[str, Any]) -> None:
 
         job.total_chapters = len(rendered_chapters)
 
-        total_duration = format_total_duration(
-            [chapter["content"] for chapter in rendered_chapters],
-            speed=speed,
-        )
+        total_duration = format_total_duration([chapter["content"] for chapter in rendered_chapters])
         job_manager._add_activity(
             job,
             f"Prepared {len(rendered_chapters)} audio segments (~{total_duration} estimated)",
@@ -177,19 +154,15 @@ async def process_book(job: Job, config: Dict[str, Any]) -> None:
         job_manager._add_activity(job, "Loading TTS model...")
         await asyncio.sleep(0.1)
 
-        tts_engine = get_tts_engine()
-        if not tts_engine.is_initialized():
-            # Run initialization in thread pool to not block
-            await _run_blocking(tts_engine.initialize)
-            if job.status == JobStatus.CANCELLED:
-                return
+        tts_model = await _run_blocking(get_tts_manager().switch_model, model_name)
+        active_model_name = getattr(tts_model, "name", model_name)
+        if job.status == JobStatus.CANCELLED:
+            return
 
         job_manager._add_activity(job, "TTS model ready", "success")
 
         # Phase 4: Generate audio for each chunk
-        encoder_settings = get_encoder_settings(
-            quality=config.get("quality", "sd"),
-        )
+        encoder_settings = get_encoder_settings(quality="sd")
 
         for i, chapter in enumerate(rendered_chapters):
             # Check for cancellation
@@ -211,10 +184,9 @@ async def process_book(job: Job, config: Dict[str, Any]) -> None:
             # Use default args to capture values, avoiding lambda closure bug
             chapter_content = chapter["content"]
             audio, sample_rate = await _run_blocking(
-                tts_engine.generate_speech,
+                tts_model.generate_speech,
                 chapter_content,
                 voice_id,
-                speed,
             )
             if job.status == JobStatus.CANCELLED:
                 return
@@ -280,12 +252,13 @@ async def process_book(job: Job, config: Dict[str, Any]) -> None:
             "cover_url": f"/api/book/{job.id}/cover" if cover_filename else None,
             "source_file": os.path.basename(job.file_path),
             "original_filename": job.filename,
+            "model": active_model_name,
             "voice": voice_id,
             "total_chapters": len(rendered_chapters),
             "total_duration": total_duration,
             "created_at": datetime.now().isoformat(),
             "format": "mp3",
-            "quality": config.get("quality", "sd"),
+            "quality": "sd",
             "chapters": chapter_list,
         }
 

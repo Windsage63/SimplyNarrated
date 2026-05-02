@@ -10,18 +10,31 @@ from src.core.text_parser import ParsedTextChapter, ParsedTextDocument
 
 class _FakeTTSEngine:
     def __init__(self):
-        self.initialized = False
+        self.loaded = False
         self.calls = []
 
-    def is_initialized(self):
-        return self.initialized
+    def is_loaded(self):
+        return self.loaded
 
-    def initialize(self):
-        self.initialized = True
+    def load(self):
+        self.loaded = True
 
-    def generate_speech(self, text, voice_id, speed):
-        self.calls.append((text, voice_id, speed))
+    def unload(self):
+        self.loaded = False
+
+    def generate_speech(self, text, voice_id):
+        self.calls.append((text, voice_id))
         return np.zeros(32, dtype=np.float32), 24000
+
+
+class _FakeTTSManager:
+    def __init__(self, model):
+        self.model = model
+
+    def switch_model(self, _model_name):
+        if not self.model.is_loaded():
+            self.model.load()
+        return self.model
 
 
 def test_process_book_uses_parsed_txt_content_without_speech_renderer(monkeypatch, tmp_path):
@@ -50,6 +63,7 @@ def test_process_book_uses_parsed_txt_content_without_speech_renderer(monkeypatc
         ],
     )
     fake_tts = _FakeTTSEngine()
+    fake_manager = _FakeTTSManager(fake_tts)
 
     def fake_convert_source_document(file_path, output_dir):
         assert file_path.endswith("source.txt")
@@ -71,7 +85,7 @@ def test_process_book_uses_parsed_txt_content_without_speech_renderer(monkeypatc
         raise AssertionError("speech_renderer should not run for parsed TXT chapters")
 
     monkeypatch.setattr("src.core.pipeline.convert_source_document", fake_convert_source_document)
-    monkeypatch.setattr("src.core.pipeline.get_tts_engine", lambda: fake_tts)
+    monkeypatch.setattr("src.core.pipeline.get_tts_manager", lambda: fake_manager)
     monkeypatch.setattr("src.core.pipeline.render_chapter_text", fail_render)
     monkeypatch.setattr("src.core.pipeline.encode_audio", fake_encode_audio)
     monkeypatch.setattr("src.core.pipeline.embed_mp3_metadata", fake_embed_mp3_metadata)
@@ -81,9 +95,8 @@ def test_process_book_uses_parsed_txt_content_without_speech_renderer(monkeypatc
         process_book(
             job,
             {
+                "model": "kokoro",
                 "narrator_voice": "af_heart",
-                "speed": 1.0,
-                "quality": "sd",
             },
         )
     )
@@ -95,7 +108,8 @@ def test_process_book_uses_parsed_txt_content_without_speech_renderer(monkeypatc
     assert metadata["title"] == "Parsed TXT"
     assert metadata["author"] == "Parser"
     assert metadata["source_file"] == "source.txt"
-    assert fake_tts.calls == [("Speech-ready chapter text from the parser.", "af_heart", 1.0)]
+    assert metadata["model"] == "kokoro"
+    assert fake_tts.calls == [("Speech-ready chapter text from the parser.", "af_heart")]
 
 
 def test_process_book_offloads_blocking_steps(monkeypatch, tmp_path):
@@ -124,6 +138,7 @@ def test_process_book_offloads_blocking_steps(monkeypatch, tmp_path):
         ],
     )
     fake_tts = _FakeTTSEngine()
+    fake_manager = _FakeTTSManager(fake_tts)
     offloaded_names = []
 
     def fake_convert_source_document(file_path, output_dir):
@@ -148,7 +163,7 @@ def test_process_book_offloads_blocking_steps(monkeypatch, tmp_path):
 
     monkeypatch.setattr("src.core.pipeline._run_blocking", fake_run_blocking)
     monkeypatch.setattr("src.core.pipeline.convert_source_document", fake_convert_source_document)
-    monkeypatch.setattr("src.core.pipeline.get_tts_engine", lambda: fake_tts)
+    monkeypatch.setattr("src.core.pipeline.get_tts_manager", lambda: fake_manager)
     monkeypatch.setattr("src.core.pipeline.render_chapter_text", lambda chapter: chapter.content)
     monkeypatch.setattr("src.core.pipeline.encode_audio", fake_encode_audio)
     monkeypatch.setattr("src.core.pipeline.embed_mp3_metadata", fake_embed_mp3_metadata)
@@ -158,16 +173,15 @@ def test_process_book_offloads_blocking_steps(monkeypatch, tmp_path):
         process_book(
             job,
             {
+                "model": "kokoro",
                 "narrator_voice": "af_heart",
-                "speed": 1.0,
-                "quality": "sd",
             },
         )
     )
 
     assert "move" in offloaded_names
     assert "fake_convert_source_document" in offloaded_names
-    assert "initialize" in offloaded_names
+    assert "switch_model" in offloaded_names
     assert "generate_speech" in offloaded_names
     assert "fake_encode_audio" in offloaded_names
     assert "fake_embed_mp3_metadata" in offloaded_names

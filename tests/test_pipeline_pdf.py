@@ -10,18 +10,31 @@ from src.core.pipeline import process_book
 
 class _FakeTTSEngine:
     def __init__(self):
-        self.initialized = False
+        self.loaded = False
         self.calls = []
 
-    def is_initialized(self):
-        return self.initialized
+    def is_loaded(self):
+        return self.loaded
 
-    def initialize(self):
-        self.initialized = True
+    def load(self):
+        self.loaded = True
 
-    def generate_speech(self, text, voice_id, speed):
-        self.calls.append((text, voice_id, speed))
+    def unload(self):
+        self.loaded = False
+
+    def generate_speech(self, text, voice_id):
+        self.calls.append((text, voice_id))
         return np.zeros(32, dtype=np.float32), 24000
+
+
+class _FakeTTSManager:
+    def __init__(self, model):
+        self.model = model
+
+    def switch_model(self, _model_name):
+        if not self.model.is_loaded():
+            self.model.load()
+        return self.model
 
 
 def test_process_book_preserves_pdf_output_contract(monkeypatch, tmp_path):
@@ -51,6 +64,7 @@ def test_process_book_preserves_pdf_output_contract(monkeypatch, tmp_path):
         cover_filename="cover.png",
     )
     fake_tts = _FakeTTSEngine()
+    fake_manager = _FakeTTSManager(fake_tts)
 
     def fake_convert_source_document(file_path, output_dir):
         assert file_path.endswith("source.pdf")
@@ -73,7 +87,7 @@ def test_process_book_preserves_pdf_output_contract(monkeypatch, tmp_path):
         return None
 
     monkeypatch.setattr("src.core.pipeline.convert_source_document", fake_convert_source_document)
-    monkeypatch.setattr("src.core.pipeline.get_tts_engine", lambda: fake_tts)
+    monkeypatch.setattr("src.core.pipeline.get_tts_manager", lambda: fake_manager)
     monkeypatch.setattr(
         "src.core.pipeline.render_chapter_text",
         lambda chapter: f"{chapter.title}\n\nNarrated text [1] (2)",
@@ -86,11 +100,8 @@ def test_process_book_preserves_pdf_output_contract(monkeypatch, tmp_path):
         process_book(
             job,
             {
+                "model": "kokoro",
                 "narrator_voice": "af_heart",
-                "speed": 1.0,
-                "quality": "sd",
-                "remove_square_bracket_numbers": True,
-                "remove_paren_numbers": True,
             },
         )
     )
@@ -99,7 +110,7 @@ def test_process_book_preserves_pdf_output_contract(monkeypatch, tmp_path):
     chapter_text_path = data_dir / "library" / job.id / "chapter_01.txt"
     audio_path = data_dir / "library" / job.id / "chapter_01.mp3"
     moved_source_path = data_dir / "library" / job.id / "source.pdf"
-    expected_chapter_text = "Chapter 1\n\nNarrated text  "
+    expected_chapter_text = "Chapter 1\n\nNarrated text [1] (2)"
 
     assert moved_source_path.exists()
     assert audio_path.exists()
@@ -110,13 +121,14 @@ def test_process_book_preserves_pdf_output_contract(monkeypatch, tmp_path):
     assert metadata["author"] == "Jane PDF"
     assert metadata["cover_url"] == f"/api/book/{job.id}/cover"
     assert metadata["source_file"] == "source.pdf"
+    assert metadata["model"] == "kokoro"
     assert metadata["total_chapters"] == 1
     assert metadata["chapters"][0]["number"] == 1
     assert metadata["chapters"][0]["audio_path"] == "chapter_01.mp3"
     assert metadata["chapters"][0]["text_path"] == "chapter_01.txt"
     assert embedded["artist"] == "Jane PDF"
     assert embedded["cover_path"].endswith("cover.png")
-    assert fake_tts.calls == [(expected_chapter_text, "af_heart", 1.0)]
+    assert fake_tts.calls == [(expected_chapter_text, "af_heart")]
     assert job.total_chapters == 1
     assert job.status == JobStatus.PENDING
 
@@ -149,12 +161,22 @@ def test_process_book_stops_after_cancelled_tts_return(monkeypatch, tmp_path):
     )
 
     class CancelledTTSEngine:
-        def is_initialized(self):
+        def is_loaded(self):
             return True
 
-        def generate_speech(self, text, voice_id, speed):
+        def load(self):
+            return None
+
+        def unload(self):
+            return None
+
+        def generate_speech(self, text, voice_id):
             job.status = JobStatus.CANCELLED
             return np.zeros(32, dtype=np.float32), 24000
+
+    class CancelledTTSManager:
+        def switch_model(self, _model_name):
+            return CancelledTTSEngine()
 
     async def fake_sleep(_seconds):
         return None
@@ -166,7 +188,7 @@ def test_process_book_stops_after_cancelled_tts_return(monkeypatch, tmp_path):
         "src.core.pipeline.convert_source_document",
         lambda file_path, output_dir: imported_document,
     )
-    monkeypatch.setattr("src.core.pipeline.get_tts_engine", lambda: CancelledTTSEngine())
+    monkeypatch.setattr("src.core.pipeline.get_tts_manager", lambda: CancelledTTSManager())
     monkeypatch.setattr(
         "src.core.pipeline.render_chapter_text",
         lambda chapter: f"{chapter.title}\n\nNarrated text",
@@ -178,9 +200,8 @@ def test_process_book_stops_after_cancelled_tts_return(monkeypatch, tmp_path):
         process_book(
             job,
             {
+                "model": "kokoro",
                 "narrator_voice": "af_heart",
-                "speed": 1.0,
-                "quality": "sd",
             },
         )
     )

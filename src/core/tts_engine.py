@@ -23,6 +23,7 @@ import logging
 import threading
 import warnings
 import numpy as np
+from abc import ABC, abstractmethod
 from typing import Optional, Tuple, List, Dict
 from dataclasses import dataclass
 
@@ -55,6 +56,37 @@ class VoiceConfig:
     name: str
     description: str
     gender: str
+    model: str = "kokoro"
+
+
+class BaseTTSModel(ABC):
+    """Abstract interface for a TTS model backend."""
+
+    name: str
+
+    @abstractmethod
+    def load(self) -> None:
+        """Load the model into memory."""
+
+    @abstractmethod
+    def unload(self) -> None:
+        """Release model resources."""
+
+    @abstractmethod
+    def is_loaded(self) -> bool:
+        """Return whether the model is ready for inference."""
+
+    @abstractmethod
+    def get_voices(self) -> List[VoiceConfig]:
+        """Return the model's available voices."""
+
+    @abstractmethod
+    def generate_speech(self, text: str, voice_id: str) -> Tuple[np.ndarray, int]:
+        """Generate speech for the given text and voice."""
+
+    @abstractmethod
+    def generate_sample(self, voice_id: str) -> Tuple[np.ndarray, int]:
+        """Generate a preview sample for the given voice."""
 
 
 # Available Kokoro voices - American (🇺🇸) and British (🇬🇧) English
@@ -96,8 +128,10 @@ PRESET_VOICES: List[VoiceConfig] = [
 ]
 
 
-class TTSEngine:
+class KokoroTTSModel(BaseTTSModel):
     """Text-to-Speech engine using Kokoro-82M."""
+
+    name = "kokoro"
 
     def __init__(self, device: Optional[str] = None):
         """Initialize the TTS engine."""
@@ -161,30 +195,41 @@ class TTSEngine:
 
             return pipeline
 
-    def initialize(self) -> None:
+    def load(self) -> None:
         """Pre-load the American English pipeline."""
         if self._initialized:
             return
         self._get_pipeline("af_heart")  # triggers 'a' pipeline creation
+
+    def initialize(self) -> None:
+        """Backward-compatible alias for Kokoro loading."""
+        self.load()
 
     def preload_runtime_assets(self) -> None:
         """Preload the shared Kokoro-82M base model once and both English pipelines."""
         self._get_pipeline("af_heart")
         self._get_pipeline("bf_alice")
 
-    def is_initialized(self) -> bool:
+    def is_loaded(self) -> bool:
         """Check if at least one pipeline is loaded."""
         return self._initialized
 
-    def get_available_voices(self) -> List[VoiceConfig]:
+    def is_initialized(self) -> bool:
+        """Backward-compatible alias for Kokoro readiness."""
+        return self.is_loaded()
+
+    def get_voices(self) -> List[VoiceConfig]:
         """Get list of available voices."""
         return PRESET_VOICES
+
+    def get_available_voices(self) -> List[VoiceConfig]:
+        """Backward-compatible alias for Kokoro voice lookup."""
+        return self.get_voices()
 
     def generate_speech(
         self,
         text: str,
         voice_id: str = "af_heart",
-        speed: float = 1.0,
     ) -> Tuple[np.ndarray, int]:
         """
         Generate speech from text.
@@ -192,13 +237,12 @@ class TTSEngine:
         Args:
             text: The text to convert to speech
             voice_id: Kokoro voice ID (e.g., 'af_heart', 'am_adam')
-            speed: Playback speed multiplier (0.5 to 2.0)
 
         Returns:
             Tuple of (audio_array, sample_rate)
         """
         if not self._initialized:
-            self.initialize()
+            self.load()
 
         try:
             # Select the correct pipeline for this voice's language
@@ -208,7 +252,7 @@ class TTSEngine:
 
             # Generate audio using Kokoro
             # Returns generator of (graphemes, phonemes, audio) tuples
-            generator = pipeline(text, voice=voice, speed=speed)
+            generator = pipeline(text, voice=voice, speed=1.0)
 
             # Collect all audio chunks
             audio_chunks = []
@@ -237,7 +281,7 @@ class TTSEngine:
         )
         return self.generate_speech(sample_text, voice_id)
 
-    def cleanup(self) -> None:
+    def unload(self) -> None:
         """Release model resources."""
         if self._pipelines:
             for key in list(self._pipelines):
@@ -255,21 +299,87 @@ class TTSEngine:
             except ImportError:
                 pass
 
-
-# Global TTS engine instance
-_tts_engine: Optional[TTSEngine] = None
-
-
-def get_tts_engine() -> TTSEngine:
-    """Get the global TTS engine instance."""
-    global _tts_engine
-    if _tts_engine is None:
-        _tts_engine = TTSEngine()
-    return _tts_engine
+    def cleanup(self) -> None:
+        """Backward-compatible alias for Kokoro cleanup."""
+        self.unload()
 
 
-def init_tts_engine(device: Optional[str] = None) -> TTSEngine:
-    """Initialize the global TTS engine."""
-    global _tts_engine
-    _tts_engine = TTSEngine(device)
-    return _tts_engine
+class TTSModelManager:
+    """Singleton-like manager for available TTS backends."""
+
+    def __init__(self, device: Optional[str] = None, default_model: str = "kokoro"):
+        self._device = device
+        self._default_model = default_model
+        self._active_model: Optional[BaseTTSModel] = None
+        self._model_registry: Dict[str, type] = {
+            "kokoro": KokoroTTSModel,
+        }
+        self._instances: Dict[str, BaseTTSModel] = {}
+
+    def get_available_model_names(self) -> List[str]:
+        """Return the registered model identifiers."""
+        return list(self._model_registry.keys())
+
+    def switch_model(self, model_name: str) -> BaseTTSModel:
+        """Switch the active model, unloading the previous model if needed."""
+        if model_name not in self._model_registry:
+            raise ValueError(f"Unsupported TTS model: {model_name}")
+
+        if self._active_model is not None and self._active_model.name == model_name:
+            if not self._active_model.is_loaded():
+                self._active_model.load()
+            return self._active_model
+
+        if self._active_model is not None:
+            self._active_model.unload()
+
+        model = self._instances.get(model_name)
+        if model is None:
+            model = self._model_registry[model_name](device=self._device)
+            self._instances[model_name] = model
+
+        if not model.is_loaded():
+            model.load()
+
+        self._active_model = model
+        return model
+
+    def get_active_model(self) -> BaseTTSModel:
+        """Return the current model, loading the default model if required."""
+        if self._active_model is None:
+            return self.switch_model(self._default_model)
+        if not self._active_model.is_loaded():
+            self._active_model.load()
+        return self._active_model
+
+
+# Backward-compatible alias while Phase 1 removes direct callers.
+TTSEngine = KokoroTTSModel
+
+
+_tts_manager: Optional[TTSModelManager] = None
+
+
+def get_tts_manager() -> TTSModelManager:
+    """Get the global TTS model manager instance."""
+    global _tts_manager
+    if _tts_manager is None:
+        _tts_manager = TTSModelManager()
+    return _tts_manager
+
+
+def init_tts_manager(device: Optional[str] = None) -> TTSModelManager:
+    """Initialize the global TTS model manager."""
+    global _tts_manager
+    _tts_manager = TTSModelManager(device=device)
+    return _tts_manager
+
+
+def get_tts_engine() -> BaseTTSModel:
+    """Backward-compatible accessor for the active TTS model."""
+    return get_tts_manager().get_active_model()
+
+
+def init_tts_engine(device: Optional[str] = None) -> BaseTTSModel:
+    """Backward-compatible initializer for the active TTS model."""
+    return init_tts_manager(device=device).get_active_model()

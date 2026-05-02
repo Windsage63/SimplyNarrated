@@ -49,43 +49,14 @@ function renderUploadView() {
                     <span class="material-symbols-outlined align-middle mr-2">record_voice_over</span>
                     Select Narrator Voice
                 </h3>
+              <div class="mb-4">
+                <label for="model-select" class="block text-sm text-gray-400 mb-2">TTS Model</label>
+                <select id="model-select" class="w-full rounded-lg bg-dark-600 border border-white/10 px-3 py-2 text-white focus:outline-none focus:border-primary transition">
+                  <option value="">Select a model</option>
+                </select>
+              </div>
                 <div id="voice-grid" class="grid grid-cols-2 md:grid-cols-4 gap-3">
-                    <!-- Voices will be rendered here -->
-                </div>
-            </div>
-            
-            <!-- Audio Settings -->
-            <div class="glass rounded-2xl p-8">
-                <h3 class="text-lg font-semibold mb-4">
-                    <span class="material-symbols-outlined align-middle mr-2">tune</span>
-                    Audio Settings
-                </h3>
-                <div class="grid md:grid-cols-3 gap-6">
-                    <!-- Speed -->
-                    <div>
-                        <label class="block text-sm text-gray-400 mb-2">Speed: <span id="speed-value">1.0x</span></label>
-                        <input type="range" id="speed-slider" min="0.5" max="2" step="0.1" value="1"
-                            class="w-full h-2 bg-dark-600 rounded-lg appearance-none cursor-pointer">
-                    </div>
-                    
-                    <!-- Quality -->
-                    <div>
-                        <label class="block text-sm text-gray-400 mb-2">Quality</label>
-                        <div class="flex gap-2">
-                            <button onclick="setQuality('sd')" class="quality-btn px-4 py-2 rounded-lg bg-primary" data-quality="sd">SD</button>
-                            <button onclick="setQuality('hd')" class="quality-btn px-4 py-2 rounded-lg bg-dark-600 hover:bg-dark-700" data-quality="hd">HD</button>
-                            <button onclick="setQuality('ultra')" class="quality-btn px-4 py-2 rounded-lg bg-dark-600 hover:bg-dark-700" data-quality="ultra">Ultra</button>
-                        </div>
-                    </div>
-                    
-                    <!-- Remove Footnotes -->
-                    <div>
-                        <label class="block text-sm text-gray-400 mb-2">Remove Footnotes / Numbers</label>
-                        <div class="flex gap-2">
-                            <button onclick="toggleFootnoteRemoval('square')" class="footnote-toggle-btn px-4 py-2 rounded-lg bg-dark-600 hover:bg-dark-700" data-footnote="square">[###]</button>
-                            <button onclick="toggleFootnoteRemoval('paren')" class="footnote-toggle-btn px-4 py-2 rounded-lg bg-dark-600 hover:bg-dark-700" data-footnote="paren">(###)</button>
-                        </div>
-                    </div>
+                <p class="col-span-full text-sm text-gray-500">Select a model to load available voices.</p>
                 </div>
             </div>
             
@@ -102,9 +73,10 @@ function renderUploadView() {
 function initUploadView() {
   const dropZone = document.getElementById("drop-zone");
   const fileInput = document.getElementById("file-input");
+  const modelSelect = document.getElementById("model-select");
 
-  // Load voices
-  loadVoices();
+  // Load available models
+  loadModels();
 
   // Drag and drop handlers
   dropZone.addEventListener("click", () => fileInput.click());
@@ -134,24 +106,75 @@ function initUploadView() {
     }
   });
 
-  // Speed slider
-  const speedSlider = document.getElementById("speed-slider");
-  speedSlider.addEventListener("input", (e) => {
-    state.audioSettings.speed = parseFloat(e.target.value);
-    document.getElementById("speed-value").textContent = `${e.target.value}x`;
+  modelSelect.addEventListener("change", async (e) => {
+    await selectModel(e.target.value);
   });
+
+  updateConvertButtonState();
 }
 
 // Track currently playing audio for voice previews
 let currentPreviewAudio = null;
 let currentPreviewVoiceId = null;
 
-async function loadVoices() {
+async function loadModels() {
   try {
-    const data = await api.getVoices();
+    const data = await api.getModels();
+    const modelSelect = document.getElementById("model-select");
+
+    modelSelect.innerHTML = `
+      <option value="">Select a model</option>
+      ${data.models
+        .map((model) => `<option value="${model}">${model}</option>`)
+        .join("")}
+    `;
+  } catch (error) {
+    console.error("Failed to load models:", error);
+  }
+}
+
+async function selectModel(model) {
+  state.selectedModel = model || null;
+  state.selectedVoice = null;
+  stopVoicePreview();
+
+  if (!state.selectedModel) {
+    state.voices = [];
+    document.getElementById("voice-grid").innerHTML =
+      '<p class="col-span-full text-sm text-gray-500">Select a model to load available voices.</p>';
+    updateConvertButtonState();
+    return;
+  }
+
+  try {
+    await api.switchModel(state.selectedModel);
+    await loadVoices(state.selectedModel);
+  } catch (error) {
+    console.error("Failed to switch model:", error);
+  }
+
+  updateConvertButtonState();
+}
+
+async function loadVoices(model) {
+  if (!model) {
+    state.voices = [];
+    updateConvertButtonState();
+    return;
+  }
+
+  try {
+    const data = await api.getVoices(model);
     state.voices = data.voices;
 
     const grid = document.getElementById("voice-grid");
+    if (state.voices.length === 0) {
+      grid.innerHTML =
+        '<p class="col-span-full text-sm text-gray-500">No voices are available for this model.</p>';
+      updateConvertButtonState();
+      return;
+    }
+
     grid.innerHTML = state.voices
       .map(
         (voice) => `
@@ -181,6 +204,8 @@ async function loadVoices() {
     if (typeof twemoji !== "undefined") {
       twemoji.parse(grid, { folder: "svg", ext: ".svg" });
     }
+
+    updateConvertButtonState();
   } catch (error) {
     console.error("Failed to load voices:", error);
   }
@@ -204,7 +229,10 @@ async function playVoicePreview(voiceId, button) {
 
   try {
     // Fetch and play the sample
-    const audio = new Audio(`/api/voice-sample/${voiceId}`);
+    const query = state.selectedModel
+      ? `?model=${encodeURIComponent(state.selectedModel)}`
+      : "";
+    const audio = new Audio(`/api/voice-sample/${voiceId}${query}`);
     currentPreviewAudio = audio;
     currentPreviewVoiceId = voiceId;
 
@@ -273,7 +301,8 @@ function selectVoice(voiceId) {
       card.onclick.toString().includes(voiceId),
     );
   });
-  loadVoices(); // Re-render to update selection
+  updateConvertButtonState();
+  loadVoices(state.selectedModel); // Re-render to update selection
 }
 
 function handleFileSelect(file) {
@@ -298,47 +327,31 @@ function handleFileSelect(file) {
   document.getElementById("selected-filesize").textContent = formatFileSize(
     file.size,
   );
-  document.getElementById("convert-btn").disabled = false;
+  updateConvertButtonState();
 }
 
 function clearFile() {
   state.selectedFile = null;
   document.getElementById("upload-content").classList.remove("hidden");
   document.getElementById("file-selected").classList.add("hidden");
-  document.getElementById("convert-btn").disabled = true;
   document.getElementById("file-input").value = "";
+  updateConvertButtonState();
 }
 
-function setQuality(quality) {
-  state.audioSettings.quality = quality;
-  document.querySelectorAll(".quality-btn").forEach((btn) => {
-    btn.classList.toggle("bg-primary", btn.dataset.quality === quality);
-    btn.classList.toggle("bg-dark-600", btn.dataset.quality !== quality);
-  });
-}
+function updateConvertButtonState() {
+  const btn = document.getElementById("convert-btn");
+  if (!btn) return;
 
-function toggleFootnoteRemoval(type) {
-  if (type === "square") {
-    state.audioSettings.removeSquareBracketNumbers =
-      !state.audioSettings.removeSquareBracketNumbers;
-  } else if (type === "paren") {
-    state.audioSettings.removeParenNumbers =
-      !state.audioSettings.removeParenNumbers;
-  }
-  document.querySelectorAll(".footnote-toggle-btn").forEach((btn) => {
-    const ft = btn.dataset.footnote;
-    const isOn =
-      ft === "square"
-        ? state.audioSettings.removeSquareBracketNumbers
-        : state.audioSettings.removeParenNumbers;
-    btn.classList.toggle("bg-primary", isOn);
-    btn.classList.toggle("bg-dark-600", !isOn);
-    btn.classList.toggle("hover:bg-dark-700", !isOn);
-  });
+  btn.disabled = !(
+    state.selectedFile &&
+    state.selectedModel &&
+    state.selectedVoice
+  );
 }
 
 async function startConversion() {
-  if (!state.selectedFile) return;
+  if (!state.selectedFile || !state.selectedModel || !state.selectedVoice)
+    return;
 
   const btn = document.getElementById("convert-btn");
   btn.disabled = true;
@@ -352,15 +365,15 @@ async function startConversion() {
 
     // Start generation
     await api.generate(uploadResult.job_id, {
+      model: state.selectedModel,
       voice: state.selectedVoice,
-      ...state.audioSettings,
     });
 
     // Switch to progress view
     showView("progress");
   } catch (error) {
     alert("Error: " + error.message);
-    btn.disabled = false;
+    updateConvertButtonState();
     btn.innerHTML =
       '<span class="material-symbols-outlined align-middle mr-2">play_circle</span>Start Conversion';
   }

@@ -844,6 +844,10 @@ async function reconvertCurrentChapter() {
     const reconvertResponse = await api.reconvertChapter(
       playerState.book.id,
       playerState.currentChapter,
+      {
+        model: playerState.book.model,
+        narrator_voice: playerState.book.voice,
+      },
     );
 
     playerState.reconvertJobId = reconvertResponse.job_id;
