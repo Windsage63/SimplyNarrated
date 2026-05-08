@@ -23,6 +23,9 @@ from enum import Enum
 from datetime import datetime
 
 
+UUID_LIKE_PATTERN = r"^[a-f0-9-]{36}$"
+
+
 class AudioQuality(str, Enum):
     """Audio output quality options."""
 
@@ -53,7 +56,7 @@ class JobStatus(str, Enum):
 class GenerateRequest(BaseModel):
     """Request to start audiobook generation."""
 
-    job_id: str
+    job_id: str = Field(min_length=36, max_length=36, pattern=UUID_LIKE_PATTERN)
     model: str = Field(default="kokoro", description="TTS model ID")
     narrator_voice: str = Field(default="af_heart", description="Voice for narration")
 

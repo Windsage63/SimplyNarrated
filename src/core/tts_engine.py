@@ -320,6 +320,21 @@ class TTSModelManager:
         """Return the registered model identifiers."""
         return list(self._model_registry.keys())
 
+    def get_model(self, model_name: str) -> BaseTTSModel:
+        """Return a specific model instance without changing the active model."""
+        if model_name not in self._model_registry:
+            raise ValueError(f"Unsupported TTS model: {model_name}")
+
+        model = self._instances.get(model_name)
+        if model is None:
+            model = self._model_registry[model_name](device=self._device)
+            self._instances[model_name] = model
+
+        if not model.is_loaded():
+            model.load()
+
+        return model
+
     def switch_model(self, model_name: str) -> BaseTTSModel:
         """Switch the active model, unloading the previous model if needed."""
         if model_name not in self._model_registry:
@@ -333,14 +348,7 @@ class TTSModelManager:
         if self._active_model is not None:
             self._active_model.unload()
 
-        model = self._instances.get(model_name)
-        if model is None:
-            model = self._model_registry[model_name](device=self._device)
-            self._instances[model_name] = model
-
-        if not model.is_loaded():
-            model.load()
-
+        model = self.get_model(model_name)
         self._active_model = model
         return model
 

@@ -22,13 +22,13 @@ import io
 import json
 import math
 import os
-import re
 import tempfile
 import uuid
 import zipfile
 from functools import partial
+from typing import Annotated
 import aiofiles
-from fastapi import APIRouter, UploadFile, File, HTTPException, BackgroundTasks
+from fastapi import APIRouter, UploadFile, File, HTTPException, BackgroundTasks, Depends, Path, Query
 from fastapi.responses import FileResponse
 from starlette.background import BackgroundTask
 
@@ -60,7 +60,7 @@ from src.core.encoder import retag_book_mp3_files
 from src.core.job_manager import get_job_manager
 from src.core.library import get_library_manager
 from src.core.portability import export_book_archive, import_book_archive
-from src.core.tts_engine import get_tts_manager
+from src.core.tts_engine import BaseTTSModel, get_tts_manager
 
 
 router = APIRouter()
@@ -69,10 +69,10 @@ router = APIRouter()
 SUPPORTED_EXTENSIONS = {".txt", ".pdf", ".zip"}
 MAX_FILE_SIZE = 50 * 1024 * 1024  # 50 MB
 MAX_IMPORT_ARCHIVE_SIZE = 1024 * 1024 * 1024  # 1 GB
+UUID_LIKE_PATTERN = r"^[a-f0-9-]{36}$"
 
 # Sample quote for voice preview
 SAMPLE_QUOTE = "Welcome to your audiobook library, where every story is unique and every voice has a tale to tell. Discover the magic of storytelling with our diverse range of voices, each ready to narrate your favorite books, and to bring your stories to life with the perfect voice."
-BOOK_ID_PATTERN = re.compile(r"^[a-f0-9-]{36}$")
 
 
 def _voice_info_list(voices: list) -> list:
@@ -93,8 +93,16 @@ def _get_model_or_400(model_name: str | None = None):
     manager = get_tts_manager()
     try:
         if model_name:
-            return manager.switch_model(model_name)
+            return manager.get_model(model_name)
         return manager.get_active_model()
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+def _switch_model_or_400(model_name: str):
+    manager = get_tts_manager()
+    try:
+        return manager.switch_model(model_name)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
@@ -111,16 +119,26 @@ def _remove_existing_cover_files(book_dir: str) -> None:
             os.remove(old_path)
 
 
-def _validate_book_id_or_400(book_id: str) -> None:
-    """Validate UUID-like book IDs to prevent path traversal."""
-    if not BOOK_ID_PATTERN.match(book_id):
-        raise HTTPException(status_code=400, detail="Invalid book ID format")
+def _resolved_query_model(model: str | None = Query(default=None)) -> BaseTTSModel:
+    return _get_model_or_400(model)
 
 
-def _validate_chapter_or_400(chapter: int) -> None:
-    """Validate chapter numbers to prevent invalid file access."""
-    if chapter < 1:
-        raise HTTPException(status_code=400, detail="Chapter number must be >= 1")
+BookIdPathParam = Annotated[
+    str,
+    Path(min_length=36, max_length=36, pattern=UUID_LIKE_PATTERN),
+]
+BookIdQueryParam = Annotated[
+    str,
+    Query(min_length=36, max_length=36, pattern=UUID_LIKE_PATTERN),
+]
+JobIdPathParam = Annotated[
+    str,
+    Path(min_length=36, max_length=36, pattern=UUID_LIKE_PATTERN),
+]
+ChapterPathParam = Annotated[int, Path(ge=1)]
+ChapterQueryParam = Annotated[int, Query(ge=1)]
+PositionQueryParam = Annotated[float, Query(ge=0)]
+ResolvedQueryModel = Annotated[BaseTTSModel, Depends(_resolved_query_model)]
 
 
 async def _load_book_metadata_or_404(book_dir: str) -> dict:
@@ -142,11 +160,6 @@ def _ensure_chapter_exists_or_404(metadata: dict, chapter: int) -> None:
 
 def _validate_bookmark_or_400(metadata: dict, chapter: int, position: float) -> None:
     """Validate bookmark chapter and position values."""
-    if chapter < 1:
-        raise HTTPException(status_code=400, detail="Chapter must be >= 1")
-    if position < 0:
-        raise HTTPException(status_code=400, detail="Position must be non-negative")
-
     total_chapters = int(metadata.get("total_chapters") or len(metadata.get("chapters", [])) or 0)
     if total_chapters > 0 and chapter > total_chapters:
         raise HTTPException(
@@ -286,7 +299,7 @@ async def start_generation(request: GenerateRequest, background_tasks: Backgroun
 
 
 @router.get("/status/{job_id}", response_model=StatusResponse)
-async def get_status(job_id: str):
+async def get_status(job_id: JobIdPathParam):
     """
     Get the current status of a conversion job.
     """
@@ -309,7 +322,7 @@ async def get_status(job_id: str):
 
 
 @router.post("/cancel/{job_id}", response_model=CancelJobResponse)
-async def cancel_job(job_id: str):
+async def cancel_job(job_id: JobIdPathParam):
     """
     Cancel an in-progress conversion job.
     """
@@ -342,16 +355,15 @@ async def switch_model(payload: dict):
     if not model_name or not isinstance(model_name, str):
         raise HTTPException(status_code=400, detail="Model is required")
 
-    model = _get_model_or_400(model_name)
+    model = _switch_model_or_400(model_name)
     return {"status": "ok", "active_model": model.name}
 
 
 @router.get("/voices", response_model=VoicesResponse)
-async def list_voices(model: str | None = None):
+async def list_voices(tts_model: ResolvedQueryModel):
     """
     List all available voices for TTS.
     """
-    tts_model = _get_model_or_400(model)
     voices = _voice_info_list(tts_model.get_voices())
     return VoicesResponse(
         voices=voices,
@@ -360,7 +372,7 @@ async def list_voices(model: str | None = None):
 
 
 @router.get("/voice-sample/{voice_id}")
-async def get_voice_sample(voice_id: str, model: str | None = None):
+async def get_voice_sample(voice_id: str, tts_model: ResolvedQueryModel):
     """
     Generate or retrieve a voice sample for preview.
     Uses cached samples if available, otherwise generates on-demand.
@@ -370,7 +382,6 @@ async def get_voice_sample(voice_id: str, model: str | None = None):
 
     logger = logging.getLogger(__name__)
 
-    tts_model = _get_model_or_400(model)
     model_name = tts_model.name
 
     # Validate voice_id
@@ -451,12 +462,10 @@ async def get_library():
 
 
 @router.get("/book/{book_id}", response_model=BookInfo)
-async def get_book(book_id: str):
+async def get_book(book_id: BookIdPathParam):
     """
     Get details for a specific book.
     """
-    _validate_book_id_or_400(book_id)
-
     library = get_library_manager()
     book = library.get_book(book_id)
 
@@ -467,10 +476,8 @@ async def get_book(book_id: str):
 
 
 @router.get("/book/{book_id}/export")
-async def export_book(book_id: str):
+async def export_book(book_id: BookIdPathParam):
     """Create and download a portability ZIP for a book."""
-    _validate_book_id_or_400(book_id)
-
     library = get_library_manager()
 
     try:
@@ -528,15 +535,10 @@ async def import_library_book(file: UploadFile = File(...)):
 
 
 @router.get("/audio/{book_id}/{chapter}")
-async def stream_audio(book_id: str, chapter: int):
+async def stream_audio(book_id: BookIdPathParam, chapter: ChapterPathParam):
     """
     Stream a chapter's MP3 audio file.
     """
-    _validate_book_id_or_400(book_id)
-
-    if chapter < 1:
-        raise HTTPException(status_code=400, detail="Chapter number must be >= 1")
-
     job_manager = get_job_manager()
     library = get_library_manager()
 
@@ -570,14 +572,10 @@ async def stream_audio(book_id: str, chapter: int):
 
 
 @router.get("/text/{book_id}/{chapter}", response_model=ChapterTextResponse)
-async def get_chapter_text(book_id: str, chapter: int):
+async def get_chapter_text(book_id: BookIdPathParam, chapter: ChapterPathParam):
     """
     Get the text content for a specific chapter.
     """
-    _validate_book_id_or_400(book_id)
-
-    _validate_chapter_or_400(chapter)
-
     library = get_library_manager()
     book_dir = library.get_book_dir(book_id)
     text_path = os.path.join(book_dir, f"chapter_{chapter:02d}.txt")
@@ -595,13 +593,14 @@ async def get_chapter_text(book_id: str, chapter: int):
     "/book/{book_id}/chapter/{chapter}/text",
     response_model=UpdateChapterTextResponse,
 )
-async def update_chapter_text(book_id: str, chapter: int, request: UpdateChapterTextRequest):
+async def update_chapter_text(
+    book_id: BookIdPathParam,
+    chapter: ChapterPathParam,
+    request: UpdateChapterTextRequest,
+):
     """
     Update generated text for a specific chapter.
     """
-    _validate_book_id_or_400(book_id)
-    _validate_chapter_or_400(chapter)
-
     if not request.content.strip():
         raise HTTPException(status_code=400, detail="Chapter content cannot be empty")
 
@@ -626,13 +625,14 @@ async def update_chapter_text(book_id: str, chapter: int, request: UpdateChapter
     "/book/{book_id}/chapter/{chapter}/reconvert",
     response_model=ReconvertChapterResponse,
 )
-async def reconvert_chapter(book_id: str, chapter: int, request: ReconvertChapterRequest):
+async def reconvert_chapter(
+    book_id: BookIdPathParam,
+    chapter: ChapterPathParam,
+    request: ReconvertChapterRequest,
+):
     """
     Queue reconversion for a single chapter using the current chapter text file.
     """
-    _validate_book_id_or_400(book_id)
-    _validate_chapter_or_400(chapter)
-
     library = get_library_manager()
     book_dir = library.get_book_dir(book_id)
     metadata = await _load_book_metadata_or_404(book_dir)
@@ -693,12 +693,14 @@ async def reconvert_chapter(book_id: str, chapter: int, request: ReconvertChapte
 
 
 @router.post("/bookmark", response_model=SaveBookmarkResponse)
-async def save_bookmark(book_id: str, chapter: int, position: float):
+async def save_bookmark(
+    book_id: BookIdQueryParam,
+    chapter: ChapterQueryParam,
+    position: PositionQueryParam,
+):
     """
     Save a playback bookmark for a book.
     """
-    _validate_book_id_or_400(book_id)
-
     library = get_library_manager()
     book_dir = library.get_book_dir(book_id)
     metadata = await _load_book_metadata_or_404(book_dir)
@@ -718,12 +720,10 @@ async def save_bookmark(book_id: str, chapter: int, position: float):
 
 
 @router.get("/bookmark/{book_id}", response_model=BookmarkResponse)
-async def get_bookmark(book_id: str):
+async def get_bookmark(book_id: BookIdPathParam):
     """
     Get the user's playback position for a book.
     """
-    _validate_book_id_or_400(book_id)
-
     library = get_library_manager()
     bookmark = library.get_bookmark(book_id)
 
@@ -738,12 +738,10 @@ async def get_bookmark(book_id: str):
 
 
 @router.patch("/book/{book_id}", response_model=UpdateMetadataResponse)
-async def update_book_metadata(book_id: str, request: UpdateMetadataRequest):
+async def update_book_metadata(book_id: BookIdPathParam, request: UpdateMetadataRequest):
     """
     Update metadata (title, author) for a specific book.
     """
-    _validate_book_id_or_400(book_id)
-
     updates = request.model_dump(exclude_none=True)
     if not updates:
         raise HTTPException(status_code=400, detail="No fields to update")
@@ -775,13 +773,11 @@ def _detect_cover_extension(content: bytes) -> str | None:
 
 
 @router.post("/book/{book_id}/cover", response_model=UploadCoverResponse)
-async def upload_cover(book_id: str, file: UploadFile = File(...)):
+async def upload_cover(book_id: BookIdPathParam, file: UploadFile = File(...)):
     """
     Upload a cover image for a book.
     Accepts .jpg/.png files up to 5 MB.
     """
-    _validate_book_id_or_400(book_id)
-
     # Validate file extension
     filename = file.filename or "cover"
     ext = os.path.splitext(filename)[1].lower()
@@ -830,12 +826,10 @@ async def upload_cover(book_id: str, file: UploadFile = File(...)):
 
 
 @router.get("/book/{book_id}/cover")
-async def get_cover(book_id: str):
+async def get_cover(book_id: BookIdPathParam):
     """
     Serve the cover image for a book.
     """
-    _validate_book_id_or_400(book_id)
-
     library = get_library_manager()
     book_dir = library.get_book_dir(book_id)
 
@@ -853,12 +847,10 @@ async def get_cover(book_id: str):
 
 
 @router.delete("/book/{book_id}", response_model=DeleteBookResponse)
-async def delete_book(book_id: str):
+async def delete_book(book_id: BookIdPathParam):
     """
     Delete a book from the library.
     """
-    _validate_book_id_or_400(book_id)
-
     library = get_library_manager()
 
     # Check existence separate from deletion success

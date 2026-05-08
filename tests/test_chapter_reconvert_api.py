@@ -32,6 +32,29 @@ def test_models_endpoint_returns_kokoro_only_in_phase_1(app_client):
     }
 
 
+def test_book_endpoint_rejects_invalid_book_id_shape(app_client):
+    client, _data_dir, _library_dir = app_client
+
+    response = client.get("/api/book/not-a-uuid")
+
+    assert response.status_code == 422
+
+
+def test_generate_endpoint_rejects_invalid_job_id_shape(app_client):
+    client, _data_dir, _library_dir = app_client
+
+    response = client.post(
+        "/api/generate",
+        json={
+            "job_id": "not-a-uuid",
+            "model": "kokoro",
+            "narrator_voice": "af_heart",
+        },
+    )
+
+    assert response.status_code == 422
+
+
 def test_reconvert_chapter_endpoint_queues_job_with_frontend_expected_config(app_client, monkeypatch):
     client, _data_dir, library_dir = app_client
     book_id, book_dir, _metadata = create_library_book(library_dir, chapter_text="Ready for reconvert")
