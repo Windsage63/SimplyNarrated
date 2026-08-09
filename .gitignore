@@ -148,4 +148,3 @@ yarn-error.log*
 .eslintcache
 .stylelintcache
 static/voices/audio/
-.agents/
