@@ -9,7 +9,7 @@ Automate the process of adding Apache 2.0 license headers to project files to en
 
 ## The Job
 
-1. Identify files in the project that are missing the Apache 2.0 license header.
+1. Identify first-party source files in the requested scope. Include application code, startup scripts, configuration scripts, tests, and test helpers.
 2. Apply the header at the top of the file using the correct comment syntax for the file type.
 3. Ensure placeholders like `{explains the purpose of the file}` and copyright years are correctly populated.
 
@@ -20,22 +20,17 @@ Use the following template for the license header:
 ```javascript
 /**
  * @fileoverview {explains the purpose of the file}
- * @author {author_name}
  * @license Apache-2.0
  * @copyright {copyright_years} {author_name}
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
  */
+```
+
+```Python
+"""
+@fileoverview {explains the purpose of the file}
+@license Apache-2.0
+@copyright {copyright_years} {author_name}
+"""
 ```
 
 ## Implementation Rules
@@ -44,6 +39,9 @@ Use the following template for the license header:
 
   - **JavaScript (.js)**: Use the `/** ... */` block comment syntax shown above.
   - **CSS (.css)**: Use the `/** ... */` block comment syntax shown above.
+  - **TypeScript (.ts)**: Use the `/** ... */` block comment syntax shown above.
+  - **Shell Scripts (.sh)**: Use the `# ...` line comment syntax, prefixing each line with `#`.
+  - **Python (.py)**: Use the `""" ... """` block comment syntax shown above.
   - **HTML (.html)**: Wrap the entire block in HTML comment tags: `<!-- ... -->`.
 
 ### 2. Header Placement
@@ -54,21 +52,23 @@ Use the following template for the license header:
 ### 3. Populate Placeholders
 
   - **@fileoverview**: Briefly explain what the file does.
-  - **@author**:
-    - Use the name supplied by the user in the current request or chat history.
-    - If not supplied, infer from other project files (e.g., check `js/app.js` or `package.json`).
-    - If no author is found or inferred, ask the user.
-  - **@copyright**:
-    - **Year Range**: Detect the file's creation year (e.g., via `git log --follow --format=%ad --date=format:%Y [file]` or file metadata).
-    - If the creation year is the same as the current year, use a single year (e.g., `2026`).
-    - If the creation year is earlier than the current year, use a range (e.g., `2025-2026`).
-    - **Name**: Use the same author name identified for the `@author` tag.
+  - **@license**: Always use `Apache-2.0`.
+   - **@copyright**:
+     - **Year Range**: Detect the file's creation year (e.g., via `git log --follow --format=%ad --date=format:%Y [file]` or file metadata).
+     - If the creation year is the same as the current year, use a single year (e.g., `2026`).
+     - If the creation year is earlier than the current year, use a range (e.g., `2025-2026`).
+     - **author_name**: Use the same author name identified for the `@author` tag.
+       - Use the name supplied by the user in the current request or chat history.
+       - If not supplied, infer from other project files (e.g., check `js/app.js` or `package.json`).
+       - If no author is found or inferred, ask the user.
 
-## Stopping Rules
+## Boundaries
 
-  - Do NOT add a license header to files that already have one.
-  - Do NOT modify the `LICENSE` file or any files in `.git/`, `node_modules/`, or other dependency folders.
-  - Do NOT add headers to `.json`, `.md`, or image files unless explicitly requested.
+  - Keep the complete root `LICENSE` file intact.
+  - Preserve bundled/dependency licenses and notices, including `*/vendor`. Do not standardize third-party files.
+  - Exclude `.git`, `node_modules`, generated artifacts, and unrelated skills.
+  - Do not add headers to JSON, Markdown, images, or other unsupported formats unless explicitly requested.
+  - Make edits through the repository-approved editing mechanism. A request to edit does not bypass filesystem permissions.
 
 ## Checklist
 
