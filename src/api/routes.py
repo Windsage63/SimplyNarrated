@@ -317,6 +317,7 @@ async def get_status(job_id: JobIdPathParam):
         total_chapters=job.total_chapters,
         time_remaining=job_manager.get_time_remaining(job),
         processing_rate=job_manager.get_processing_rate(job),
+        error=job.error,
         activity_log=job.activity_log[-20:],  # Last 20 entries
     )
 

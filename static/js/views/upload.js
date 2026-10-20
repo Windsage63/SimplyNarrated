@@ -110,6 +110,9 @@ function initUploadView() {
     await selectModel(e.target.value);
   });
 
+  if (state.selectedFile) {
+    handleFileSelect(state.selectedFile);
+  }
   updateConvertButtonState();
 }
 
@@ -121,6 +124,7 @@ async function loadModels() {
   try {
     const data = await api.getModels();
     const modelSelect = document.getElementById("model-select");
+    if (!modelSelect) return;
 
     modelSelect.innerHTML = `
       <option value="">Select a model</option>
@@ -128,6 +132,15 @@ async function loadModels() {
         .map((model) => `<option value="${model}">${model}</option>`)
         .join("")}
     `;
+    if (state.selectedModel && data.models.includes(state.selectedModel)) {
+      modelSelect.value = state.selectedModel;
+      await loadVoices(state.selectedModel);
+    } else {
+      state.selectedModel = null;
+      state.selectedVoice = null;
+      state.voices = [];
+    }
+    updateConvertButtonState();
   } catch (error) {
     console.error("Failed to load models:", error);
   }
@@ -165,9 +178,14 @@ async function loadVoices(model) {
 
   try {
     const data = await api.getVoices(model);
-    state.voices = data.voices;
-
+    if (state.selectedModel !== model) return;
     const grid = document.getElementById("voice-grid");
+    if (!grid) return;
+    state.voices = data.voices;
+    if (!state.voices.some((voice) => voice.id === state.selectedVoice)) {
+      state.selectedVoice = null;
+    }
+
     if (state.voices.length === 0) {
       grid.innerHTML =
         '<p class="col-span-full text-sm text-gray-500">No voices are available for this model.</p>';

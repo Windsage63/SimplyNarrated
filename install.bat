@@ -186,6 +186,7 @@ echo [OK] All dependencies installed
 REM -------------------------------------------------------
 REM  Step 7: Preload English TTS runtime assets
 REM -------------------------------------------------------
+set "HF_HUB_DISABLE_PROGRESS_BARS=1"
 echo.
 echo Preloading Kokoro-82M base model and English voice pipelines...
 "%PY_EXE%" -c "from src.core.tts_engine import get_tts_manager; get_tts_manager().switch_model('kokoro').preload_runtime_assets()"
@@ -197,6 +198,30 @@ if errorlevel 1 (
 echo [OK] Kokoro base model and English pipelines installed
 
 REM -------------------------------------------------------
+REM  Step 8: Preload the same default PDF pipeline used by the app
+REM -------------------------------------------------------
+echo.
+echo Preloading Docling PDF layout, table, and enabled OCR assets...
+echo Existing cached assets will be reused. Missing assets require internet access.
+"%PY_EXE%" -c "import logging; logging.basicConfig(level=logging.INFO); from docling.datamodel.base_models import InputFormat; from docling.document_converter import DocumentConverter; DocumentConverter().initialize_pipeline(InputFormat.PDF)"
+if errorlevel 1 (
+    echo ERROR: PDF runtime asset preload failed. Check your internet connection and rerun install.bat.
+    pause
+    exit /b 1
+)
+echo [OK] Docling PDF runtime assets installed
+
+echo.
+echo Verifying PDF model loading from the local cache...
+"%PY_EXE%" -c "import os; os.environ['HF_HUB_OFFLINE'] = '1'; from docling.datamodel.base_models import InputFormat; from docling.document_converter import DocumentConverter; DocumentConverter().initialize_pipeline(InputFormat.PDF)"
+if errorlevel 1 (
+    echo ERROR: PDF models could not be loaded from the local cache. Rerun install.bat to repair setup.
+    pause
+    exit /b 1
+)
+echo [OK] PDF pipeline initialized with Hugging Face offline mode enabled
+
+REM -------------------------------------------------------
 REM  Done!
 REM -------------------------------------------------------
 echo.
@@ -205,7 +230,7 @@ echo   Installation Complete!
 echo ============================================================
 echo.
 echo   To start SimplyNarrated, double-click:  run.bat
-echo   Or run:  .\python_embedded\python.exe -m uvicorn src.main:app --reload --port 8010
+echo   Or run:  .\python_embedded\python.exe -m uvicorn src.main:app --port 8010
 echo   Then open:  http://localhost:8010
 echo.
 pause

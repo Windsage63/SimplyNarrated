@@ -60,6 +60,15 @@ function renderProgressView() {
                 </div>
             </div>
             
+            <div id="conversion-failure" class="hidden mt-6 space-y-4" role="alert">
+                <h3 class="text-lg font-semibold text-red-400">Conversion failed</h3>
+                <p id="conversion-error" class="text-gray-300 whitespace-pre-wrap break-words"></p>
+                <button id="retry-conversion-btn"
+                    class="w-full py-3 rounded-xl bg-primary hover:bg-primary-hover font-semibold transition">
+                    Back to conversion settings
+                </button>
+            </div>
+
             <!-- Cancel Button -->
             <button id="cancel-btn"
                 class="w-full mt-6 py-3 rounded-xl bg-red-600 hover:bg-red-700 font-semibold transition">
@@ -79,10 +88,11 @@ function initProgressView() {
   if (cancelButton) {
     cancelButton.onclick = cancelConversion;
   }
+  document.getElementById("retry-conversion-btn").onclick = () => showView("upload");
 
   // Start polling for status
-  pollStatus();
   progressInterval = setInterval(pollStatus, 5000);
+  pollStatus();
 }
 
 function teardownProgressView() {
@@ -135,9 +145,11 @@ function renderActivityLog(entries) {
 
 async function pollStatus() {
   if (!state.currentJob) return;
+  const jobId = state.currentJob.job_id;
 
   try {
-    const status = await api.getStatus(state.currentJob.job_id);
+    const status = await api.getStatus(jobId);
+    if (state.currentView !== "progress" || state.currentJob?.job_id !== jobId) return;
 
     // Update progress ring
     const circle = document.getElementById("progress-circle");
@@ -184,9 +196,20 @@ async function pollStatus() {
       setTimeout(() => {
         showPlayer(state.currentJob.job_id);
       }, 1500);
-    } else if (status.status === "failed" || status.status === "cancelled") {
+    } else if (status.status === "failed") {
       teardownProgressView();
-      alert("Conversion " + status.status);
+      const lastError = (status.activity_log || [])
+        .filter((entry) => entry.status === "error")
+        .pop();
+      document.getElementById("conversion-error").textContent =
+        status.error || lastError?.message || "An unexpected error stopped conversion. Please try again.";
+      document.getElementById("conversion-failure").classList.remove("hidden");
+      document.getElementById("cancel-btn").classList.add("hidden");
+      chapter.textContent = "Conversion failed";
+      timeRemaining.textContent = "Stopped";
+      processingRate.textContent = "--";
+    } else if (status.status === "cancelled") {
+      teardownProgressView();
       showView("upload");
     }
   } catch (error) {

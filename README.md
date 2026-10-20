@@ -52,11 +52,13 @@ The easiest way to get started — no Python installation required. This uses a 
    - Select your GPU when prompted (RTX 50 series, RTX 30/40 series, or CPU only).
    - The script downloads a portable Python environment and installs all dependencies automatically.
    - It also preloads the Kokoro-82M base model plus both American and British English pipelines.
-   - This ensures first-use voice generation does not trigger additional setup.
+   - It preloads Docling's PDF layout, table, and enabled OCR assets using the same default PDF pipeline as the app.
+   - Setup verifies that the PDF pipeline initializes with Hugging Face offline mode enabled, and stops if required assets cannot be loaded.
+   - This moves model setup into installation before the first conversion. Existing cached assets are reused.
 2. **Launch the app**: Double-click `run.bat`.
 3. **Open in browser**: Navigate to `http://localhost:8010`.
 
-> **Note:** First-time installation downloads ~2 GB of dependencies (Python + PyTorch + models). Ensure you have a stable internet connection.
+> **Note:** First-time installation can download several GB of dependencies and models, depending on your hardware and existing cache. Ensure you have a stable internet connection, and run setup with the same Windows account you use for the app.
 
 ## 🚀 Running the Application
 
@@ -70,6 +72,14 @@ After installation, use `run.bat` to start SimplyNarrated at any time:
   - After installation is complete, the main app page is self-contained for offline use when served locally at `http://localhost:8010`.
   - Keep using `run.bat` (or `uvicorn`) to serve the app; opening `static/index.html` directly via `file://` is not supported.
   - The `Get More Books` button intentionally opens Project Gutenberg and requires internet access.
+
+### Conversion troubleshooting
+
+  - Failed conversions keep the failure reason and activity log visible. Choose `Back to conversion settings` to retry with the same file, model, and voice in the current browser session.
+  - Application warnings and error tracebacks are saved to `data/logs/simplynarrated.log`, with up to three rotated backups of 2 MB each.
+  - Model-loading terminal progress bars are disabled by default to avoid Windows output-pipe failures. Conversion progress remains available in the application.
+  - The launcher runs one server without automatic development reload and stops with a message if port 8010 is already in use.
+  - Setup preloads both Kokoro speech assets and Docling PDF extraction assets. Their local Hugging Face cache paths do not by themselves indicate a network request.
 
 ---
 
@@ -103,10 +113,11 @@ For advanced users who prefer to manage their own Python environment.
    pip install -r requirements.txt
    ```
 
-3. **Pre-download the TTS runtime assets**:
+3. **Pre-download the speech and PDF runtime assets**:
 
    ```bash
    python -c "from src.core.tts_engine import TTSEngine; TTSEngine().preload_runtime_assets()"
+   python -c "from docling.datamodel.base_models import InputFormat; from docling.document_converter import DocumentConverter; DocumentConverter().initialize_pipeline(InputFormat.PDF)"
    ```
 
 4. **Start the server**:

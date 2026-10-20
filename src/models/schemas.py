@@ -203,6 +203,7 @@ class StatusResponse(BaseModel):
     total_chapters: int = 0
     time_remaining: Optional[str] = None
     processing_rate: Optional[str] = None
+    error: Optional[str] = None
     activity_log: List[ActivityLogEntry] = []
 
 

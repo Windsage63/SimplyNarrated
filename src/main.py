@@ -17,11 +17,18 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
+import os
+import logging
+from logging.handlers import RotatingFileHandler
+
+# Apply the same safe default when launched directly with uvicorn.
+# This must run before imports that initialize Transformers/Hugging Face.
+os.environ.setdefault("HF_HUB_DISABLE_PROGRESS_BARS", "1")
+
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from contextlib import asynccontextmanager
-import os
 
 from src.api.routes import router as api_router
 from src.core.job_manager import init_job_manager
@@ -50,14 +57,30 @@ async def lifespan(app: FastAPI):
     os.makedirs(os.path.join(DATA_DIR, "uploads"), exist_ok=True)
     os.makedirs(LIBRARY_DIR, exist_ok=True)
 
-    # Initialize managers
-    init_job_manager(DATA_DIR)
-    init_library_manager(LIBRARY_DIR)
+    # Write application errors before they propagate to console handlers, so a
+    # disconnected terminal cannot hide the original conversion traceback.
+    log_dir = os.path.join(DATA_DIR, "logs")
+    os.makedirs(log_dir, exist_ok=True)
+    error_handler = RotatingFileHandler(
+        os.path.join(log_dir, "simplynarrated.log"),
+        maxBytes=2 * 1024 * 1024,
+        backupCount=3,
+        encoding="utf-8",
+    )
+    error_handler.setLevel(logging.WARNING)
+    error_handler.setFormatter(logging.Formatter(
+        "%(asctime)s %(levelname)s %(name)s: %(message)s"
+    ))
+    app_logger = logging.getLogger("src")
+    app_logger.addHandler(error_handler)
 
-    yield
-
-    # Shutdown: cleanup if needed
-    pass
+    try:
+        init_job_manager(DATA_DIR)
+        init_library_manager(LIBRARY_DIR)
+        yield
+    finally:
+        app_logger.removeHandler(error_handler)
+        error_handler.close()
 
 
 app = FastAPI(

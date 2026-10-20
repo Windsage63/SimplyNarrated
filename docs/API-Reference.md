@@ -94,6 +94,7 @@ The API supports file upload, audiobook generation jobs, voice previews, library
     "total_chapters": 12,
     "time_remaining": "~2m 10s",
     "processing_rate": "120 chars/sec",
+    "error": null,
     "activity_log": [
       {
         "timestamp": "2026-03-08T20:00:00",
@@ -107,6 +108,7 @@ The API supports file upload, audiobook generation jobs, voice previews, library
   - **Notes**:
     - `status` is one of `pending`, `processing`, `completed`, `failed`, or `cancelled`.
     - The response includes the last `20` activity log entries.
+    - `error` contains the failure reason for failed jobs and is otherwise `null`. The conversion screen keeps this reason and the activity log visible for troubleshooting.
 
 #### Cancel job
 
