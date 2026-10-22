@@ -66,6 +66,7 @@ After installation, use `run.bat` to start SimplyNarrated at any time:
 
   - Double-click `run.bat` — it launches the server and opens your browser automatically.
   - The app runs at `http://localhost:8010`.
+  - Press **Ctrl+C** in the server terminal to stop the app. If Windows asks `Terminate batch job (Y/N)?`, choose **Y**. The app records active conversions as cancelled; a model operation already running may need to finish before Python exits.
 
 ### Offline Use
 

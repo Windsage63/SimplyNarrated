@@ -58,6 +58,7 @@ class JobManager:
         self.library_dir = os.path.join(data_dir, "library")
         self.jobs_file = os.path.join(data_dir, "jobs.json")
         self._jobs: Dict[str, Job] = {}
+        self._shutting_down = False
         self.job_retention_days = max(0, int(os.getenv("JOB_RETENTION_DAYS", "3")))
         self.max_concurrent_jobs = max(1, max_concurrent_jobs)
         self._semaphore = asyncio.Semaphore(self.max_concurrent_jobs)
@@ -259,6 +260,8 @@ class JobManager:
         self, job_id: str, config: dict, process_func: Callable[[Job, dict], Any]
     ) -> bool:
         """Queue processing of a job in the background with bounded concurrency."""
+        if self._shutting_down:
+            return False
         job = self.get_job(job_id)
         if not job or job.status != JobStatus.PENDING:
             return False
@@ -288,9 +291,11 @@ class JobManager:
                 self._add_activity(job, "Starting conversion...", "info")
                 await self._run_job(job, process_func, config)
         except asyncio.CancelledError:
-            if job.status not in {JobStatus.COMPLETED, JobStatus.FAILED}:
+            if job.status not in {JobStatus.COMPLETED, JobStatus.FAILED, JobStatus.CANCELLED}:
                 job.status = JobStatus.CANCELLED
+                job.completed_at = datetime.now()
                 self._add_activity(job, "Conversion cancelled", "warning")
+                self._persist_jobs()
             raise
 
     async def _run_job(self, job: Job, process_func: Callable, config: dict) -> None:
@@ -304,8 +309,10 @@ class JobManager:
                 self._add_activity(job, "Conversion completed!", "success")
                 self._persist_jobs()
         except asyncio.CancelledError:
+            if job.status != JobStatus.CANCELLED:
+                self._add_activity(job, "Conversion cancelled", "warning")
             job.status = JobStatus.CANCELLED
-            self._add_activity(job, "Conversion cancelled", "warning")
+            job.completed_at = job.completed_at or datetime.now()
             self._persist_jobs()
         except Exception as e:
             job.status = JobStatus.FAILED
@@ -313,6 +320,29 @@ class JobManager:
             job.completed_at = datetime.now()
             self._add_activity(job, f"Error: {str(e)}", "error")
             self._persist_jobs()
+
+    async def shutdown(self) -> None:
+        """Stop queued/running jobs and save their final state before exit.
+
+        Cancelling an asyncio task cannot interrupt native work already running
+        in an executor thread. Pipeline cancellation checks prevent subsequent
+        chapter writes when that work returns.
+        """
+        self._shutting_down = True
+        tasks = []
+        for job in self._jobs.values():
+            if job._task is None or job._task.done():
+                continue
+            if job.status in {JobStatus.PENDING, JobStatus.PROCESSING}:
+                job.status = JobStatus.CANCELLED
+                job.completed_at = datetime.now()
+                self._add_activity(job, "Conversion stopped because the application is closing", "warning")
+            job._task.cancel()
+            tasks.append(job._task)
+
+        if tasks:
+            self._persist_jobs()
+            await asyncio.gather(*tasks, return_exceptions=True)
 
     def cancel_job(self, job_id: str) -> bool:
         """Cancel an in-progress job."""

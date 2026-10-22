@@ -19,10 +19,10 @@ if not errorlevel 1 (
 )
 
 echo URL: http://localhost:8010
+echo Press Ctrl+C in this window to stop SimplyNarrated.
 REM Model progress bars must not depend on a live terminal output pipe.
 set HF_HUB_DISABLE_PROGRESS_BARS=1
 start http://localhost:8010
 .\python_embedded\python.exe -m uvicorn src.main:app --port 8010
 
-pause
 ENDLOCAL

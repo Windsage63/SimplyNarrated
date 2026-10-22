@@ -50,6 +50,23 @@ LIBRARY_DIR = os.path.join(DATA_DIR, "library")
 APP_VERSION = "0.1.0"
 
 
+def _enable_windows_console_interrupts() -> None:
+    """Undo an inherited Windows flag that can make Python ignore Ctrl+C."""
+    if os.name != "nt":
+        return
+
+    import ctypes
+
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    set_handler = kernel32.SetConsoleCtrlHandler
+    set_handler.argtypes = [ctypes.c_void_p, ctypes.c_int]
+    set_handler.restype = ctypes.c_int
+    if not set_handler(None, False):
+        logging.getLogger(__name__).warning(
+            "Could not enable console interrupts: %s", ctypes.WinError(ctypes.get_last_error())
+        )
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan handler for startup/shutdown events."""
@@ -74,13 +91,19 @@ async def lifespan(app: FastAPI):
     app_logger = logging.getLogger("src")
     app_logger.addHandler(error_handler)
 
+    job_manager = None
     try:
-        init_job_manager(DATA_DIR)
+        _enable_windows_console_interrupts()
+        job_manager = init_job_manager(DATA_DIR)
         init_library_manager(LIBRARY_DIR)
         yield
     finally:
-        app_logger.removeHandler(error_handler)
-        error_handler.close()
+        try:
+            if job_manager is not None:
+                await job_manager.shutdown()
+        finally:
+            app_logger.removeHandler(error_handler)
+            error_handler.close()
 
 
 app = FastAPI(
